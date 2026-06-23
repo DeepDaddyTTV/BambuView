@@ -12,16 +12,12 @@ export function LogoMark({ className }: { className?: string }) {
       fill="none"
       viewBox="0 0 64 64"
     >
+      <rect x="8" y="8" width="48" height="48" rx="12" fill="currentColor" opacity="0.14" />
       <path
-        d="M12 16L32 6l20 10v31L32 58 12 47V16Z"
-        stroke="currentColor"
-        strokeLinejoin="round"
-        strokeWidth="4"
-      />
-      <path
-        d="M24 20h16v8H24zM24 32h10v8H24zM36 32h4v8h-4z"
+        d="M18 18h12v12H18zm16 0h12v12H34zm-16 16h12v12H18zm16 0h12v12H34z"
         fill="currentColor"
       />
+      <path d="M30 18h4v28h-4zM18 30h28v4H18z" fill="#101317" opacity="0.28" />
     </svg>
   );
 }

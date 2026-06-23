@@ -1,12 +1,12 @@
 import {
   Camera,
   ChevronDown,
-  CircleHelp,
   ExternalLink,
   FileCode2,
   Grid2x2,
   Moon,
   Palette,
+  RefreshCcw,
   Settings,
   SunMedium,
   Users2
@@ -144,7 +144,7 @@ export function AppShell({
               <div className="fleet-console-sidebar-card__headline">Check for Updates</div>
               <div className="fleet-console-sidebar-card__copy">New builds and release notes</div>
             </div>
-            <CircleHelp className="h-4 w-4 text-zinc-500" />
+            <RefreshCcw className="h-4 w-4 text-zinc-500" />
           </div>
         </section>
 

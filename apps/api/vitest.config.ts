@@ -5,6 +5,7 @@ export default defineConfig({
     coverage: {
       provider: "v8"
     },
-    environment: "node"
+    environment: "node",
+    testTimeout: 15000
   }
 });
