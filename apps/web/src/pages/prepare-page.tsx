@@ -20,7 +20,7 @@ export function PreparePage() {
       <section className="panel">
         <div className="flex items-center gap-3 text-[color:var(--accent)]">
           <Rocket className="h-5 w-5" />
-          <span className="font-medium">Prepare & Slice is staged in `0.0.2`.</span>
+          <span className="font-medium">Prepare & Slice is staged in `0.0.3`.</span>
         </div>
         <h2 className="mt-6 text-4xl font-semibold text-white">{statusQuery.data.headline}</h2>
         <p className="mt-5 max-w-3xl text-base leading-8 text-zinc-400">
