@@ -63,16 +63,24 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Generate image metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.GHCR_IMAGE }}
+          images: |
+            ${{ env.GHCR_IMAGE }}
+            ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.version.outputs.value }}
             type=raw,value=latest
 
-      - name: Build and push image to GHCR
+      - name: Build and push images
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -81,31 +89,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Prepare Docker Hub credentials
-        id: dockerhub_login_prep
-        env:
-          RAW_DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          RAW_DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-        run: |
-          echo "username=$(printf '%s' "${RAW_DOCKERHUB_USERNAME}" | tr -d '\r\n')" >> "$GITHUB_OUTPUT"
-          echo "token=$(printf '%s' "${RAW_DOCKERHUB_TOKEN}" | tr -d '\r\n')" >> "$GITHUB_OUTPUT"
-
-      - name: Install crane
-        uses: imjasonh/setup-crane@v0.4
-
-      - name: Copy image to Docker Hub
-        env:
-          DOCKERHUB_USERNAME: ${{ steps.dockerhub_login_prep.outputs.username }}
-          DOCKERHUB_TOKEN: ${{ steps.dockerhub_login_prep.outputs.token }}
-        run: |
-          echo "${DOCKERHUB_TOKEN}" | crane auth login index.docker.io -u "${DOCKERHUB_USERNAME}" --password-stdin
-          crane copy \
-            ${{ env.GHCR_IMAGE }}:${{ steps.version.outputs.value }} \
-            index.docker.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.value }}
-          crane copy \
-            ${{ env.GHCR_IMAGE }}:latest \
-            index.docker.io/${{ env.IMAGE_NAME }}:latest
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
