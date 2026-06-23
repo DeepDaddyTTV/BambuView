@@ -1,0 +1,13 @@
+.git
+.github
+node_modules
+coverage
+dist
+apps/api/data
+apps/api/dist
+apps/web/dist
+packages/contracts/dist
+.env
+.env.*
+.DS_Store
+*.log

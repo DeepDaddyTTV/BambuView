@@ -1,0 +1,23 @@
+services:
+  bambuview:
+    image: ${BAMBUVIEW_IMAGE:-deepdaddyttv/bambuview:latest}
+    container_name: bambuview
+    restart: unless-stopped
+    environment:
+      APP_ORIGIN: ${APP_ORIGIN}
+      DATABASE_FILE: /data/bambuview.db
+      SESSION_COOKIE_NAME: bambuview_session
+    volumes:
+      - bambuview_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4173/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    # Attach your proxy or tunnel network here if you expose the app through NGINX Proxy Manager or Cloudflare Tunnel.
+    # networks:
+    #   - proxy
+
+volumes:
+  bambuview_data:

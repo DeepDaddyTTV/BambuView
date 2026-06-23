@@ -1,0 +1,14 @@
+node_modules
+.pnpm-store
+dist
+coverage
+.turbo
+.DS_Store
+*.tsbuildinfo
+apps/api/data
+apps/web/playwright-report
+apps/web/test-results
+apps/web/.vite
+.env
+.env.*
+!.env.example

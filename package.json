@@ -1,0 +1,29 @@
+{
+  "name": "bambuview",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@11.5.3",
+  "scripts": {
+    "dev": "concurrently -n api,web \"pnpm --filter @bambuview/api dev\" \"pnpm --filter @bambuview/web dev\"",
+    "clean": "node -e \"const fs=require('node:fs'); ['apps/api/dist','apps/web/dist','packages/contracts/dist'].forEach((dir)=>fs.rmSync(dir,{recursive:true,force:true}));\"",
+    "build": "pnpm clean && pnpm -r build",
+    "lint": "pnpm -r lint",
+    "postinstall": "pnpm --filter @bambuview/contracts build",
+    "prelint": "pnpm --filter @bambuview/contracts build",
+    "start": "pnpm --filter @bambuview/api start",
+    "test": "pnpm -r test",
+    "pretest": "pnpm --filter @bambuview/contracts build",
+    "typecheck": "pnpm -r typecheck",
+    "pretypecheck": "pnpm --filter @bambuview/contracts build",
+    "format:check": "pnpm -r format:check"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "concurrently": "^9.2.1",
+    "prettier": "^3.8.4",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  }
+}
