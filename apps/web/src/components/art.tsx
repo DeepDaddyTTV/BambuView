@@ -4,6 +4,7 @@ import { clsx } from "clsx";
 
 import type { PrinterSummary } from "@bambuview/contracts";
 
+import logoFullSvgRaw from "../../../../img/BambuView_Full_Logo.svg?raw";
 import logoMarkSvgRaw from "../../../../img/BambuView_Logo_Only.svg?raw";
 
 function themeLogoSvg(svg: string) {
@@ -19,6 +20,7 @@ function themeLogoSvg(svg: string) {
     .trim();
 }
 
+const themedLogoFull = themeLogoSvg(logoFullSvgRaw);
 const themedLogoMark = themeLogoSvg(logoMarkSvgRaw);
 
 function InlineLogo({
@@ -39,15 +41,7 @@ function InlineLogo({
 }
 
 export function BrandLogo({ className }: { className?: string }) {
-  return (
-    <span className={clsx("brand-lockup", className)}>
-      <InlineLogo className="brand-lockup__mark" markup={themedLogoMark} />
-      <span className="brand-lockup__text">
-        <span className="brand-lockup__ink">Bambu</span>
-        <span className="brand-lockup__view">View</span>
-      </span>
-    </span>
-  );
+  return <InlineLogo className={clsx("brand-lockup", className)} markup={themedLogoFull} />;
 }
 
 export function LogoMark({ className }: { className?: string }) {
