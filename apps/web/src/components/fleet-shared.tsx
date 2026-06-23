@@ -24,6 +24,7 @@ import type {
   PrinterSummary
 } from "@bambuview/contracts";
 
+import { appearanceStyleClass } from "../app/appearance";
 import { PrinterPreviewArt } from "./art";
 
 function statusTone(status: PrinterSummary["status"]) {
@@ -829,7 +830,7 @@ export function LiveFleetPreview({
 
   return (
     <div
-      className={`rounded-[30px] border border-white/8 p-4 ${
+      className={`${appearanceStyleClass(appearance.backgroundStyle)} live-fleet-preview rounded-[30px] border border-white/8 p-4 ${
         appearance.mode === "light" ? "bg-white text-zinc-900" : "bg-[color:var(--panel)] text-white"
       }`}
     >
