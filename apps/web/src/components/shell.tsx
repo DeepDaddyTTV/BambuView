@@ -16,7 +16,7 @@ import { Link, NavLink } from "react-router-dom";
 import type { UserProfile } from "@bambuview/contracts";
 
 import { useAppearance } from "../app/appearance";
-import { LogoMark } from "./art";
+import { BrandLogo } from "./art";
 
 const navigationItems = [
   { icon: Grid2x2, label: "Fleet", to: "/fleet" },
@@ -92,10 +92,7 @@ export function AppShell({
     <div className="fleet-console-shell fleet-console-shell--detail-closed">
       <aside className="fleet-console-sidebar">
         <div className="fleet-console-sidebar__brand">
-          <LogoMark className="h-11 w-11 text-[color:var(--accent)]" />
-          <div className="fleet-console-sidebar__brand-text">
-            Bambu<span>View</span>
-          </div>
+          <BrandLogo className="fleet-console-sidebar__brand-logo" />
           <ChevronDown className="h-4 w-4 text-zinc-500" />
         </div>
 

@@ -7,7 +7,7 @@ Start here:
 - [First-time setup](./getting-started.md)
 - [Local Portainer deploys](./portainer-release.md)
 
-What BambuView `0.0.7` includes:
+What BambuView `0.0.11` includes:
 
 - A local first-run admin setup flow
 - Invite-only account creation after bootstrap

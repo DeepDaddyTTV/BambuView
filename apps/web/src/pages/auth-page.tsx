@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { type AuthSession } from "@bambuview/contracts";
 
-import { LogoMark } from "../components/art";
+import { BrandLogo } from "../components/art";
 import { ApiError, apiFetch } from "../lib/api";
 
 function AuthField({
@@ -115,11 +115,8 @@ export function AuthPage() {
         <section className="relative flex flex-col justify-between overflow-hidden px-6 py-7 lg:px-10 lg:py-10">
           <div className="auth-graphic__lines" />
           <div className="relative z-10 flex items-center gap-3">
-            <LogoMark className="h-12 w-12 text-[color:var(--accent)]" />
+            <BrandLogo className="h-11 w-[208px]" />
             <div>
-              <div className="text-4xl font-semibold tracking-tight text-white">
-                Bambu<span className="text-[color:var(--accent)]">View</span>
-              </div>
               <div className="text-sm text-zinc-500">Fleet orchestration for print farms.</div>
             </div>
           </div>

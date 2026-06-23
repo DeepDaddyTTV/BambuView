@@ -146,7 +146,7 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
   darkBackground: "#1a1d20",
   lightHighlight: "#7ed321",
   lightBackground: "#ffffff",
-  backgroundStyle: "plain"
+  backgroundStyle: "blueprint"
 };
 
 export const HIGHLIGHT_SWATCHES = [

@@ -4,21 +4,82 @@ import { clsx } from "clsx";
 
 import type { PrinterSummary } from "@bambuview/contracts";
 
-export function LogoMark({ className }: { className?: string }) {
+import logoMarkSvgRaw from "../../../../img/BambuView_Logo_Only.svg?raw";
+
+function themeLogoSvg(svg: string) {
+  return svg
+    .replace(/<\?xml[^>]*>\s*/i, "")
+    .replace(/fill:\s*#13bf00;/gi, "fill: var(--brand-logo-green);")
+    .replace(/fill:\s*#fff;/gi, "fill: var(--brand-logo-ink);")
+    .replace(/fill=\"#13bf00\"/gi, 'fill="var(--brand-logo-green)"')
+    .replace(/fill=\"#fff\"/gi, 'fill="var(--brand-logo-ink)"')
+    .replace(/<path d="M54\.03,[^>]+\/>/i, (match) =>
+      match.replace("<path ", '<path fill="var(--brand-logo-contrast)" ')
+    )
+    .trim();
+}
+
+const themedLogoMark = themeLogoSvg(logoMarkSvgRaw);
+
+function InlineLogo({
+  className,
+  markup
+}: {
+  className?: string;
+  markup: string;
+}) {
   return (
-    <svg
-      aria-hidden="true"
-      className={className}
-      fill="none"
-      viewBox="0 0 64 64"
-    >
-      <rect x="8" y="8" width="48" height="48" rx="12" fill="currentColor" opacity="0.14" />
-      <path
-        d="M18 18h12v12H18zm16 0h12v12H34zm-16 16h12v12H18zm16 0h12v12H34z"
-        fill="currentColor"
-      />
-      <path d="M30 18h4v28h-4zM18 30h28v4H18z" fill="#101317" opacity="0.28" />
-    </svg>
+    <span
+      aria-label="BambuView"
+      className={clsx("brand-logo", className)}
+      dangerouslySetInnerHTML={{ __html: markup }}
+      role="img"
+    />
+  );
+}
+
+export function BrandLogo({ className }: { className?: string }) {
+  return (
+    <span className={clsx("brand-lockup", className)}>
+      <InlineLogo className="brand-lockup__mark" markup={themedLogoMark} />
+      <span className="brand-lockup__text">
+        <span className="brand-lockup__ink">Bambu</span>
+        <span className="brand-lockup__view">View</span>
+      </span>
+    </span>
+  );
+}
+
+export function LogoMark({ className }: { className?: string }) {
+  return <InlineLogo className={className} markup={themedLogoMark} />;
+}
+
+function resolvePreviewColor(primaryColor?: string) {
+  return primaryColor ?? "#7ed321";
+}
+
+export function FarmPreviewArt({ className }: { className?: string }) {
+  return (
+    <ArtFrame className={clsx("flex items-center justify-center", className)}>
+      <svg
+        className="h-full w-full"
+        fill="none"
+        viewBox="0 0 240 180"
+      >
+        <rect
+          width="240"
+          height="180"
+          fill="#14181d"
+        />
+        <g transform="translate(58 34)">
+          <path d="m58 0 26 14v28L58 56 32 42V14L58 0Z" fill="#50565e" />
+          <path d="m58 12 14 8v16L58 44 44 36V20l14-8Z" fill="#69727c" />
+          <path d="M58 56 84 42v28L58 84 32 70V42l26 14Z" fill="#3a4047" />
+          <path d="m32 28 26 14v28L32 84 6 70V42l26-14Z" fill="#555d66" />
+          <path d="m84 28 26 14v28L84 84 58 70V42l26-14Z" fill="#5f6770" />
+        </g>
+      </svg>
+    </ArtFrame>
   );
 }
 
@@ -43,11 +104,15 @@ function ArtFrame({
 
 export function PrinterPreviewArt({
   kind,
-  className
+  className,
+  primaryColor
 }: {
   className?: string;
   kind: PrinterSummary["previewKind"];
+  primaryColor?: string;
 }) {
+  const activeColor = resolvePreviewColor(primaryColor);
+
   if (kind === "bracket") {
     return (
       <ArtFrame className={className}>
@@ -65,7 +130,7 @@ export function PrinterPreviewArt({
           />
           <path
             d="M58 133 42 114l12-56 28-9 38 18 46-13 31 19-22 56-28 11-17-19-31 10-15-18-26 10Z"
-            fill="var(--accent)"
+            fill={activeColor}
             opacity="0.95"
           />
           <path
@@ -123,7 +188,7 @@ export function PrinterPreviewArt({
           />
           <path
             d="m90 145-16-15 6-30 19-15 18 6 12-28 26-8 20 12-7 18 16 21-7 21-22 5-22-12-16 25H90Z"
-            fill="var(--accent)"
+            fill={activeColor}
           />
           <circle
             cx="160"
@@ -184,16 +249,5 @@ export function PrinterPreviewArt({
     );
   }
 
-  return (
-    <ArtFrame className={clsx("flex items-center justify-center", className)}>
-      <div className="grid grid-cols-2 gap-3">
-        {[0, 1, 2, 3].map((cube) => (
-          <div
-            key={cube}
-            className="h-10 w-10 rounded-xl border border-[color:var(--accent)]/60 bg-[color:var(--accent-soft)]"
-          />
-        ))}
-      </div>
-    </ArtFrame>
-  );
+  return <FarmPreviewArt className={className} />;
 }

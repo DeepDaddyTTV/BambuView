@@ -27,8 +27,12 @@ import type {
 import { appearanceStyleClass } from "../app/appearance";
 import { PrinterPreviewArt } from "./art";
 
+const PRINTING_GREEN = "#7ed321";
+const PRINTING_GREEN_CLASS = "text-[#7ed321]";
+const PRINTING_GREEN_BG_CLASS = "bg-[#7ed321]";
+
 function statusTone(status: PrinterSummary["status"]) {
-  if (status === "printing") return "text-[color:var(--accent)]";
+  if (status === "printing") return PRINTING_GREEN_CLASS;
   if (status === "paused") return "text-amber-400";
   if (status === "idle") return "text-sky-400";
   return "text-zinc-400";
@@ -37,7 +41,11 @@ function statusTone(status: PrinterSummary["status"]) {
 function progressTone(status: PrinterSummary["status"]) {
   if (status === "paused") return "bg-amber-400";
   if (status === "idle") return "bg-sky-400";
-  return "bg-[color:var(--accent)]";
+  return PRINTING_GREEN_BG_CLASS;
+}
+
+function previewColor(printer: Pick<PrinterSummary, "slots">) {
+  return printer.slots.find((slot) => slot.active)?.color ?? printer.slots[0]?.color;
 }
 
 export function StatsBar({ overview }: { overview: FleetOverview }) {
@@ -60,7 +68,7 @@ export function StatsBar({ overview }: { overview: FleetOverview }) {
           </div>
           <div className="mt-3 text-4xl font-semibold text-white">{value}</div>
           <div className="mt-2 flex items-center gap-2 text-sm text-zinc-300">
-            <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--accent)]" />
+            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PRINTING_GREEN }} />
             {sublabel}
           </div>
         </div>
@@ -90,6 +98,7 @@ export function PrinterCard({
         <PrinterPreviewArt
           className="h-[108px]"
           kind={printer.previewKind}
+          primaryColor={previewColor(printer)}
         />
         <div className="min-w-0">
           <div className="flex items-start justify-between gap-4">
@@ -107,7 +116,7 @@ export function PrinterCard({
               </div>
             </div>
             <div className="text-right text-zinc-400">
-              <div className="text-5xl font-semibold text-[color:var(--accent)]">
+              <div className={`text-5xl font-semibold ${statusTone(printer.status)}`}>
                 {printer.progress}%
               </div>
               <div className="mt-1 text-sm">{printer.elapsed}</div>
@@ -198,7 +207,7 @@ function CameraFeedFrame({
         <div className="camera-stage__top">
           <div className="text-sm text-zinc-300">{printer.cameraLabel}</div>
           <div className="camera-stage__meta">
-            <span className="h-2 w-2 rounded-full bg-[color:var(--accent)]" />
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PRINTING_GREEN }} />
             Live
             <span>&bull;</span>
             {selectedFeedId.replace(`${printer.shortCode.toLowerCase()}-`, "").replaceAll("-", " ")}
@@ -210,6 +219,7 @@ function CameraFeedFrame({
             <PrinterPreviewArt
               className="h-full"
               kind={printer.previewKind}
+              primaryColor={previewColor(printer)}
             />
           </div>
         </div>
@@ -539,13 +549,13 @@ function FullscreenPrinterWorkspace({
                 <div className="camera-feed-blur" />
                 <div className="camera-stage__machine" />
                 <div className="camera-stage__print camera-stage__print--full">
-                  <PrinterPreviewArt className="h-full" kind={printer.previewKind} />
+                  <PrinterPreviewArt className="h-full" kind={printer.previewKind} primaryColor={previewColor(printer)} />
                 </div>
                 <div className="camera-feed-watermark">Bambu Lab</div>
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-white/8 px-4 py-3 text-sm text-zinc-400">
                 <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[color:var(--accent)]" />
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PRINTING_GREEN }} />
                   Live stream active
                 </div>
                 <div>Last move: {movementLabel}</div>
@@ -555,7 +565,7 @@ function FullscreenPrinterWorkspace({
           <section className="panel">
             <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">Printing Progress</div>
             <div className="mt-5 grid gap-5 lg:grid-cols-[120px_1fr]">
-              <PrinterPreviewArt className="h-[112px]" kind={printer.previewKind} />
+              <PrinterPreviewArt className="h-[112px]" kind={printer.previewKind} primaryColor={previewColor(printer)} />
               <div>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
@@ -574,13 +584,10 @@ function FullscreenPrinterWorkspace({
                   </div>
                 </div>
                 <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/8">
-                  <div
-                    className="h-full rounded-full bg-[color:var(--accent)]"
-                    style={{ width: `${printer.progress}%` }}
-                  />
+                  <div className={`h-full rounded-full ${progressTone(printer.status)}`} style={{ width: `${printer.progress}%` }} />
                 </div>
                 <div className="mt-5 flex items-center justify-between gap-3">
-                  <div className="text-4xl font-semibold text-[color:var(--accent)]">{printer.progress}%</div>
+                  <div className={`text-4xl font-semibold ${statusTone(printer.status)}`}>{printer.progress}%</div>
                   <div className="flex items-center gap-3">
                     <button className="icon-button text-amber-400" type="button">
                       <Pause className="h-4 w-4" />
@@ -672,7 +679,7 @@ export function PrinterDetailPanel({
           <div className="mt-3 flex flex-wrap gap-6 text-sm text-zinc-400">
             {["Overview", "Jobs", "History", "Maintenance", "Config"].map((tab, index) => (
               <span
-                className={index === 0 ? "border-b border-[color:var(--accent)] pb-2 text-white" : ""}
+                className={index === 0 ? "border-b border-[#7ed321] pb-2 text-white" : ""}
                 key={tab}
               >
                 {tab}
@@ -696,8 +703,8 @@ export function PrinterDetailPanel({
           <div className="space-y-6">
             <section className="panel">
               <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">Status</div>
-              <div className="mt-4 flex items-center gap-3 text-[color:var(--accent)]">
-                <span className="h-3 w-3 rounded-full bg-[color:var(--accent)]" />
+              <div className={`mt-4 flex items-center gap-3 ${statusTone(printer.status)}`}>
+                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: PRINTING_GREEN }} />
                 <span className="text-lg font-medium">{printer.statusLabel}</span>
               </div>
               <div className="mt-6 space-y-4 text-sm text-zinc-400">
@@ -715,10 +722,7 @@ export function PrinterDetailPanel({
                 </div>
               </div>
               <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-white/8">
-                <div
-                  className="h-full rounded-full bg-[color:var(--accent)]"
-                  style={{ width: `${printer.progress}%` }}
-                />
+                <div className={`h-full rounded-full ${progressTone(printer.status)}`} style={{ width: `${printer.progress}%` }} />
               </div>
             </section>
             <section className="panel">

@@ -32,7 +32,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { FleetOverview, PrinterDetail, PrinterSummary, UserProfile } from "@bambuview/contracts";
 
 import { useAppearance } from "../app/appearance";
-import { LogoMark, PrinterPreviewArt } from "../components/art";
+import { BrandLogo, PrinterPreviewArt } from "../components/art";
 import { apiFetch } from "../lib/api";
 
 const navigationItems = [
@@ -181,7 +181,11 @@ function FleetPreview({
 
   return (
     <div className={`fleet-console-preview ${large ? "fleet-console-preview--large" : ""}`}>
-      <PrinterPreviewArt className="h-full w-full" kind={printer.previewKind} />
+      <PrinterPreviewArt
+        className="h-full w-full"
+        kind={printer.previewKind}
+        primaryColor={printer.slots.find((slot) => slot.active)?.color ?? printer.slots[0]?.color}
+      />
     </div>
   );
 }
@@ -631,10 +635,7 @@ export function FleetPage({ user }: { user: UserProfile }) {
     <div className={`fleet-console-shell ${detailOpen ? "" : "fleet-console-shell--detail-closed"} ${focusMode ? "fleet-console-shell--focus" : ""}`}>
       <aside className="fleet-console-sidebar">
         <div className="fleet-console-sidebar__brand">
-          <LogoMark className="h-11 w-11 text-[color:var(--accent)]" />
-          <div className="fleet-console-sidebar__brand-text">
-            Bambu<span>View</span>
-          </div>
+          <BrandLogo className="fleet-console-sidebar__brand-logo" />
           <ChevronDown className="h-4 w-4 text-zinc-500" />
         </div>
 

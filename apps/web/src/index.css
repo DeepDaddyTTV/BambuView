@@ -15,6 +15,9 @@
   --panel-light: rgba(255, 255, 255, 0.96);
   --light-accent: #7ed321;
   --light-surface-bg: #ffffff;
+  --brand-logo-green: #13bf00;
+  --brand-logo-ink: #ffffff;
+  --brand-logo-contrast: #101317;
   --texture-line: rgba(255, 255, 255, 0.035);
   --texture-line-strong: rgba(255, 255, 255, 0.06);
   color: #ffffff;
@@ -87,10 +90,11 @@ html[data-background-style="two-tone"] .fleet-console-shell::after {
 .app-background--blueprint::after,
 html[data-background-style="blueprint"] .fleet-console-shell::after {
   background:
-    radial-gradient(circle at 86% 12%, var(--accent-14), transparent 18%),
-    linear-gradient(var(--accent-06) 1px, transparent 1px),
-    linear-gradient(90deg, var(--accent-06) 1px, transparent 1px);
-  background-size: auto, 44px 44px, 44px 44px;
+    radial-gradient(circle at 84% 10%, var(--accent-14), transparent 19%),
+    repeating-linear-gradient(78deg, transparent 0 64px, var(--accent-06) 64px 66px),
+    repeating-linear-gradient(168deg, transparent 0 92px, var(--accent-06) 92px 94px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.014), transparent 22%);
+  opacity: 0.94;
 }
 
 .app-background--sweep::after,
@@ -107,6 +111,8 @@ html[data-background-style="plain"] .fleet-console-shell::after {
 }
 
 html[data-theme="light"] {
+  --brand-logo-ink: #101317;
+  --brand-logo-contrast: #ffffff;
   --texture-line: rgba(15, 23, 42, 0.06);
   --texture-line-strong: rgba(15, 23, 42, 0.1);
 }
@@ -124,6 +130,48 @@ html[data-theme="light"] .app-background::before {
   background: rgba(20, 23, 27, 0.96);
   padding: 1.45rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.brand-logo {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.brand-logo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+
+.brand-lockup__mark {
+  flex: none;
+  width: 31px;
+  height: 31px;
+}
+
+.brand-lockup__text {
+  display: inline-flex;
+  align-items: baseline;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  white-space: nowrap;
+}
+
+.brand-lockup__ink {
+  color: var(--brand-logo-ink);
+}
+
+.brand-lockup__view {
+  color: var(--brand-logo-green);
 }
 
 html[data-theme="light"] .panel {
@@ -233,7 +281,7 @@ html[data-theme="light"] .section-title {
   --fleet-console-border: rgba(255, 255, 255, 0.08);
   --fleet-console-text: #f5f7fa;
   --fleet-console-muted: #8f98a3;
-  --fleet-console-green: var(--accent);
+  --fleet-console-green: #7ed321;
   --fleet-console-green-soft: rgba(126, 211, 33, 0.16);
   --fleet-console-blue: #5a94ff;
   --fleet-console-amber: #f4b147;
@@ -289,24 +337,18 @@ html[data-theme="light"] .section-title {
 .fleet-console-sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   border: 1px solid var(--fleet-console-border);
   border-radius: 18px;
   background: var(--fleet-console-surface-strong);
-  padding: 12px 14px;
+  padding: 13px 16px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.fleet-console-sidebar__brand-text {
+.fleet-console-sidebar__brand-logo {
   flex: 1;
-  font-size: 0.98rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  color: #ffffff;
-}
-
-.fleet-console-sidebar__brand-text span {
-  color: var(--fleet-console-green);
+  width: 158px;
+  height: 31px;
 }
 
 .fleet-console-sidebar__nav {
@@ -336,11 +378,11 @@ html[data-theme="light"] .section-title {
 }
 
 .fleet-console-sidebar__link--active {
-  border-color: rgba(126, 211, 33, 0.16);
+  border-color: var(--accent-24);
   background: linear-gradient(90deg, var(--accent-18), rgba(255, 255, 255, 0.02));
   box-shadow:
-    inset 3px 0 0 var(--fleet-console-green),
-    inset 0 0 0 1px rgba(126, 211, 33, 0.16);
+    inset 3px 0 0 var(--accent),
+    inset 0 0 0 1px var(--accent-24);
   color: #ffffff;
 }
 
@@ -486,7 +528,7 @@ html[data-theme="light"] .section-title {
 }
 
 .fleet-console-toolbar__mode--active {
-  background: rgba(126, 211, 33, 0.14);
+  background: var(--accent-14);
   color: #ffffff;
 }
 
@@ -521,9 +563,9 @@ html[data-theme="light"] .section-title {
 }
 
 .fleet-console-segmented__button--active {
-  background: rgba(126, 211, 33, 0.16);
+  background: var(--accent-14);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(126, 211, 33, 0.22);
+  box-shadow: inset 0 0 0 1px var(--accent-24);
 }
 
 .fleet-console-search {
@@ -563,8 +605,8 @@ html[data-theme="light"] .section-title {
 }
 
 .fleet-console-view-toggle__button--active {
-  background: rgba(126, 211, 33, 0.16);
-  color: var(--fleet-console-green);
+  background: var(--accent-14);
+  color: var(--accent);
 }
 
 .fleet-console-select {
@@ -659,8 +701,8 @@ html[data-theme="light"] .section-title {
 }
 
 .fleet-console-card--selected {
-  border-color: rgba(126, 211, 33, 0.44);
-  box-shadow: inset 0 0 0 1px rgba(126, 211, 33, 0.28);
+  border-color: var(--accent-32);
+  box-shadow: inset 0 0 0 1px var(--accent-24);
 }
 
 .fleet-console-card__header,
@@ -869,9 +911,9 @@ html[data-theme="light"] .section-title {
   height: 64px;
   width: 64px;
   place-items: center;
-  border: 1px solid rgba(126, 211, 33, 0.5);
+  border: 1px solid var(--accent-32);
   border-radius: 999px;
-  color: var(--fleet-console-green);
+  color: var(--accent);
 }
 
 .fleet-console-add-card__title {
@@ -947,7 +989,7 @@ html[data-theme="light"] .section-title {
 }
 
 .fleet-console-detail__tab--active {
-  border-color: var(--fleet-console-green);
+  border-color: var(--accent);
   color: #ffffff;
 }
 
@@ -1138,8 +1180,8 @@ html[data-theme="light"] .section-title {
 }
 
 .fleet-console-camera-tabs__button--active {
-  border-color: rgba(126, 211, 33, 0.22);
-  background: rgba(126, 211, 33, 0.14);
+  border-color: var(--accent-24);
+  background: var(--accent-14);
   color: #ffffff;
 }
 
@@ -1240,8 +1282,8 @@ html[data-theme="light"] .section-title {
 }
 
 .fleet-console-controls__button--primary {
-  border-color: rgba(126, 211, 33, 0.28);
-  background: rgba(126, 211, 33, 0.14);
+  border-color: var(--accent-24);
+  background: var(--accent-14);
 }
 
 .fleet-console-controls__button--icon {
