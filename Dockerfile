@@ -32,8 +32,6 @@ COPY --from=builder /app/packages/contracts/dist ./packages/contracts/dist
 
 RUN mkdir -p /app/apps/api/data && chown -R bambuview:bambuview /app
 
-USER bambuview
-
 EXPOSE 4173
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

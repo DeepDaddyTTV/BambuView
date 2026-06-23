@@ -57,6 +57,8 @@ jobs:
             -p 4173:4173 \
             -e APP_ORIGIN=http://127.0.0.1:4173 \
             -e COOKIE_SECURE=false \
+            -e DATABASE_FILE=/data/bambuview.db \
+            -v bambuview-ci-data:/data \
             deepdaddyttv/bambuview:ci
 
           for attempt in $(seq 1 30); do
@@ -71,4 +73,6 @@ jobs:
 
       - name: Stop smoke test container
         if: ${{ always() }}
-        run: docker rm -f bambuview-ci || true
+        run: |
+          docker rm -f bambuview-ci || true
+          docker volume rm -f bambuview-ci-data || true
