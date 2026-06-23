@@ -60,12 +60,25 @@ jobs:
           echo "username=$(printf '%s' "${{ secrets.DOCKERHUB_USERNAME }}" | tr -d '\r\n')" >> "$GITHUB_OUTPUT"
           echo "token=$(printf '%s' "${{ secrets.DOCKERHUB_TOKEN }}" | tr -d '\r\n')" >> "$GITHUB_OUTPUT"
 
-      - name: Log in to Docker Hub
+      - name: Configure Docker Hub auth
         env:
           DOCKERHUB_USERNAME: ${{ steps.dockerhub_login_prep.outputs.username }}
           DOCKERHUB_TOKEN: ${{ steps.dockerhub_login_prep.outputs.token }}
         run: |
-          printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+          mkdir -p "$HOME/.docker"
+          AUTH=$(printf '%s:%s' "$DOCKERHUB_USERNAME" "$DOCKERHUB_TOKEN" | base64 | tr -d '\r\n')
+          cat > "$HOME/.docker/config.json" <<EOF
+          {
+            "auths": {
+              "https://index.docker.io/v1/": {
+                "auth": "$AUTH"
+              },
+              "registry-1.docker.io": {
+                "auth": "$AUTH"
+              }
+            }
+          }
+          EOF
 
       - name: Generate image metadata
         id: meta
