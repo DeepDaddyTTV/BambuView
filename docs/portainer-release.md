@@ -4,7 +4,7 @@ This page walks you through the release flow if you want GitHub tags to publish 
 
 ## What the release workflow does
 
-When you push a tag like `v0.0.1`, GitHub Actions will:
+When you push a tag like `v0.0.2`, GitHub Actions will:
 
 1. Install dependencies
 2. Lint, typecheck, test, and build the app
@@ -27,6 +27,7 @@ Optional:
 
 - `PORTAINER_IMAGE_ENV_NAME`
 - `PORTAINER_IMAGE_REPOSITORY`
+- `PORTAINER_PULL_IMAGE=true` only if every image in the stack is safe to repull from a registry
 
 ## Recommended Portainer stack shape
 
@@ -47,7 +48,7 @@ You can start from [`deploy/portainer-stack.example.yml`](../deploy/portainer-st
 Once the Docker image exists on Docker Hub, run this from your local machine:
 
 ```bash
-DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.1 pnpm deploy:portainer
+DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.2 pnpm deploy:portainer
 ```
 
 ## Important limitation

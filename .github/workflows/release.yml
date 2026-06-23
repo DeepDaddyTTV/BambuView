@@ -91,26 +91,22 @@ jobs:
           echo "username=$(printf '%s' "${RAW_DOCKERHUB_USERNAME}" | tr -d '\r\n')" >> "$GITHUB_OUTPUT"
           echo "token=$(printf '%s' "${RAW_DOCKERHUB_TOKEN}" | tr -d '\r\n')" >> "$GITHUB_OUTPUT"
 
-      - name: Install skopeo
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y skopeo
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
 
       - name: Copy image to Docker Hub
         env:
           DOCKERHUB_USERNAME: ${{ steps.dockerhub_login_prep.outputs.username }}
           DOCKERHUB_TOKEN: ${{ steps.dockerhub_login_prep.outputs.token }}
         run: |
-          skopeo copy --all \
-            --src-creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
-            --dest-creds "${DOCKERHUB_USERNAME}:${DOCKERHUB_TOKEN}" \
-            docker://${{ env.GHCR_IMAGE }}:${{ steps.version.outputs.value }} \
-            docker://docker.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.value }}
-          skopeo copy --all \
-            --src-creds "${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}" \
-            --dest-creds "${DOCKERHUB_USERNAME}:${DOCKERHUB_TOKEN}" \
-            docker://${{ env.GHCR_IMAGE }}:latest \
-            docker://docker.io/${{ env.IMAGE_NAME }}:latest
+          echo "${{ secrets.GITHUB_TOKEN }}" | crane auth login ghcr.io -u "${{ github.actor }}" --password-stdin
+          echo "${DOCKERHUB_TOKEN}" | crane auth login index.docker.io -u "${DOCKERHUB_USERNAME}" --password-stdin
+          crane copy \
+            ${{ env.GHCR_IMAGE }}:${{ steps.version.outputs.value }} \
+            index.docker.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.value }}
+          crane copy \
+            ${{ env.GHCR_IMAGE }}:latest \
+            index.docker.io/${{ env.IMAGE_NAME }}:latest
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2

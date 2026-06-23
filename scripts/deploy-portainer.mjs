@@ -11,6 +11,24 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function parseBoolean(value, fallback) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const normalized = value.trim().toLowerCase();
+
+  if (["1", "true", "yes", "on"].includes(normalized)) {
+    return true;
+  }
+
+  if (["0", "false", "no", "off"].includes(normalized)) {
+    return false;
+  }
+
+  throw new Error(`Expected a boolean value, received: ${value}`);
+}
+
 async function request(baseUrl, path, init = {}) {
   const response = await fetch(`${baseUrl}${path}`, init);
   const text = await response.text();
@@ -34,6 +52,8 @@ async function main() {
   const imageEnvName = process.env.PORTAINER_IMAGE_ENV_NAME || "BAMBUVIEW_IMAGE";
   const imageRepository =
     process.env.PORTAINER_IMAGE_REPOSITORY || "deepdaddyttv/bambuview";
+  const pullImage = parseBoolean(process.env.PORTAINER_PULL_IMAGE, false);
+  const prune = parseBoolean(process.env.PORTAINER_PRUNE, true);
 
   const headers = {
     Accept: "application/json",
@@ -103,9 +123,9 @@ async function main() {
       headers,
       body: JSON.stringify({
         env,
-        prune: true,
-        pullImage: true,
-        repullImageAndRedeploy: true,
+        prune,
+        pullImage,
+        repullImageAndRedeploy: pullImage,
         stackFileContent
       })
     }
