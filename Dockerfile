@@ -1,26 +1,24 @@
-FROM node:24-alpine AS builder
+FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@11.5.3 --activate
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
-COPY apps/api/package.json apps/api/package.json
-COPY apps/web/package.json apps/web/package.json
-COPY packages/contracts/package.json packages/contracts/package.json
-
-RUN pnpm install --frozen-lockfile --ignore-scripts
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
+RUN pnpm install --frozen-lockfile
 RUN pnpm build
 
-FROM node:24-alpine AS runner
+FROM node:24-bookworm-slim AS runner
 
 ENV NODE_ENV=production
 WORKDIR /app
 
-RUN addgroup -S bambuview && adduser -S bambuview -G bambuview
+RUN groupadd --system bambuview && useradd --system --gid bambuview bambuview
 
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
@@ -39,6 +37,6 @@ USER bambuview
 EXPOSE 4173
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-  CMD wget -qO- http://127.0.0.1:4173/api/health >/dev/null || exit 1
+  CMD ["node", "-e", "fetch('http://127.0.0.1:4173/api/health').then((response)=>process.exit(response.ok?0:1)).catch(()=>process.exit(1))"]
 
 CMD ["node", "apps/api/dist/server.js"]

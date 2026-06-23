@@ -46,5 +46,29 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
+          load: true
           push: false
           tags: deepdaddyttv/bambuview:ci
+
+      - name: Smoke test container image
+        run: |
+          docker run -d --rm \
+            --name bambuview-ci \
+            -p 4173:4173 \
+            -e APP_ORIGIN=http://127.0.0.1:4173 \
+            -e COOKIE_SECURE=false \
+            deepdaddyttv/bambuview:ci
+
+          for attempt in $(seq 1 30); do
+            if curl -fsSL http://127.0.0.1:4173/api/health; then
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs bambuview-ci
+          exit 1
+
+      - name: Stop smoke test container
+        if: ${{ always() }}
+        run: docker rm -f bambuview-ci || true
