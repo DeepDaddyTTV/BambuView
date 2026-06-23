@@ -35,23 +35,13 @@ function ProtectedRoutes() {
         <Route
           path="/"
           element={
-            <AppShell
-              title="Fleet"
-              user={sessionQuery.data.user}
-            >
-              <FleetPage />
-            </AppShell>
+            <FleetPage user={sessionQuery.data.user} />
           }
         />
         <Route
           path="/fleet"
           element={
-            <AppShell
-              title="Fleet"
-              user={sessionQuery.data.user}
-            >
-              <FleetPage />
-            </AppShell>
+            <FleetPage user={sessionQuery.data.user} />
           }
         />
         <Route

@@ -62,6 +62,9 @@ export function AuthPage() {
 
   const isBootstrap = session?.bootstrapRequired ?? false;
   const isInvite = inviteId.length > 0 && inviteToken.length > 0;
+  const heroDescription = isBootstrap
+    ? "Create the first admin first. Printers, farms, and camera sources stay empty until you connect them from the live app."
+    : "Watch every Bambu printer, camera, and farm from one graphite control room built for real operators.";
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -108,7 +111,7 @@ export function AuthPage() {
 
   return (
     <div className="min-h-screen px-4 py-5">
-      <div className="auth-layout mx-auto grid min-h-[calc(100vh-2.5rem)] max-w-[1480px] overflow-hidden rounded-[36px] border border-white/8 bg-black/30 shadow-[0_32px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="auth-layout mx-auto grid min-h-[calc(100vh-2.5rem)] max-w-[1480px] overflow-hidden rounded-[36px] border border-white/8 bg-black/30 shadow-[0_32px_100px_rgba(0,0,0,0.45)] backdrop-blur-xl lg:grid-cols-[1.08fr_0.92fr]">
         <section className="relative flex flex-col justify-between overflow-hidden px-6 py-7 lg:px-10 lg:py-10">
           <div className="auth-graphic__lines" />
           <div className="relative z-10 flex items-center gap-3">
@@ -120,35 +123,37 @@ export function AuthPage() {
               <div className="text-sm text-zinc-500">Fleet orchestration for print farms.</div>
             </div>
           </div>
-          <div className="relative z-10 mt-12 max-w-xl lg:mt-0">
+          <div className="relative z-10 mt-12 max-w-2xl lg:mt-0">
             <h1 className="text-5xl font-semibold leading-[0.94] text-white md:text-7xl">
               Print more.
               <br />
               Worry less.
             </h1>
             <p className="mt-6 max-w-lg text-lg leading-8 text-zinc-400">
-              Watch every Bambu printer, camera, and farm from one graphite control room built for real operators.
+              {heroDescription}
             </p>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2">
-              <div className="panel">
-                <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                  Printers Online
+            {isBootstrap ? null : (
+              <div className="mt-10 grid gap-4 sm:grid-cols-2">
+                <div className="auth-metric-card">
+                  <div className="text-[0.98rem] uppercase tracking-[0.28em] text-zinc-500">
+                    Printers Online
+                  </div>
+                  <div className="mt-5 text-[5.25rem] font-semibold leading-none text-white">7</div>
+                  <div className="mt-2 text-sm text-zinc-400">4 Printing • 1 Farm</div>
                 </div>
-                <div className="mt-3 text-5xl font-semibold text-white">7</div>
-                <div className="mt-2 text-sm text-zinc-400">4 Printing • 1 Farm</div>
-              </div>
-              <div className="panel">
-                <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
-                  Camera Sources
+                <div className="auth-metric-card">
+                  <div className="text-[0.98rem] uppercase tracking-[0.28em] text-zinc-500">
+                    Camera Sources
+                  </div>
+                  <div className="mt-5 text-[5.25rem] font-semibold leading-none text-white">12</div>
+                  <div className="mt-2 text-sm text-zinc-400">Frigate • RTSP • Bambu</div>
                 </div>
-                <div className="mt-3 text-5xl font-semibold text-white">12</div>
-                <div className="mt-2 text-sm text-zinc-400">Frigate • RTSP • Bambu</div>
               </div>
-            </div>
+            )}
           </div>
         </section>
         <section className="flex items-center border-t border-white/8 px-6 py-7 lg:border-l lg:border-t-0 lg:px-10 lg:py-10">
-          <div className="mx-auto w-full max-w-[560px]">
+          <div className="mx-auto w-full max-w-[540px]">
             <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
               {location.pathname.startsWith("/auth/invite")
                 ? "Invite-only signup"

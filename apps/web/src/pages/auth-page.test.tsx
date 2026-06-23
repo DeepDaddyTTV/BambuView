@@ -39,6 +39,9 @@ it("shows bootstrap copy when bootstrap is required", async () => {
   renderWithProviders();
 
   expect(await screen.findByText("Create the first admin")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /Print more\.\s*Worry less\./ })).toBeInTheDocument();
+  expect(screen.queryByText("Printers Online")).not.toBeInTheDocument();
+  expect(screen.queryByText("Camera Sources")).not.toBeInTheDocument();
 });
 
 it("shows invite signup copy for invite routes", async () => {

@@ -56,6 +56,7 @@ export interface PrinterMaterialSlot {
   slot: string;
   label: string;
   color: string;
+  colorName?: string;
   material: string;
   active: boolean;
 }
@@ -142,10 +143,10 @@ export interface PrepareStatus {
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
   mode: "dark",
   darkHighlight: "#7ed321",
-  darkBackground: "#101317",
+  darkBackground: "#1a1d20",
   lightHighlight: "#7ed321",
   lightBackground: "#ffffff",
-  backgroundStyle: "topo"
+  backgroundStyle: "plain"
 };
 
 export const HIGHLIGHT_SWATCHES = [
@@ -156,9 +157,9 @@ export const HIGHLIGHT_SWATCHES = [
 ] as const;
 
 export const DARK_BACKGROUND_SWATCHES = [
-  "#101317",
-  "#1f242c",
-  "#151821"
+  "#1a1d20",
+  "#15181b",
+  "#202428"
 ] as const;
 
 export const LIGHT_BACKGROUND_SWATCHES = [

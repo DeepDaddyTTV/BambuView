@@ -35,14 +35,14 @@ const printers: PrinterDetail[] = [
     material: "PLA",
     materialColor: "Matte Green",
     nozzleProfile: "0.20mm",
-    cameraLabel: "Office Cam",
+    cameraLabel: "Printer Cam",
     previewKind: "bracket",
-    serial: "A1A123456789",
-    ipAddress: "192.168.1.101",
+    serial: "X1C-OFFICE-001",
+    ipAddress: "192.168.0.101",
     firmwareVersion: "01.06.02.00",
     filamentRemaining: "612g",
-    filamentUsed: "142g",
-    printTimeRemaining: "3h 22m",
+    filamentUsed: "179g",
+    printTimeRemaining: "4h 18m",
     temperatures: [
       { label: "Nozzle", current: "220°C", target: "220°C" },
       { label: "Bed", current: "60°C", target: "60°C" },
@@ -56,10 +56,10 @@ const printers: PrinterDetail[] = [
     ],
     selectedCameraFeedId: "x1c-printer",
     slots: [
-      { slot: "A1", label: "A1", color: "#7ed321", material: "PLA", active: true },
-      { slot: "B2", label: "B2", color: "#d3d5d8", material: "PLA", active: false },
-      { slot: "C3", label: "C3", color: "#35383d", material: "PLA", active: false },
-      { slot: "D4", label: "D4", color: "#f4f5f7", material: "PLA", active: false }
+      { slot: "A1", label: "A1", color: "#66d139", colorName: "Matte Green", material: "PLA", active: true },
+      { slot: "B2", label: "B2", color: "#b8babd", colorName: "Gray", material: "PLA", active: false },
+      { slot: "C3", label: "C3", color: "#36393f", colorName: "Black", material: "PLA", active: false },
+      { slot: "D4", label: "D4", color: "#f6f7f8", colorName: "White", material: "PLA", active: false }
     ]
   },
   {
@@ -67,9 +67,9 @@ const printers: PrinterDetail[] = [
     shortCode: "P1S",
     name: "P1S - Studio",
     status: "idle",
-    statusLabel: "Ready to Print",
+    statusLabel: "Idle",
     progress: 0,
-    layer: "No active print",
+    layer: "Ready to Print",
     eta: "Ready",
     elapsed: "Idle",
     fileName: "Send a print job to get started.",
@@ -77,10 +77,10 @@ const printers: PrinterDetail[] = [
     material: "PLA",
     materialColor: "Gray",
     nozzleProfile: "0.20mm",
-    cameraLabel: "Workshop Cam",
+    cameraLabel: "Studio Cam",
     previewKind: "benchy",
-    serial: "P1S99887766",
-    ipAddress: "192.168.1.102",
+    serial: "P1S-STUDIO-002",
+    ipAddress: "192.168.0.102",
     firmwareVersion: "01.07.00.00",
     filamentRemaining: "411g",
     filamentUsed: "0g",
@@ -92,14 +92,16 @@ const printers: PrinterDetail[] = [
     ],
     cameraFeeds: [
       { id: "p1s-printer", label: "Printer Cam", kind: "printer" },
-      { id: "p1s-enclosure", label: "Enclosure Cam", kind: "enclosure" }
+      { id: "p1s-ams", label: "AMS Cam", kind: "ams" },
+      { id: "p1s-enclosure", label: "Enclosure Cam", kind: "enclosure" },
+      { id: "p1s-overview", label: "Studio Overview", kind: "overview" }
     ],
     selectedCameraFeedId: "p1s-printer",
     slots: [
-      { slot: "A1", label: "A1", color: "#7ed321", material: "PLA", active: true },
-      { slot: "B2", label: "B2", color: "#d3d5d8", material: "PLA", active: false },
-      { slot: "C3", label: "C3", color: "#3b82f6", material: "PLA", active: false },
-      { slot: "D4", label: "D4", color: "#f59e0b", material: "PLA", active: false }
+      { slot: "A1", label: "A1", color: "#66d139", colorName: "Green", material: "PLA", active: true },
+      { slot: "B2", label: "B2", color: "#b8babd", colorName: "Gray", material: "PLA", active: false },
+      { slot: "C3", label: "C3", color: "#4d93ff", colorName: "Blue", material: "PLA", active: false },
+      { slot: "D4", label: "D4", color: "#ff9a1e", colorName: "Orange", material: "PLA", active: false }
     ]
   },
   {
@@ -110,36 +112,38 @@ const printers: PrinterDetail[] = [
     statusLabel: "Printing",
     progress: 30,
     layer: "Layer 128 of 423",
-    eta: "ETA 1:03 PM",
+    eta: "Today 1:03 PM",
     elapsed: "1h 15m",
     fileName: "Flexi_Dino.gcode",
     location: "Workshop",
     material: "PLA",
-    materialColor: "Lime Green",
+    materialColor: "Green",
     nozzleProfile: "0.16mm",
-    cameraLabel: "Lab Cam",
+    cameraLabel: "Workshop Cam",
     previewKind: "dino",
-    serial: "A1M11223344",
-    ipAddress: "192.168.1.103",
+    serial: "A1-WORKSHOP-003",
+    ipAddress: "192.168.0.103",
     firmwareVersion: "01.05.04.00",
-    filamentRemaining: "329g",
-    filamentUsed: "98g",
-    printTimeRemaining: "1h 45m",
+    filamentRemaining: "612g",
+    filamentUsed: "188g",
+    printTimeRemaining: "4h 42m",
     temperatures: [
       { label: "Nozzle", current: "215°C", target: "220°C" },
-      { label: "Bed", current: "61°C", target: "60°C" },
-      { label: "Chamber", current: "32°C", target: "35°C" }
+      { label: "Bed", current: "60°C", target: "60°C" },
+      { label: "Chamber", current: "33°C", target: "35°C" }
     ],
     cameraFeeds: [
       { id: "a1-printer", label: "Printer Cam", kind: "printer" },
-      { id: "a1-overview", label: "Workbench Left", kind: "overview" }
+      { id: "a1-ams", label: "AMS Cam", kind: "ams" },
+      { id: "a1-enclosure", label: "Enclosure Cam", kind: "enclosure" },
+      { id: "a1-overview", label: "Studio Overview", kind: "overview" }
     ],
     selectedCameraFeedId: "a1-printer",
     slots: [
-      { slot: "A1", label: "A1", color: "#7ed321", material: "PLA", active: true },
-      { slot: "B2", label: "B2", color: "#d0b077", material: "PLA", active: false },
-      { slot: "C3", label: "C3", color: "#737883", material: "PLA", active: false },
-      { slot: "D4", label: "D4", color: "#272b31", material: "PLA", active: false }
+      { slot: "A1", label: "A1", color: "#66d139", colorName: "Green", material: "PLA", active: true },
+      { slot: "B2", label: "B2", color: "#c9a05a", colorName: "Tan", material: "PLA", active: false },
+      { slot: "C3", label: "C3", color: "#2f3237", colorName: "Charcoal", material: "PLA", active: false },
+      { slot: "D4", label: "D4", color: "#1f2125", colorName: "Black", material: "PLA", active: false }
     ]
   },
   {
@@ -147,20 +151,20 @@ const printers: PrinterDetail[] = [
     shortCode: "X1E",
     name: "X1E - Engineering",
     status: "paused",
-    statusLabel: "User Paused",
+    statusLabel: "Paused",
     progress: 68,
-    layer: "Layer 410 of 800",
-    eta: "ETA 3:20 PM",
+    layer: "User Paused",
+    eta: "Today 3:20 PM",
     elapsed: "1h 32m",
     fileName: "Gear_Housing.gcode",
     location: "Engineering",
     material: "PETG",
-    materialColor: "Charcoal",
+    materialColor: "Standard",
     nozzleProfile: "0.20mm",
-    cameraLabel: "Enclosure Cam",
+    cameraLabel: "Engineering Cam",
     previewKind: "housing",
-    serial: "X1E55667788",
-    ipAddress: "192.168.1.104",
+    serial: "X1E-ENG-004",
+    ipAddress: "192.168.0.104",
     firmwareVersion: "01.06.08.00",
     filamentRemaining: "256g",
     filamentUsed: "188g",
@@ -172,14 +176,57 @@ const printers: PrinterDetail[] = [
     ],
     cameraFeeds: [
       { id: "x1e-printer", label: "Printer Cam", kind: "printer" },
-      { id: "x1e-enclosure", label: "Enclosure Cam", kind: "enclosure" }
+      { id: "x1e-ams", label: "AMS Cam", kind: "ams" },
+      { id: "x1e-enclosure", label: "Enclosure Cam", kind: "enclosure" },
+      { id: "x1e-overview", label: "Studio Overview", kind: "overview" }
     ],
     selectedCameraFeedId: "x1e-printer",
     slots: [
-      { slot: "A1", label: "A1", color: "#3a3f46", material: "PETG", active: false },
-      { slot: "B2", label: "B2", color: "#eceef0", material: "PETG", active: true },
-      { slot: "C3", label: "C3", color: "#35383d", material: "PETG", active: false },
-      { slot: "D4", label: "D4", color: "#515661", material: "PETG", active: false }
+      { slot: "A1", label: "A1", color: "#353941", colorName: "Graphite", material: "PETG", active: false },
+      { slot: "B2", label: "B2", color: "#e8eaed", colorName: "White", material: "PETG", active: true },
+      { slot: "C3", label: "C3", color: "#2e3239", colorName: "Slate", material: "PETG", active: false },
+      { slot: "D4", label: "D4", color: "#1a1d21", colorName: "Onyx", material: "PETG", active: false }
+    ]
+  },
+  {
+    id: "p1p-break-room",
+    shortCode: "P1P",
+    name: "P1P - Break Room",
+    status: "offline",
+    statusLabel: "Offline",
+    progress: 0,
+    layer: "Last seen 2h ago",
+    eta: "Offline",
+    elapsed: "No heartbeat",
+    fileName: "Check the connection and power.",
+    location: "Break Room",
+    material: "PLA",
+    materialColor: "White",
+    nozzleProfile: "0.20mm",
+    cameraLabel: "Break Room Cam",
+    previewKind: "bracket",
+    serial: "P1P-BREAK-005",
+    ipAddress: "192.168.0.105",
+    firmwareVersion: "01.04.10.00",
+    filamentRemaining: "812g",
+    filamentUsed: "0g",
+    printTimeRemaining: "—",
+    temperatures: [
+      { label: "Nozzle", current: "23°C", target: "0°C" },
+      { label: "Bed", current: "24°C", target: "0°C" },
+      { label: "Chamber", current: "25°C", target: "0°C" }
+    ],
+    cameraFeeds: [
+      { id: "p1p-printer", label: "Printer Cam", kind: "printer" },
+      { id: "p1p-ams", label: "AMS Cam", kind: "ams" },
+      { id: "p1p-enclosure", label: "Enclosure Cam", kind: "enclosure" }
+    ],
+    selectedCameraFeedId: "p1p-printer",
+    slots: [
+      { slot: "A1", label: "A1", color: "#f5f6f7", colorName: "White", material: "PLA", active: true },
+      { slot: "B2", label: "B2", color: "#b8babd", colorName: "Gray", material: "PLA", active: false },
+      { slot: "C3", label: "C3", color: "#2f3237", colorName: "Charcoal", material: "PLA", active: false },
+      { slot: "D4", label: "D4", color: "#1f2125", colorName: "Black", material: "PLA", active: false }
     ]
   },
   {
@@ -187,48 +234,48 @@ const printers: PrinterDetail[] = [
     shortCode: "FARM",
     name: "Production Farm",
     status: "printing",
-    statusLabel: "2 Printing",
+    statusLabel: "4 Printers",
     progress: 42,
-    layer: "4 Printers • 2 Printing",
-    eta: "ETA 4:15 PM",
+    layer: "2 Printing",
+    eta: "Today 4:15 PM",
     elapsed: "5h 18m",
     fileName: "Overall Progress",
     location: "Farm",
-    material: "Mixed",
-    materialColor: "Cluster",
+    material: "PLA",
+    materialColor: "Mixed",
     nozzleProfile: "Multi",
     cameraLabel: "Farm Overview",
     previewKind: "farm",
     serial: "FARM-OVERVIEW",
-    ipAddress: "192.168.1.105",
+    ipAddress: "192.168.0.200",
     firmwareVersion: "N/A",
-    filamentRemaining: "—",
-    filamentUsed: "—",
-    printTimeRemaining: "Several active jobs",
+    filamentRemaining: "12 loaded",
+    filamentUsed: "2 Printing • 1 Paused",
+    printTimeRemaining: "1 Idle • 0 Offline",
     temperatures: [
       { label: "Printers", current: "4", target: "4" },
       { label: "Active", current: "2", target: "2" },
       { label: "Paused", current: "1", target: "0" }
     ],
     cameraFeeds: [
-      { id: "farm-overview", label: "Farm Overview", kind: "overview" }
+      { id: "farm-overview", label: "Studio Overview", kind: "overview" }
     ],
     selectedCameraFeedId: "farm-overview",
     slots: [
-      { slot: "A1", label: "A1", color: "#7ed321", material: "PLA", active: true },
-      { slot: "B2", label: "B2", color: "#d3d5d8", material: "PLA", active: false },
-      { slot: "C3", label: "C3", color: "#3b82f6", material: "PLA", active: false },
-      { slot: "D4", label: "D4", color: "#f59e0b", material: "PLA", active: false }
+      { slot: "12", label: "12", color: "#66d139", colorName: "Online", material: "PLA", active: true },
+      { slot: "8", label: "8", color: "#b8babd", colorName: "Idle", material: "PLA", active: false },
+      { slot: "6", label: "6", color: "#4d93ff", colorName: "Queued", material: "PLA", active: false },
+      { slot: "4", label: "4", color: "#ff9a1e", colorName: "Paused", material: "PLA", active: false }
     ]
   }
 ];
 
 const cameraSources: CameraSource[] = [
   {
-    id: "frigate-studio-a1",
-    name: "Frigate Studio A1",
+    id: "frigate-x1-office",
+    name: "Frigate X1 Office",
     provider: "frigate",
-    streamUrl: "rtsp://placeholder/frigate/studio-a1",
+    streamUrl: "rtsp://placeholder/frigate/x1-office",
     status: "online",
     assignedTo: ["x1-carbon-office"]
   },
@@ -238,7 +285,7 @@ const cameraSources: CameraSource[] = [
     provider: "direct-rtsp",
     streamUrl: "rtsp://placeholder/workshop-cam",
     status: "online",
-    assignedTo: ["a1-mini-workshop", "p1s-studio"]
+    assignedTo: ["p1s-studio", "a1-mini-workshop"]
   },
   {
     id: "bambu-x1e",
@@ -246,7 +293,7 @@ const cameraSources: CameraSource[] = [
     provider: "bambu",
     streamUrl: "bambu://x1e-engineering/printer",
     status: "degraded",
-    assignedTo: ["x1e-engineering"]
+    assignedTo: ["x1e-engineering", "p1p-break-room"]
   },
   {
     id: "farm-overview",
