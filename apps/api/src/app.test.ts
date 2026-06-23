@@ -172,6 +172,48 @@ describe("auth and settings flows", () => {
     await app.close();
   });
 
+  it("supports explicit secure-cookie overrides for direct and proxied deploys", async () => {
+    const insecureApp = await buildApp({
+      appOrigin: "http://localhost:4173",
+      databaseFile: createTestDbPath(),
+      secureCookies: false
+    });
+
+    const insecureBootstrap = await insecureApp.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap",
+      payload: {
+        email: "admin@example.com",
+        name: "Admin User",
+        password: "supersecure"
+      }
+    });
+
+    expect(insecureBootstrap.statusCode).toBe(200);
+    expect(insecureBootstrap.headers["set-cookie"]).not.toContain("Secure");
+    await insecureApp.close();
+
+    const secureApp = await buildApp({
+      appOrigin: "https://bambuview.example.com",
+      databaseFile: createTestDbPath(),
+      secureCookies: true
+    });
+
+    const secureBootstrap = await secureApp.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap",
+      payload: {
+        email: "admin@example.com",
+        name: "Admin User",
+        password: "supersecure"
+      }
+    });
+
+    expect(secureBootstrap.statusCode).toBe(200);
+    expect(secureBootstrap.headers["set-cookie"]).toContain("Secure");
+    await secureApp.close();
+  });
+
   it("persists appearance settings", async () => {
     const app = await buildApp({
       appOrigin: "http://localhost:4173",

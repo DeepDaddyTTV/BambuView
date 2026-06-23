@@ -1,6 +1,6 @@
-# Portainer Release Deploys
+# Local Portainer Deploys
 
-This page walks you through the release flow if you want GitHub tags to publish BambuView to Docker Hub and redeploy your Portainer test stack automatically.
+This page walks you through the release flow if you want GitHub tags to publish BambuView to Docker Hub while keeping Portainer credentials on your own machine.
 
 ## What the release workflow does
 
@@ -10,22 +10,23 @@ When you push a tag like `v0.0.1`, GitHub Actions will:
 2. Lint, typecheck, test, and build the app
 3. Build and push the Docker image to Docker Hub
 4. Create a GitHub Release with generated notes
-5. Ask Portainer to redeploy the `bambuview` stack if the Portainer secrets are configured
+5. Stop there, with no Portainer credentials stored in GitHub
 
-## GitHub secrets to add
+## Local environment values to add
 
-Add these repository secrets:
+Set these in your local shell or a local-only env file:
 
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
 - `PORTAINER_URL`
 - `PORTAINER_API_KEY`
 - `PORTAINER_ENDPOINT_ID`
 - `PORTAINER_STACK_ID`
+- `DOCKER_IMAGE`
+- `COOKIE_SECURE=false` if your first test is direct HTTP instead of HTTPS
 
 Optional:
 
 - `PORTAINER_IMAGE_ENV_NAME`
+- `PORTAINER_IMAGE_REPOSITORY`
 
 ## Recommended Portainer stack shape
 
@@ -41,8 +42,16 @@ That lets the workflow update only the image value without rewriting the rest of
 
 You can start from [`deploy/portainer-stack.example.yml`](../deploy/portainer-stack.example.yml).
 
+## Deploy after the image is published
+
+Once the Docker image exists on Docker Hub, run this from your local machine:
+
+```bash
+DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.1 pnpm deploy:portainer
+```
+
 ## Important limitation
 
-The release workflow is built around editing the stack definition through the Portainer API. In practice, that is the cleanest fit for a web-editor-managed stack or a stack detached from Git.
+The deploy helper edits the stack definition through the Portainer API. In practice, that is the cleanest fit for a web-editor-managed stack or a stack detached from Git.
 
 If your Portainer stack is still tightly Git-managed inside Portainer itself, plan to switch that stack to an editor-managed deployment before you rely on automated redeploys from this repository.

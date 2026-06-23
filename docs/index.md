@@ -5,7 +5,7 @@ These docs are written for someone setting up BambuView for the first time.
 Start here:
 
 - [First-time setup](./getting-started.md)
-- [Portainer release deploys](./portainer-release.md)
+- [Local Portainer deploys](./portainer-release.md)
 
 What BambuView `0.0.1` includes:
 

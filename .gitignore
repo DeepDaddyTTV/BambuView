@@ -13,3 +13,4 @@ apps/web/.vite
 .env
 .env.*
 !.env.example
+!.env.portainer.example

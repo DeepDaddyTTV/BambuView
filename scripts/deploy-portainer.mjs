@@ -90,7 +90,7 @@ async function main() {
 
     if (stackFileContent === originalContent) {
       throw new Error(
-        `Could not find ${imageRepository} in the current stack file. Add ${imageEnvName} to the stack or update the image repository secret.`
+        `Could not find ${imageRepository} in the current stack file. Add ${imageEnvName} to the stack or update the image repository value.`
       );
     }
   }

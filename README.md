@@ -9,7 +9,7 @@ Version `0.0.1` ships the real product foundation:
 - SQLite + Drizzle for local auth, invites, sessions, and appearance settings
 - Mock printer, farm, camera, and prepare/slice provider boundaries for future live integrations
 - Docker image release automation to Docker Hub
-- Portainer redeploy automation for a test stack named `bambuview`
+- A local-only Portainer deploy helper for a test stack named `bambuview`
 
 ## Current product surface
 
@@ -65,6 +65,7 @@ Run locally:
 ```bash
 docker run --rm \
   -e APP_ORIGIN=http://localhost:4173 \
+  -e COOKIE_SECURE=false \
   -e DATABASE_FILE=/data/bambuview.db \
   -v bambuview_data:/data \
   bambuview:local
@@ -72,18 +73,18 @@ docker run --rm \
 
 The container serves the full app from the API process, so self-hosting is a single container in `0.0.1`.
 
-## Portainer release deploys
+## Portainer deploys
 
-The release workflow can redeploy an existing Portainer stack after pushing a `v0.0.x` tag.
+GitHub builds and publishes the Docker image. Portainer deployment stays local-only and reads runtime values from your machine, not from GitHub.
 
-Set these GitHub repository secrets before tagging:
+Set these locally before deploying:
 
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
 - `PORTAINER_URL`
 - `PORTAINER_API_KEY`
 - `PORTAINER_ENDPOINT_ID`
 - `PORTAINER_STACK_ID`
+- `DOCKER_IMAGE`
+- `COOKIE_SECURE=false` if the first deploy is plain HTTP instead of HTTPS
 - Optional: `PORTAINER_IMAGE_ENV_NAME`
 
 Recommended stack pattern:
@@ -92,7 +93,13 @@ Recommended stack pattern:
 - Use `image: ${BAMBUVIEW_IMAGE:-deepdaddyttv/bambuview:latest}` for the `bambuview` service
 - See [deploy/portainer-stack.example.yml](deploy/portainer-stack.example.yml) for a clean starting point
 
-The workflow updates the image by changing the `BAMBUVIEW_IMAGE` environment value when available, or by replacing the existing `deepdaddyttv/bambuview:*` image reference in the stack file.
+Deploy locally with:
+
+```bash
+DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.1 pnpm deploy:portainer
+```
+
+The deploy helper updates the image by changing the `BAMBUVIEW_IMAGE` environment value when available, or by replacing the existing `deepdaddyttv/bambuview:*` image reference in the stack file.
 
 ## Docs
 
@@ -102,4 +109,5 @@ Human-facing first-time docs live in [`docs/`](docs). They are intentionally wri
 
 - Docker Hub only receives the container image
 - GitHub Releases are the home for release notes now and native installers later
+- Portainer credentials stay local and out of GitHub
 - Desktop installers are intentionally deferred beyond `0.0.1`

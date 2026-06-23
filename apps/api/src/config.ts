@@ -7,8 +7,17 @@ export interface AppConfig {
   host: string;
   isProduction: boolean;
   port: number;
+  secureCookies: boolean;
   sessionTtlDays: number;
   webDistPath: string;
+}
+
+function parseBoolean(value: string | undefined, fallback: boolean): boolean {
+  if (value === undefined) {
+    return fallback;
+  }
+
+  return value.toLowerCase() === "true";
 }
 
 export function resolveConfig(overrides: Partial<AppConfig> = {}): AppConfig {
@@ -24,6 +33,8 @@ export function resolveConfig(overrides: Partial<AppConfig> = {}): AppConfig {
     host: overrides.host ?? process.env.HOST ?? "0.0.0.0",
     isProduction,
     port: overrides.port ?? Number(process.env.PORT ?? "4173"),
+    secureCookies:
+      overrides.secureCookies ?? parseBoolean(process.env.COOKIE_SECURE, isProduction),
     sessionTtlDays: overrides.sessionTtlDays ?? 30,
     webDistPath:
       overrides.webDistPath ?? path.resolve(process.cwd(), "apps/web/dist")

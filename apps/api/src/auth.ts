@@ -63,7 +63,7 @@ export function setSessionCookie(
   reply.setCookie(config.cookieName, rawToken, {
     httpOnly: true,
     sameSite: "lax",
-    secure: config.isProduction,
+    secure: config.secureCookies,
     path: "/",
     maxAge: config.sessionTtlDays * 24 * 60 * 60
   });
