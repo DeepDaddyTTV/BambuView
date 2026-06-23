@@ -13,6 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: deepdaddyttv/bambuview
+      PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
+      PORTAINER_ENDPOINT_ID: ${{ secrets.PORTAINER_ENDPOINT_ID }}
+      PORTAINER_IMAGE_ENV_NAME: ${{ secrets.PORTAINER_IMAGE_ENV_NAME }}
+      PORTAINER_STACK_ID: ${{ secrets.PORTAINER_STACK_ID }}
+      PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
 
     steps:
       - name: Check out repository
@@ -85,13 +90,8 @@ jobs:
           generate_release_notes: true
 
       - name: Redeploy Portainer stack
-        if: ${{ secrets.PORTAINER_URL != '' && secrets.PORTAINER_API_KEY != '' && secrets.PORTAINER_ENDPOINT_ID != '' && secrets.PORTAINER_STACK_ID != '' }}
+        if: ${{ env.PORTAINER_URL != '' && env.PORTAINER_API_KEY != '' && env.PORTAINER_ENDPOINT_ID != '' && env.PORTAINER_STACK_ID != '' }}
         env:
           DOCKER_IMAGE: ${{ env.IMAGE_NAME }}:${{ steps.version.outputs.value }}
-          PORTAINER_API_KEY: ${{ secrets.PORTAINER_API_KEY }}
-          PORTAINER_ENDPOINT_ID: ${{ secrets.PORTAINER_ENDPOINT_ID }}
-          PORTAINER_IMAGE_ENV_NAME: ${{ secrets.PORTAINER_IMAGE_ENV_NAME }}
           PORTAINER_IMAGE_REPOSITORY: ${{ env.IMAGE_NAME }}
-          PORTAINER_STACK_ID: ${{ secrets.PORTAINER_STACK_ID }}
-          PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
         run: node .github/scripts/update-portainer-stack.mjs
