@@ -2,14 +2,14 @@
 
 BambuView is a graphite-and-green web app for monitoring Bambu Lab printers, farms, and camera feeds from one place.
 
-Version `0.0.12` sharpens the approved fleet shell so the live app tracks the accepted mockup more closely:
+Version `0.0.13` locks in a container-first revision workflow so finished changes get tested through the deployed `bambuview` service instead of a local host:
 
 - React + Vite + TypeScript frontend with PWA support
 - Fastify + TypeScript API that serves the built app
 - SQLite + Drizzle for local auth, invites, sessions, and appearance settings
 - Mock printer, farm, camera, and prepare/slice provider boundaries for future live integrations
 - Docker image release automation to Docker Hub
-- A local-only Portainer deploy helper for a test stack named `bambuview`
+- A local-only revision deploy helper for a test stack named `bambuview`
 
 ## Current product surface
 
@@ -30,6 +30,8 @@ pnpm dev
 
 - Web app: `http://localhost:5173`
 - API + local production shell: `http://localhost:4173`
+
+Use the local host only while building or debugging. Finished revisions should be tested through the deployed container.
 
 ### Local production-style run
 
@@ -71,7 +73,7 @@ docker run --rm \
   bambuview:local
 ```
 
-The container serves the full app from the API process, so self-hosting is a single container in `0.0.12`.
+The container serves the full app from the API process, so self-hosting is a single container in `0.0.13`.
 
 ## Portainer deploys
 
@@ -83,8 +85,10 @@ Set these locally before deploying:
 - `PORTAINER_API_KEY`
 - `PORTAINER_ENDPOINT_ID`
 - `PORTAINER_STACK_ID`
-- `DOCKER_IMAGE`
 - `COOKIE_SECURE=false` if the first deploy is plain HTTP instead of HTTPS
+- Optional: `RELEASE_VERSION`
+- Optional: `RELEASE_IMAGE_TAG`
+- Optional: `DOCKER_IMAGE`
 - Optional: `PORTAINER_IMAGE_ENV_NAME`
 - Optional: `PORTAINER_PULL_IMAGE=true` if every service image in the stack is safe to repull from a registry
 
@@ -94,13 +98,19 @@ Recommended stack pattern:
 - Use `image: ${BAMBUVIEW_IMAGE:-deepdaddyttv/bambuview:latest}` for the `bambuview` service
 - See [deploy/portainer-stack.example.yml](deploy/portainer-stack.example.yml) for a clean starting point
 
-Deploy locally with:
+Deploy the finished revision locally with:
 
 ```bash
-DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.12 pnpm deploy:portainer
+pnpm deploy:revision
 ```
 
-The deploy helper updates the image by changing the `BAMBUVIEW_IMAGE` environment value when available, or by replacing the existing `deepdaddyttv/bambuview:*` image reference in the stack file.
+That helper waits for the matching Docker Hub tag from the current repo version, then updates the Portainer stack to the published image. If you need to override the target explicitly, you can still run:
+
+```bash
+DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.13 pnpm deploy:portainer
+```
+
+The Portainer deploy helper updates the image by changing the `BAMBUVIEW_IMAGE` environment value when available, or by replacing the existing `deepdaddyttv/bambuview:*` image reference in the stack file.
 
 ## Docs
 
@@ -111,4 +121,4 @@ Human-facing first-time docs live in [`docs/`](docs). They are intentionally wri
 - Docker Hub only receives the container image
 - GitHub Releases are the home for release notes now and native installers later
 - Portainer credentials stay local and out of GitHub
-- Desktop installers are intentionally deferred beyond `0.0.12`
+- Desktop installers are intentionally deferred beyond `0.0.13`
