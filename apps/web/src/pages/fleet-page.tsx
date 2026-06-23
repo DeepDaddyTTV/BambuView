@@ -25,7 +25,7 @@ import {
   Users2,
   X
 } from "lucide-react";
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
+import { startTransition, useDeferredValue, useEffect, useState, type KeyboardEvent } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -275,13 +275,21 @@ function FleetCard({
 }) {
   const tone = printerTone(printer);
   const showPercent = printer.previewKind !== "farm" || printer.progress > 0;
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect();
+    }
+  };
 
   return (
-    <button
+    <article
       aria-pressed={isSelected}
       className={`fleet-console-card ${isSelected ? "fleet-console-card--selected" : ""}`}
       onClick={onSelect}
-      type="button"
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
     >
       <div className="fleet-console-card__header">
         <div className="fleet-console-card__code">{printer.shortCode}</div>
@@ -338,7 +346,7 @@ function FleetCard({
           <MoreHorizontal className="h-4 w-4" />
         </button>
       </div>
-    </button>
+    </article>
   );
 }
 

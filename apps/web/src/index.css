@@ -2,13 +2,21 @@
 
 :root {
   --accent: #7ed321;
-  --accent-soft: rgba(126, 211, 33, 0.18);
+  --accent-soft: #7ed32126;
+  --accent-06: #7ed3210f;
+  --accent-10: #7ed3211a;
+  --accent-14: #7ed32124;
+  --accent-18: #7ed3212e;
+  --accent-24: #7ed3213d;
+  --accent-32: #7ed32152;
   --bg: #101317;
   --surface-bg: #1a1d20;
   --panel: rgba(17, 20, 24, 0.92);
   --panel-light: rgba(255, 255, 255, 0.96);
   --light-accent: #7ed321;
   --light-surface-bg: #ffffff;
+  --texture-line: rgba(255, 255, 255, 0.035);
+  --texture-line-strong: rgba(255, 255, 255, 0.06);
   color: #ffffff;
   font-family:
     "SF Pro Display",
@@ -31,12 +39,13 @@ body {
 }
 
 html[data-theme="light"] body {
-  background: var(--light-surface-bg);
+  background: var(--surface-bg);
   color: #0f172a;
 }
 
 .app-background {
   position: relative;
+  isolation: isolate;
 }
 
 .app-background::before {
@@ -44,42 +53,50 @@ html[data-theme="light"] body {
   inset: 0;
   pointer-events: none;
   content: "";
+  z-index: 0;
 }
 
-.app-background--topo::before {
+.app-background--topo::before,
+html[data-background-style="topo"] .fleet-console-shell::before {
   background:
-    radial-gradient(circle at 18% 12%, rgba(126, 211, 33, 0.06), transparent 22%),
-    url("data:image/svg+xml,%3Csvg width='420' height='420' viewBox='0 0 420 420' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M16 78c54-48 126-50 182-12 42 29 94 38 144 24 20-6 39-15 58-27M0 144c55-44 126-46 183-8 45 30 101 38 154 22 23-7 45-19 66-36M0 222c53-42 122-43 179-8 49 31 109 38 166 19 27-9 51-23 75-44M34 0c-39 57-40 123-2 180 36 55 46 120 27 183-7 21-17 39-30 57M108 0c-36 58-34 123 4 179 38 56 49 121 31 185-7 22-18 43-33 62M192 0c-32 61-29 127 8 182 39 58 50 124 33 189-6 22-17 43-32 64M276 0c-27 63-22 131 14 187 40 61 52 128 35 193-7 22-18 42-31 62' stroke='rgba(126,211,33,0.16)' stroke-width='1.6' fill='none'/%3E%3C/svg%3E");
-  background-size: cover;
-  opacity: 0.9;
+    radial-gradient(circle at 20% 12%, var(--accent-10), transparent 22%),
+    repeating-radial-gradient(circle at 90% 12%, transparent 0 18px, var(--texture-line) 18px 20px),
+    repeating-radial-gradient(circle at 10% 100%, transparent 0 26px, var(--accent-10) 26px 28px);
 }
 
-.app-background--two-tone::before {
+.app-background--two-tone::before,
+html[data-background-style="two-tone"] .fleet-console-shell::before {
   background:
-    radial-gradient(circle at 82% -10%, rgba(126, 211, 33, 0.14), transparent 35%),
-    linear-gradient(150deg, transparent 0 42%, rgba(126, 211, 33, 0.2) 42% 54%, transparent 54%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+    radial-gradient(circle at 84% -8%, var(--accent-24), transparent 32%),
+    linear-gradient(145deg, transparent 0 46%, var(--accent-18) 46% 58%, transparent 58%),
+    linear-gradient(180deg, var(--texture-line), transparent 28%);
 }
 
-.app-background--blueprint::before {
+.app-background--blueprint::before,
+html[data-background-style="blueprint"] .fleet-console-shell::before {
   background:
-    linear-gradient(rgba(126, 211, 33, 0.12) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(126, 211, 33, 0.12) 1px, transparent 1px),
-    radial-gradient(circle at 80% 16%, rgba(126, 211, 33, 0.08), transparent 24%);
+    linear-gradient(var(--accent-10) 1px, transparent 1px),
+    linear-gradient(90deg, var(--accent-10) 1px, transparent 1px),
+    radial-gradient(circle at 82% 14%, var(--accent-14), transparent 24%);
   background-size: 34px 34px, 34px 34px, auto;
 }
 
-.app-background--sweep::before {
+.app-background--sweep::before,
+html[data-background-style="sweep"] .fleet-console-shell::before {
   background:
-    radial-gradient(circle at 16% 85%, rgba(126, 211, 33, 0.22), transparent 16%),
-    url("data:image/svg+xml,%3Csvg width='620' height='420' viewBox='0 0 620 420' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 292c84 0 122-85 218-85 91 0 142 98 232 98 65 0 112-36 170-110' stroke='rgba(126,211,33,0.28)' stroke-width='2' fill='none'/%3E%3Cpath d='M0 320c89 0 125-87 222-87 97 0 140 95 232 95 66 0 114-34 166-101' stroke='rgba(126,211,33,0.2)' stroke-width='2' fill='none'/%3E%3Cpath d='M0 348c94 0 127-91 226-91 100 0 139 93 232 93 68 0 116-32 162-92' stroke='rgba(126,211,33,0.16)' stroke-width='2' fill='none'/%3E%3C/svg%3E");
-  background-size: cover;
+    radial-gradient(circle at 18% 86%, var(--accent-24), transparent 14%),
+    repeating-radial-gradient(circle at 8% 102%, transparent 0 28px, var(--accent-10) 28px 30px),
+    linear-gradient(180deg, var(--texture-line), transparent 28%);
 }
 
-.app-background--plain::before {
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.04), transparent 22%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent);
+.app-background--plain::before,
+html[data-background-style="plain"] .fleet-console-shell::before {
+  background: none;
+}
+
+html[data-theme="light"] {
+  --texture-line: rgba(15, 23, 42, 0.06);
+  --texture-line-strong: rgba(15, 23, 42, 0.1);
 }
 
 .panel {
@@ -187,12 +204,12 @@ html[data-theme="light"] .section-title {
   height: 100%;
   width: 100%;
   background:
-    linear-gradient(90deg, transparent 0 8%, rgba(126, 211, 33, 0.9) 8% 9%, transparent 9% 16%, rgba(126, 211, 33, 0.85) 16% 17%, transparent 17% 22%, rgba(126, 211, 33, 0.8) 22% 23%, transparent 23% 31%, rgba(126, 211, 33, 0.92) 31% 32%, transparent 32% 40%, rgba(126, 211, 33, 0.88) 40% 41%, transparent 41% 50%, rgba(126, 211, 33, 0.76) 50% 51%, transparent 51% 60%, rgba(126, 211, 33, 0.83) 60% 61%, transparent 61% 72%, rgba(126, 211, 33, 0.9) 72% 73%, transparent 73% 86%, rgba(126, 211, 33, 0.75) 86% 87%, transparent 87% 100%);
+    linear-gradient(90deg, transparent 0 8%, var(--accent) 8% 9%, transparent 9% 16%, var(--accent) 16% 17%, transparent 17% 22%, var(--accent) 22% 23%, transparent 23% 31%, var(--accent) 31% 32%, transparent 32% 40%, var(--accent) 40% 41%, transparent 41% 50%, var(--accent) 50% 51%, transparent 51% 60%, var(--accent) 60% 61%, transparent 61% 72%, var(--accent) 72% 73%, transparent 73% 86%, var(--accent) 86% 87%, transparent 87% 100%);
   mask: linear-gradient(180deg, transparent 0 20%, black 20% 78%, transparent 78% 100%);
 }
 
 .fleet-console-shell {
-  --fleet-console-bg: #1a1d20;
+  --fleet-console-bg: var(--surface-bg);
   --fleet-console-surface: #1d2125;
   --fleet-console-surface-strong: #20252a;
   --fleet-console-surface-soft: #171b1f;
@@ -209,17 +226,16 @@ html[data-theme="light"] .section-title {
   grid-template-columns: 228px minmax(0, 1fr) 438px;
   background: var(--fleet-console-bg);
   color: var(--fleet-console-text);
+  isolation: isolate;
 }
 
 .fleet-console-shell::before {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  background:
-    url("data:image/svg+xml,%3Csvg width='900' height='900' viewBox='0 0 900 900' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M80 120c88-62 192-67 285-17 74 40 165 47 252 16 42-15 79-37 111-65M38 210c90-58 192-61 286-12 79 42 174 48 264 12 42-17 81-42 114-74M0 314c92-58 194-61 289-11 82 43 181 48 274 8 45-19 84-46 117-82M0 432c95-57 198-58 293-8 89 47 191 47 286 0 48-24 88-56 121-96M0 568c99-53 204-50 300 2 91 49 195 47 291-7 49-28 89-63 122-107' stroke='rgba(255,255,255,0.03)' stroke-width='1.4' fill='none'/%3E%3C/svg%3E")
-      center/cover no-repeat;
+  background: none;
   content: "";
   pointer-events: none;
-  opacity: 0.9;
+  z-index: 0;
 }
 
 .fleet-console-sidebar,
@@ -235,9 +251,7 @@ html[data-theme="light"] .section-title {
   gap: 14px;
   border-right: 1px solid var(--fleet-console-border);
   padding: 14px 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 18%),
-    #181b1f;
+  background: var(--fleet-console-surface-soft);
 }
 
 .fleet-console-sidebar__brand {
@@ -246,7 +260,7 @@ html[data-theme="light"] .section-title {
   gap: 10px;
   border: 1px solid var(--fleet-console-border);
   border-radius: 16px;
-  background: rgba(30, 34, 39, 0.98);
+  background: var(--fleet-console-surface-strong);
   padding: 12px 14px;
 }
 
@@ -300,7 +314,7 @@ html[data-theme="light"] .section-title {
 .fleet-console-sidebar-card {
   border: 1px solid var(--fleet-console-border);
   border-radius: 16px;
-  background: rgba(29, 33, 38, 0.98);
+  background: var(--fleet-console-surface);
   padding: 14px;
 }
 
@@ -327,8 +341,8 @@ html[data-theme="light"] .section-title {
   height: 28px;
   margin-top: 12px;
   background:
-    url("data:image/svg+xml,%3Csvg width='180' height='28' viewBox='0 0 180 28' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 18 8 17 16 22 24 12 32 20 40 16 48 18 56 14 64 21 72 13 80 19 88 11 96 18 104 16 112 21 120 10 128 19 136 15 144 17 152 8 160 20 168 18 176 19' stroke='%237ed321' stroke-width='1.5' fill='none'/%3E%3C/svg%3E")
-      left center/100% 100% no-repeat;
+    linear-gradient(90deg, transparent 0 4%, var(--accent) 4% 5%, transparent 5% 13%, var(--accent) 13% 14%, transparent 14% 21%, var(--accent) 21% 22%, transparent 22% 29%, var(--accent) 29% 30%, transparent 30% 39%, var(--accent) 39% 40%, transparent 40% 48%, var(--accent) 48% 49%, transparent 49% 59%, var(--accent) 59% 60%, transparent 60% 72%, var(--accent) 72% 73%, transparent 73% 86%, var(--accent) 86% 87%, transparent 87% 100%);
+  mask: linear-gradient(180deg, transparent 0 30%, black 30% 76%, transparent 76% 100%);
 }
 
 .fleet-console-sidebar-card__row {
@@ -375,6 +389,7 @@ html[data-theme="light"] .section-title {
 .fleet-console-content {
   padding: 20px 24px 24px;
   border-right: 1px solid var(--fleet-console-border);
+  background: transparent;
 }
 
 .fleet-console-header {
@@ -411,7 +426,7 @@ html[data-theme="light"] .section-title {
 .fleet-console-segmented {
   border: 1px solid var(--fleet-console-border);
   border-radius: 14px;
-  background: rgba(31, 35, 40, 0.96);
+  background: var(--fleet-console-surface-strong);
 }
 
 .fleet-console-toolbar__group {
@@ -536,7 +551,7 @@ html[data-theme="light"] .section-title {
   margin-top: 18px;
   border: 1px solid var(--fleet-console-border);
   border-radius: 16px;
-  background: rgba(29, 33, 38, 0.98);
+  background: var(--fleet-console-surface);
 }
 
 .fleet-console-stats__item {
@@ -586,10 +601,11 @@ html[data-theme="light"] .section-title {
 .fleet-console-detail__section {
   border: 1px solid var(--fleet-console-border);
   border-radius: 16px;
-  background: rgba(29, 33, 38, 0.98);
+  background: var(--fleet-console-surface);
 }
 
 .fleet-console-card {
+  cursor: pointer;
   padding: 14px;
   color: inherit;
   text-align: left;
@@ -844,9 +860,7 @@ html[data-theme="light"] .section-title {
 
 .fleet-console-detail {
   padding: 18px 18px 20px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 16%),
-    #171a1e;
+  background: var(--fleet-console-surface-soft);
 }
 
 .fleet-console-detail__title {
@@ -999,7 +1013,25 @@ html[data-theme="light"] .section-title {
   padding: 12px;
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
-  background: rgba(25, 29, 33, 0.98);
+  background: var(--fleet-console-surface-strong);
+}
+
+.app-shell-console__content {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.app-shell-console__header {
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--fleet-console-border);
+}
+
+.app-shell-console__body {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  padding: 18px 0 24px;
 }
 
 .fleet-console-filament-card__slot {
@@ -1218,10 +1250,10 @@ html[data-theme="light"] .section-title {
 }
 
 html[data-theme="light"] .fleet-console-shell {
-  --fleet-console-bg: #f3f5f7;
+  --fleet-console-bg: var(--surface-bg);
   --fleet-console-surface: #ffffff;
   --fleet-console-surface-strong: #f8fafc;
-  --fleet-console-surface-soft: #eef2f5;
+  --fleet-console-surface-soft: #f4f6f8;
   --fleet-console-border: rgba(15, 23, 42, 0.08);
   --fleet-console-text: #111827;
   --fleet-console-muted: #667085;
@@ -1230,11 +1262,7 @@ html[data-theme="light"] .fleet-console-shell {
 html[data-theme="light"] .fleet-console-sidebar,
 html[data-theme="light"] .fleet-console-detail,
 html[data-theme="light"] .fleet-console-content {
-  background: rgba(255, 255, 255, 0.78);
-}
-
-html[data-theme="light"] .fleet-console-shell::before {
-  opacity: 0.4;
+  background: transparent;
 }
 
 html[data-theme="light"] .fleet-console-card,
@@ -1260,7 +1288,8 @@ html[data-theme="light"] .fleet-console-user__name,
 html[data-theme="light"] .fleet-console-section-title,
 html[data-theme="light"] .fleet-console-add-card__title,
 html[data-theme="light"] .fleet-console-filament-card__material,
-html[data-theme="light"] .fleet-console-stats__value {
+html[data-theme="light"] .fleet-console-stats__value,
+html[data-theme="light"] .fleet-console-sidebar__brand-text {
   color: #111827;
 }
 
@@ -1274,6 +1303,22 @@ html[data-theme="light"] .fleet-console-detail__icon-button {
 
 html[data-theme="light"] .fleet-console-sidebar__link {
   color: #334155;
+}
+
+html[data-theme="light"] .fleet-console-toolbar__mode,
+html[data-theme="light"] .fleet-console-detail__tab,
+html[data-theme="light"] .fleet-console-card__time,
+html[data-theme="light"] .fleet-console-card__meta-line,
+html[data-theme="light"] .fleet-console-card__slot-chip,
+html[data-theme="light"] .fleet-console-filament-card__color,
+html[data-theme="light"] .fleet-console-filament-card__metrics,
+html[data-theme="light"] .fleet-console-camera-stage__meta {
+  color: #64748b;
+}
+
+html[data-theme="light"] .fleet-console-toolbar__mode--active,
+html[data-theme="light"] .fleet-console-detail__tab--active {
+  color: #111827;
 }
 
 html[data-theme="light"] .fleet-console-status__rows div,
@@ -1345,10 +1390,26 @@ html[data-theme="light"] .fleet-console-stats__meta {
   .fleet-console-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .app-shell-console__body {
+    padding-bottom: 0;
+  }
 }
 
 .fleet-console-shell--detail-closed {
   grid-template-columns: 228px minmax(0, 1fr);
+}
+
+@media (max-width: 1200px) {
+  .fleet-console-shell--detail-closed {
+    grid-template-columns: 214px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .fleet-console-shell--detail-closed {
+    grid-template-columns: 1fr;
+  }
 }
 
 .fleet-console-shell--detail-closed .fleet-console-content {
@@ -2504,6 +2565,12 @@ html[data-theme="light"] .fleet-temperature-row__target {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(12, 14, 17, 0.96);
   backdrop-filter: blur(20px);
+}
+
+@media (min-width: 1024px) {
+  .mobile-nav {
+    display: none;
+  }
 }
 
 .mobile-nav__item {

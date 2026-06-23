@@ -26,12 +26,27 @@ interface AppearanceContextValue {
 
 const AppearanceContext = createContext<AppearanceContextValue | null>(null);
 
+function withAlpha(hex: string, alphaHex: string) {
+  return `${hex}${alphaHex}`;
+}
+
 function applyAppearanceToDocument(appearance: AppearanceSettings) {
+  const activeHighlight =
+    appearance.mode === "dark" ? appearance.darkHighlight : appearance.lightHighlight;
+  const activeBackground =
+    appearance.mode === "dark" ? appearance.darkBackground : appearance.lightBackground;
+
   document.documentElement.dataset.theme = appearance.mode;
   document.documentElement.dataset.backgroundStyle = appearance.backgroundStyle;
-  document.documentElement.style.setProperty("--accent", appearance.darkHighlight);
-  document.documentElement.style.setProperty("--accent-soft", `${appearance.darkHighlight}26`);
-  document.documentElement.style.setProperty("--surface-bg", appearance.darkBackground);
+  document.documentElement.style.setProperty("--accent", activeHighlight);
+  document.documentElement.style.setProperty("--accent-soft", withAlpha(activeHighlight, "26"));
+  document.documentElement.style.setProperty("--accent-06", withAlpha(activeHighlight, "0f"));
+  document.documentElement.style.setProperty("--accent-10", withAlpha(activeHighlight, "1a"));
+  document.documentElement.style.setProperty("--accent-14", withAlpha(activeHighlight, "24"));
+  document.documentElement.style.setProperty("--accent-18", withAlpha(activeHighlight, "2e"));
+  document.documentElement.style.setProperty("--accent-24", withAlpha(activeHighlight, "3d"));
+  document.documentElement.style.setProperty("--accent-32", withAlpha(activeHighlight, "52"));
+  document.documentElement.style.setProperty("--surface-bg", activeBackground);
   document.documentElement.style.setProperty("--light-accent", appearance.lightHighlight);
   document.documentElement.style.setProperty("--light-surface-bg", appearance.lightBackground);
 }

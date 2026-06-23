@@ -1,5 +1,17 @@
-import { BellDot, Camera, FileCode2, Grid2x2, Menu, Settings, Users2 } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import {
+  Camera,
+  ChevronDown,
+  CircleHelp,
+  ExternalLink,
+  FileCode2,
+  Grid2x2,
+  Moon,
+  Palette,
+  Settings,
+  SunMedium,
+  Users2
+} from "lucide-react";
+import { Link, NavLink } from "react-router-dom";
 
 import type { UserProfile } from "@bambuview/contracts";
 
@@ -13,6 +25,23 @@ const navigationItems = [
   { icon: Users2, label: "Users", to: "/users" },
   { icon: Settings, label: "Settings", to: "/settings" }
 ];
+
+const shellDescriptions: Record<string, string> = {
+  Appearance: "Tune the approved shell and personalize how the app feels day to day.",
+  Cameras: "Assign feeds, check stream health, and map cameras to printers or farms.",
+  "Prepare & Slice": "Stage print jobs and prep your next release-ready plate.",
+  Users: "Manage invites, roles, and who can operate your fleet."
+};
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
 
 function ModeToggle() {
   const { appearance, updateAppearance } = useAppearance();
@@ -29,21 +58,21 @@ function ModeToggle() {
   }
 
   return (
-    <div className="inline-flex rounded-full border border-white/10 bg-white/[0.03] p-1">
-      {(["light", "dark"] as const).map((mode) => (
+    <div className="fleet-console-toolbar__group">
+      {([
+        { icon: Moon, key: "dark", label: "Dark" },
+        { icon: SunMedium, key: "light", label: "Light" }
+      ] as const).map((mode) => (
         <button
-          className={`rounded-full px-5 py-2 text-sm transition ${
-            appearance.mode === mode
-              ? "bg-[color:var(--accent-soft)] text-white"
-              : "text-zinc-400 hover:text-white"
-          }`}
-          key={mode}
+          className={`fleet-console-toolbar__mode ${appearance.mode === mode.key ? "fleet-console-toolbar__mode--active" : ""}`}
+          key={mode.key}
           onClick={() => {
-            void setMode(mode);
+            void setMode(mode.key);
           }}
           type="button"
         >
-          {mode === "light" ? "Light" : "Dark"}
+          <mode.icon className="h-4 w-4" />
+          <span>{mode.label}</span>
         </button>
       ))}
     </div>
@@ -59,106 +88,110 @@ export function AppShell({
   title: string;
   user: UserProfile;
 }) {
-  const location = useLocation();
-
   return (
-    <div className="min-h-screen px-3 py-3 md:px-4">
-      <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1700px] overflow-hidden rounded-[34px] border border-white/8 bg-black/25 shadow-[0_24px_80px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-        <aside className="hidden w-[280px] border-r border-white/8 px-6 py-7 lg:flex lg:flex-col">
-          <div className="flex items-center gap-3">
-            <LogoMark className="h-11 w-11 text-[color:var(--accent)]" />
-            <div>
-              <div className="text-4xl font-semibold tracking-tight text-white">
-                Bambu<span className="text-[color:var(--accent)]">View</span>
-              </div>
-              <div className="text-sm text-zinc-500">Fleet orchestration</div>
-            </div>
+    <div className="fleet-console-shell fleet-console-shell--detail-closed">
+      <aside className="fleet-console-sidebar">
+        <div className="fleet-console-sidebar__brand">
+          <LogoMark className="h-11 w-11 text-[color:var(--accent)]" />
+          <div className="fleet-console-sidebar__brand-text">
+            Bambu<span>View</span>
           </div>
-          <nav className="mt-10 space-y-2">
-            {navigationItems.map((item) => (
-              <NavLink
-                className={({ isActive }) =>
-                  `nav-pill ${isActive ? "nav-pill--active" : ""}`
-                }
-                key={item.to}
-                to={item.to}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-          <div className="mt-auto space-y-4">
-            <div className="panel">
-              <div className="flex items-center gap-2 text-[color:var(--accent)]">
-                <BellDot className="h-4 w-4" />
-                <span className="font-medium">All Systems Operational</span>
-              </div>
-              <div className="mt-2 text-sm text-zinc-400">12 Printers • 1 Farm • 8 Cameras</div>
-              <div className="mt-4 h-12 rounded-2xl bg-[linear-gradient(90deg,rgba(126,211,33,0.18),rgba(126,211,33,0.02))]">
-                <div className="system-sparkline" />
-              </div>
-            </div>
-            <div className="panel flex items-center gap-4">
-              <div className="grid h-14 w-14 place-items-center rounded-full bg-[color:var(--accent-soft)] text-xl font-semibold text-white">
-                {user.name
-                  .split(" ")
-                  .slice(0, 2)
-                  .map((part) => part[0])
-                  .join("")}
-              </div>
-              <div>
-                <div className="font-medium text-white">{user.name}</div>
-                <div className="text-sm capitalize text-zinc-400">{user.role}</div>
-              </div>
-            </div>
-          </div>
-        </aside>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="flex items-center justify-between gap-4 border-b border-white/8 px-4 py-4 md:px-7 md:py-5">
-            <div className="flex items-center gap-3">
-              <button
-                aria-label="Open navigation"
-                className="icon-button lg:hidden"
-                type="button"
-              >
-                <Menu className="h-4 w-4" />
-              </button>
-              <div>
-                <div className="text-sm text-zinc-500">BambuView</div>
-                <h1 className="text-2xl font-semibold tracking-tight text-white md:text-4xl">
-                  {title}
-                </h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 md:gap-5">
-              <ModeToggle />
-              <div className="hidden text-right md:block">
-                <div className="font-medium text-white">{user.name}</div>
-                <div className="text-sm capitalize text-zinc-400">{user.role}</div>
-              </div>
-            </div>
-          </header>
-          <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 md:px-7 md:py-7">
-            {children}
-          </main>
-          <nav className="mobile-nav lg:hidden">
-            {navigationItems.map((item) => (
-              <NavLink
-                className={({ isActive }) =>
-                  `mobile-nav__item ${isActive ? "mobile-nav__item--active" : ""}`
-                }
-                key={item.to}
-                to={item.to}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label.replace(" & Slice", "")}
-              </NavLink>
-            ))}
-          </nav>
+          <ChevronDown className="h-4 w-4 text-zinc-500" />
         </div>
+
+        <nav className="fleet-console-sidebar__nav">
+          {navigationItems.map((item) => (
+            <NavLink
+              className={({ isActive }) =>
+                isActive
+                  ? "fleet-console-sidebar__link fleet-console-sidebar__link--active"
+                  : "fleet-console-sidebar__link"
+              }
+              key={item.to}
+              to={item.to}
+            >
+              <item.icon className="h-5 w-5" />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="fleet-console-sidebar__spacer" />
+
+        <section className="fleet-console-sidebar-card">
+          <div className="fleet-console-sidebar-card__headline">
+            <span className="fleet-console-dot fleet-console-dot--green" />
+            <span>All Systems Operational</span>
+          </div>
+          <div className="fleet-console-sidebar-card__copy">12 Printers • 1 Farm • 8 Cameras</div>
+          <div className="fleet-console-sidebar-card__copy">Updated just now</div>
+          <div className="fleet-console-sidebar-card__sparkline" />
+        </section>
+
+        <section className="fleet-console-sidebar-card fleet-console-sidebar-card--compact">
+          <div className="fleet-console-sidebar-card__row">
+            <div>
+              <div className="fleet-console-sidebar-card__headline">Need help?</div>
+              <div className="fleet-console-sidebar-card__copy">Browse docs and guides</div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-zinc-500" />
+          </div>
+        </section>
+
+        <section className="fleet-console-sidebar-card fleet-console-sidebar-card--compact">
+          <div className="fleet-console-sidebar-card__row">
+            <div>
+              <div className="fleet-console-sidebar-card__headline">Check for Updates</div>
+              <div className="fleet-console-sidebar-card__copy">New builds and release notes</div>
+            </div>
+            <CircleHelp className="h-4 w-4 text-zinc-500" />
+          </div>
+        </section>
+
+        <section className="fleet-console-sidebar-card fleet-console-sidebar-card--compact">
+          <div className="fleet-console-user">
+            <div className="fleet-console-user__avatar">{initials(user.name)}</div>
+            <div className="fleet-console-user__copy">
+              <div className="fleet-console-user__name">{user.name}</div>
+              <div className="fleet-console-user__role">Administrator</div>
+            </div>
+            <ChevronDown className="h-4 w-4 text-zinc-500" />
+          </div>
+        </section>
+      </aside>
+
+      <div className="fleet-console-content app-shell-console__content">
+        <header className="fleet-console-header app-shell-console__header">
+          <div>
+            <h1>{title}</h1>
+            <p>{shellDescriptions[title]}</p>
+          </div>
+          <div className="fleet-console-header__actions">
+            <ModeToggle />
+            <Link className="fleet-console-toolbar__button" to="/settings">
+              <Palette className="h-4 w-4" />
+              <span>Appearance</span>
+            </Link>
+          </div>
+        </header>
+
+        <main className="app-shell-console__body">{children}</main>
+
+        <nav className="mobile-nav app-shell-mobile-nav">
+          {navigationItems.map((item) => (
+            <NavLink
+              className={({ isActive }) =>
+                `mobile-nav__item ${isActive ? "mobile-nav__item--active" : ""}`
+              }
+              key={item.to}
+              to={item.to}
+            >
+              <item.icon className="h-5 w-5" />
+              {item.label.replace(" & Slice", "")}
+            </NavLink>
+          ))}
+        </nav>
       </div>
-      {location.pathname === "/fleet" ? null : <div className="pb-24 lg:hidden" />}
     </div>
   );
 }
