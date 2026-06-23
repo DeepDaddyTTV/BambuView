@@ -87,7 +87,7 @@ function ArtFrame({
   return (
     <div
       className={clsx(
-        "relative overflow-hidden rounded-[22px] border border-white/6 bg-[linear-gradient(180deg,#1e232a,#16191e)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]",
+        "relative overflow-hidden rounded-[14px] border border-white/6 bg-[linear-gradient(180deg,#1e232a,#16191e)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] before:bg-[size:28px_28px] before:opacity-35 before:content-['']",
         className
       )}
     >

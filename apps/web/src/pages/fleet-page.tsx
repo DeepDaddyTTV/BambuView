@@ -1,20 +1,27 @@
 import {
+  ArrowDown,
+  ArrowUp,
   Ban,
   Camera,
   ChevronDown,
   CircleHelp,
   ExternalLink,
+  Fan,
   FileCode2,
+  Flame,
   Grid2x2,
+  LampDesk,
   LayoutGrid,
   List,
   Maximize2,
   Minimize2,
   Moon,
   MoreHorizontal,
+  Move3d,
   Palette,
   Pause,
   Plus,
+  RefreshCcw,
   Search,
   Send,
   Settings,
@@ -51,6 +58,11 @@ const scopeOptions = [
 ] as const;
 
 const detailTabs = ["Overview", "Jobs", "History", "Maintenance", "Config"] as const;
+const controlTabs = [
+  ["printer-parts", "Printer Parts"],
+  ["print-options", "Print Options"],
+  ["calibration", "Calibration"]
+] as const;
 
 function initials(name: string) {
   return name
@@ -92,22 +104,6 @@ function printerTone(printer: Pick<PrinterSummary, "status">) {
     progressClass: "fleet-console-meter__bar--green",
     textClass: "fleet-console-text--green"
   };
-}
-
-function statusLine(printer: PrinterSummary) {
-  if (printer.status === "idle") {
-    return `${printer.statusLabel} • ${printer.layer}`;
-  }
-
-  if (printer.status === "paused") {
-    return `${printer.statusLabel} • ${printer.layer}`;
-  }
-
-  if (printer.status === "offline") {
-    return `${printer.statusLabel} • ${printer.layer}`;
-  }
-
-  return `${printer.statusLabel} • ${printer.layer}`;
 }
 
 function slotMetrics(printer: PrinterDetail, index: number) {
@@ -162,6 +158,10 @@ function fanMetrics(printer: PrinterDetail) {
   return { aux: "—", part: "—" };
 }
 
+function previewColor(printer: Pick<PrinterSummary, "slots">) {
+  return printer.slots.find((slot) => slot.active)?.color ?? printer.slots[0]?.color;
+}
+
 function FleetPreview({
   printer,
   large = false
@@ -184,7 +184,7 @@ function FleetPreview({
       <PrinterPreviewArt
         className="h-full w-full"
         kind={printer.previewKind}
-        primaryColor={printer.slots.find((slot) => slot.active)?.color ?? printer.slots[0]?.color}
+        primaryColor={previewColor(printer)}
       />
     </div>
   );
@@ -268,7 +268,7 @@ function FleetStats({
   );
 }
 
-function FleetCard({
+function StandardPrinterCard({
   isSelected,
   onSelect,
   printer
@@ -278,7 +278,6 @@ function FleetCard({
   printer: PrinterSummary;
 }) {
   const tone = printerTone(printer);
-  const showPercent = printer.previewKind !== "farm" || printer.progress > 0;
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -307,31 +306,149 @@ function FleetCard({
       <div className="fleet-console-card__title-row">
         <div>
           <h3>{printer.name}</h3>
-          <div className={`fleet-console-card__status ${tone.textClass}`}>{statusLine(printer)}</div>
+          <div className={`fleet-console-card__status ${tone.textClass}`}>
+            {printer.statusLabel}
+            {printer.status === "idle" ? " • " : " • "}
+            {printer.layer}
+          </div>
         </div>
       </div>
 
       <div className={`fleet-console-card__content ${printer.status === "offline" ? "fleet-console-card__content--offline" : ""}`}>
         <FleetPreview printer={printer} />
-        <div className="fleet-console-card__metrics">
-          {showPercent ? <div className={`fleet-console-card__percent ${tone.textClass}`}>{printer.progress}%</div> : null}
-          <div className="fleet-console-card__time">
-            <div>{printer.elapsed}</div>
-            <div>{printer.eta}</div>
+
+        {printer.status === "offline" ? (
+          <div className="fleet-console-card__offline-copy">
+            <div className="fleet-console-card__offline-title">Printer is offline</div>
+            <div className="fleet-console-card__offline-body">Check the connection and power.</div>
           </div>
-          <div className="fleet-console-card__file">{printer.fileName}</div>
-          <div className="fleet-console-card__meta-line">
-            <span>{printer.material}</span>
-            <span>&bull;</span>
-            <span>{printer.nozzleProfile}</span>
-            <span>&bull;</span>
-            <span>{printer.materialColor}</span>
+        ) : printer.status === "idle" ? (
+          <div className="fleet-console-card__idle-copy">
+            <div className="fleet-console-card__idle-topline">
+              <div className="fleet-console-card__idle-body">
+                <div className="fleet-console-card__idle-title">No active print</div>
+                <div className="fleet-console-card__idle-subtitle">Send a print job to get started.</div>
+              </div>
+              <div className="fleet-console-card__time">
+                <div>Idle</div>
+                <div>Ready</div>
+              </div>
+            </div>
+            <div className="fleet-console-card__meta-line">
+              <span>{printer.material}</span>
+              <span>&bull;</span>
+              <span>{printer.nozzleProfile}</span>
+              <span>&bull;</span>
+              <span>{printer.materialColor}</span>
+            </div>
+            <div className="fleet-console-meter">
+              <div className={`fleet-console-meter__bar ${tone.progressClass}`} style={{ width: "14%" }} />
+            </div>
           </div>
-          <div className="fleet-console-meter">
-            <div
-              className={`fleet-console-meter__bar ${tone.progressClass}`}
-              style={{ width: `${Math.max(printer.progress, printer.status === "offline" ? 0 : 12)}%` }}
-            />
+        ) : (
+          <div className="fleet-console-card__metrics">
+            <div className={`fleet-console-card__percent ${tone.textClass}`}>{printer.progress}%</div>
+            <div className="fleet-console-card__time">
+              <div>{printer.elapsed}</div>
+              <div>{printer.eta}</div>
+            </div>
+            <div className="fleet-console-card__file">{printer.fileName}</div>
+            <div className="fleet-console-card__meta-line">
+              <span>{printer.material}</span>
+              <span>&bull;</span>
+              <span>{printer.nozzleProfile}</span>
+              <span>&bull;</span>
+              <span>{printer.materialColor}</span>
+            </div>
+            <div className="fleet-console-meter">
+              <div
+                className={`fleet-console-meter__bar ${tone.progressClass}`}
+                style={{ width: `${Math.max(printer.progress, 10)}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="fleet-console-card__footer">
+        <div className="fleet-console-card__footer-material">{printer.material}</div>
+        <div className="fleet-console-card__slot-row">
+          {printer.slots.map((slot) => (
+            <span className="fleet-console-card__slot-chip" key={slot.slot}>
+              <span>{slot.label}</span>
+              <span className="fleet-console-card__slot-swatch" style={{ backgroundColor: slot.color }} />
+            </span>
+          ))}
+        </div>
+        <button className="fleet-console-card__more" type="button">
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function FarmCard({
+  isSelected,
+  onSelect,
+  printer
+}: {
+  isSelected: boolean;
+  onSelect: () => void;
+  printer: PrinterSummary;
+}) {
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      onSelect();
+    }
+  };
+
+  return (
+    <article
+      aria-pressed={isSelected}
+      className={`fleet-console-card fleet-console-card--farm ${isSelected ? "fleet-console-card--selected" : ""}`}
+      onClick={onSelect}
+      onKeyDown={handleKeyDown}
+      role="button"
+      tabIndex={0}
+    >
+      <div className="fleet-console-card__header">
+        <div className="fleet-console-card__farm-icon">
+          <Grid2x2 className="h-4 w-4" />
+        </div>
+        <div className="fleet-console-card__actions">
+          <Star className="h-4 w-4" />
+          <span className="fleet-console-dot fleet-console-dot--muted" />
+        </div>
+      </div>
+
+      <div className="fleet-console-card__title-row">
+        <div>
+          <h3>{printer.name}</h3>
+          <div className="fleet-console-card__status fleet-console-text--green">4 Printers • 2 Printing</div>
+        </div>
+      </div>
+
+      <div className="fleet-console-card__farm-layout">
+        <FleetPreview printer={printer} />
+        <div className="fleet-console-card__farm-metrics">
+          <div className="fleet-console-card__farm-label">Overall Progress</div>
+          <div className="fleet-console-card__farm-progress-row">
+            <div className="fleet-console-card__farm-percent">42%</div>
+            <div className="fleet-console-card__time">
+              <div>{printer.elapsed}</div>
+              <div>{printer.eta}</div>
+            </div>
+          </div>
+          <div className="fleet-console-card__farm-jobs">
+            <span>Active Jobs</span>
+            <div>
+              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--green">2 Printing</span>
+              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--amber">1 Paused</span>
+              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--muted">1 Idle</span>
+              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--red">0 Offline</span>
+            </div>
           </div>
         </div>
       </div>
@@ -354,6 +471,18 @@ function FleetCard({
   );
 }
 
+function FleetCard(props: {
+  isSelected: boolean;
+  onSelect: () => void;
+  printer: PrinterSummary;
+}) {
+  if (props.printer.previewKind === "farm") {
+    return <FarmCard {...props} />;
+  }
+
+  return <StandardPrinterCard {...props} />;
+}
+
 function AddCard() {
   return (
     <button className="fleet-console-add-card" type="button">
@@ -370,6 +499,404 @@ function AddCard() {
   );
 }
 
+function FocusControlDeck({
+  autoRefillEnabled,
+  controlTab,
+  fanPower,
+  lampEnabled,
+  movementLabel,
+  onMovement,
+  printer,
+  selectedSlot,
+  setAutoRefillEnabled,
+  setControlTab,
+  setFanPower,
+  setLampEnabled,
+  setSelectedSlot
+}: {
+  autoRefillEnabled: boolean;
+  controlTab: "printer-parts" | "print-options" | "calibration";
+  fanPower: number;
+  lampEnabled: boolean;
+  movementLabel: string;
+  onMovement: (label: string) => void;
+  printer: PrinterDetail;
+  selectedSlot: string;
+  setAutoRefillEnabled: (next: boolean) => void;
+  setControlTab: (next: "printer-parts" | "print-options" | "calibration") => void;
+  setFanPower: (next: number) => void;
+  setLampEnabled: (next: boolean) => void;
+  setSelectedSlot: (next: string) => void;
+}) {
+  return (
+    <section className="panel">
+      <div className="flex items-center justify-between gap-4">
+        <div className="section-title">Control</div>
+        <div className="flex flex-wrap gap-2">
+          {controlTabs.map(([tabKey, label]) => (
+            <button
+              className={`fleet-console-focus-toggle ${controlTab === tabKey ? "fleet-console-focus-toggle--active" : ""}`}
+              key={tabKey}
+              onClick={() => setControlTab(tabKey)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-5">
+        <div className="grid gap-5 xl:grid-cols-[208px_1fr_116px]">
+          <div className="fleet-console-focus-surface">
+            {printer.temperatures.map((temperature) => (
+              <div
+                className="fleet-console-focus-temp"
+                key={temperature.label}
+              >
+                <div className="fleet-console-focus-temp__label">
+                  <Thermometer className="h-4 w-4" />
+                  <span>{temperature.label}</span>
+                </div>
+                <div className="fleet-console-focus-temp__value">
+                  {temperature.current}
+                  <span>/ {temperature.target}</span>
+                </div>
+              </div>
+            ))}
+
+            <div className="fleet-console-focus-temp fleet-console-focus-temp--fan">
+              <div className="fleet-console-focus-temp__label">
+                <Fan className="h-4 w-4" />
+                <span>Fan</span>
+              </div>
+              <div className="fleet-console-focus-range">
+                <span>{fanPower}%</span>
+                <input
+                  className="accent-[var(--accent)]"
+                  max="100"
+                  min="0"
+                  onChange={(event) => setFanPower(Number(event.target.value))}
+                  type="range"
+                  value={fanPower}
+                />
+              </div>
+              <button
+                className={`fleet-console-focus-lamp ${lampEnabled ? "fleet-console-focus-lamp--active" : ""}`}
+                onClick={() => setLampEnabled(!lampEnabled)}
+                type="button"
+              >
+                <LampDesk className="h-4 w-4" />
+                Lamp
+              </button>
+            </div>
+          </div>
+
+          <div className="fleet-console-focus-surface">
+            <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Motion</div>
+            <div className="mt-5 grid place-items-center">
+              <div className="motion-pad">
+                <button className="motion-pad__home" onClick={() => onMovement("Home")} type="button">
+                  <Move3d className="h-5 w-5" />
+                </button>
+                <button className="motion-pad__north" onClick={() => onMovement("Y +10")} type="button">
+                  Y
+                </button>
+                <button className="motion-pad__south" onClick={() => onMovement("Y -10")} type="button">
+                  -Y
+                </button>
+                <button className="motion-pad__west" onClick={() => onMovement("X -10")} type="button">
+                  -X
+                </button>
+                <button className="motion-pad__east" onClick={() => onMovement("X +10")} type="button">
+                  X
+                </button>
+              </div>
+            </div>
+            <div className="mt-5 grid grid-cols-4 gap-3">
+              {[
+                { icon: <ArrowUp className="h-4 w-4" />, label: "Z +10" },
+                { icon: <ArrowUp className="h-4 w-4" />, label: "Z +1" },
+                { icon: <ArrowDown className="h-4 w-4" />, label: "Bed -1" },
+                { icon: <ArrowDown className="h-4 w-4" />, label: "Bed -10" }
+              ].map(({ icon, label }) => (
+                <button
+                  className="fleet-console-focus-step"
+                  key={label}
+                  onClick={() => onMovement(label)}
+                  type="button"
+                >
+                  <span>{icon}</span>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="mt-4 text-sm text-zinc-500">Last command: {movementLabel}</div>
+          </div>
+
+          <div className="fleet-console-focus-surface fleet-console-focus-surface--extruder">
+            <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Extruder</div>
+            <button className="fleet-console-focus-extruder-button" type="button">
+              <ArrowUp className="h-5 w-5" />
+            </button>
+            <div className="fleet-console-focus-extruder-core">
+              <Flame className="h-6 w-6" />
+            </div>
+            <button className="fleet-console-focus-extruder-button" type="button">
+              <ArrowDown className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="fleet-console-focus-surface">
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Move3d className="h-4 w-4 text-[color:var(--accent)]" />
+              <span className="font-medium text-white">AMS</span>
+            </div>
+            <button
+              className={`fleet-console-focus-toggle ${autoRefillEnabled ? "fleet-console-focus-toggle--active" : ""}`}
+              onClick={() => setAutoRefillEnabled(!autoRefillEnabled)}
+              type="button"
+            >
+              Auto-refill
+            </button>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              {printer.slots.map((slot) => (
+                <button
+                  className={`fleet-console-focus-slot ${selectedSlot === slot.slot ? "fleet-console-focus-slot--active" : ""}`}
+                  key={slot.slot}
+                  onClick={() => setSelectedSlot(slot.slot)}
+                  type="button"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm text-zinc-400">{slot.slot}</span>
+                    <span
+                      className="h-4 w-4 rounded-md border border-white/10"
+                      style={{ backgroundColor: slot.color }}
+                    />
+                  </div>
+                  <div className="mt-6 text-2xl font-semibold text-white">{slot.material}</div>
+                  <div className="mt-2 text-sm text-zinc-300">
+                    {selectedSlot === slot.slot ? "Loaded" : "Ready"}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="fleet-console-focus-slot-detail">
+              <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Selected filament</div>
+              <div className="mt-4 text-3xl font-semibold text-white">{selectedSlot}</div>
+              <div className="mt-2 text-sm text-zinc-400">
+                {printer.slots.find((slot) => slot.slot === selectedSlot)?.material} spool routed to the extruder path.
+              </div>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button className="fleet-console-focus-action" type="button">
+                  Unload
+                </button>
+                <button className="fleet-console-focus-action fleet-console-focus-action--primary" type="button">
+                  Load
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="fleet-console-focus-copy">
+          {controlTab === "printer-parts"
+            ? "Printer parts mode keeps direct machine controls, movement, AMS, and live tuning in one place."
+            : controlTab === "print-options"
+              ? "Print options will house speed, flow, cooling, and future live tuning controls."
+              : "Calibration will house bed leveling, vibration compensation, flow calibration, and maintenance sequences."}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FocusWorkspace({
+  autoRefillEnabled,
+  controlTab,
+  fanPower,
+  lampEnabled,
+  movementLabel,
+  onFocusModeChange,
+  onMovement,
+  printer,
+  selectedFeedId,
+  selectedSlot,
+  setAutoRefillEnabled,
+  setControlTab,
+  setFanPower,
+  setLampEnabled,
+  setSelectedFeedId,
+  setSelectedSlot
+}: {
+  autoRefillEnabled: boolean;
+  controlTab: "printer-parts" | "print-options" | "calibration";
+  fanPower: number;
+  lampEnabled: boolean;
+  movementLabel: string;
+  onFocusModeChange: (next: boolean) => void;
+  onMovement: (label: string) => void;
+  printer: PrinterDetail;
+  selectedFeedId: string;
+  selectedSlot: string;
+  setAutoRefillEnabled: (next: boolean) => void;
+  setControlTab: (next: "printer-parts" | "print-options" | "calibration") => void;
+  setFanPower: (next: number) => void;
+  setLampEnabled: (next: boolean) => void;
+  setSelectedFeedId: (next: string) => void;
+  setSelectedSlot: (next: string) => void;
+}) {
+  return (
+    <aside className="detail-panel detail-panel--focus">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Fullscreen printer workspace</div>
+          <h2 className="mt-2 text-[42px] font-semibold leading-none text-white">{printer.name}</h2>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            aria-label="Restore detail panel"
+            className="icon-button"
+            onClick={() => onFocusModeChange(false)}
+            type="button"
+          >
+            <Minimize2 className="h-4 w-4" />
+          </button>
+          <button
+            aria-label="Close fullscreen workspace"
+            className="icon-button"
+            onClick={() => onFocusModeChange(false)}
+            type="button"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-[1.22fr_0.78fr]">
+        <div className="space-y-6">
+          <section className="panel">
+            <div className="flex items-center justify-between gap-4">
+              <div className="section-title">Camera</div>
+              <div className="fleet-console-camera-tabs fleet-console-camera-tabs--focus">
+                {printer.cameraFeeds.map((feed) => (
+                  <button
+                    className={`fleet-console-camera-tabs__button ${selectedFeedId === feed.id ? "fleet-console-camera-tabs__button--active" : ""}`}
+                    key={feed.id}
+                    onClick={() => startTransition(() => setSelectedFeedId(feed.id))}
+                    type="button"
+                  >
+                    {feed.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="camera-stage mt-5">
+              <div className="camera-stage__top">
+                <div className="text-sm text-zinc-300">{printer.cameraLabel}</div>
+                <div className="camera-stage__meta">
+                  <span className="fleet-console-dot fleet-console-dot--green" />
+                  <span>Live stream</span>
+                  <span>1080p</span>
+                  <span>30 FPS</span>
+                </div>
+              </div>
+              <div className="camera-stage__viewport camera-stage__viewport--full">
+                <div className="camera-feed-blur" />
+                <div className="camera-stage__machine" />
+                <div className="camera-stage__print camera-stage__print--full">
+                  <PrinterPreviewArt
+                    className="h-full"
+                    kind={printer.previewKind}
+                    primaryColor={previewColor(printer)}
+                  />
+                </div>
+                <div className="camera-feed-watermark">Bambu Lab</div>
+              </div>
+              <div className="flex items-center justify-between gap-3 border-t border-white/8 px-4 py-3 text-sm text-zinc-400">
+                <div className="flex items-center gap-2">
+                  <span className="fleet-console-dot fleet-console-dot--green" />
+                  Live stream active
+                </div>
+                <div>Last move: {movementLabel}</div>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel">
+            <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Printing Progress</div>
+            <div className="mt-5 grid gap-5 lg:grid-cols-[120px_1fr]">
+              <PrinterPreviewArt
+                className="h-[112px]"
+                kind={printer.previewKind}
+                primaryColor={previewColor(printer)}
+              />
+              <div>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="text-2xl font-semibold text-white">{printer.fileName}</div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
+                      <span className={printerTone(printer).textClass}>{printer.statusLabel}</span>
+                      <span>&bull;</span>
+                      <span>{printer.layer}</span>
+                      <span>&bull;</span>
+                      <span>{printer.printTimeRemaining} remaining</span>
+                    </div>
+                  </div>
+                  <div className="text-right text-zinc-400">
+                    <div>{printer.elapsed}</div>
+                    <div>{printer.filamentUsed} used</div>
+                  </div>
+                </div>
+                <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/8">
+                  <div
+                    className={`h-full rounded-full ${printerTone(printer).progressClass}`}
+                    style={{ width: `${printer.progress}%` }}
+                  />
+                </div>
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <div className={`text-4xl font-semibold ${printerTone(printer).textClass}`}>{printer.progress}%</div>
+                  <div className="flex items-center gap-3">
+                    <button className="icon-button text-amber-400" type="button">
+                      <Pause className="h-4 w-4" />
+                    </button>
+                    <button className="icon-button text-red-400" type="button">
+                      <Square className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <FocusControlDeck
+          autoRefillEnabled={autoRefillEnabled}
+          controlTab={controlTab}
+          fanPower={fanPower}
+          lampEnabled={lampEnabled}
+          movementLabel={movementLabel}
+          onMovement={onMovement}
+          printer={printer}
+          selectedSlot={selectedSlot}
+          setAutoRefillEnabled={setAutoRefillEnabled}
+          setControlTab={setControlTab}
+          setFanPower={setFanPower}
+          setLampEnabled={setLampEnabled}
+          setSelectedSlot={setSelectedSlot}
+        />
+      </div>
+    </aside>
+  );
+}
+
 function DetailPanel({
   focusMode,
   onClose,
@@ -382,22 +909,63 @@ function DetailPanel({
   printer: PrinterDetail;
 }) {
   const [selectedFeedId, setSelectedFeedId] = useState(printer.selectedCameraFeedId);
+  const [controlTab, setControlTab] = useState<"printer-parts" | "print-options" | "calibration">("printer-parts");
+  const [fanPower, setFanPower] = useState(100);
+  const [lampEnabled, setLampEnabled] = useState(true);
+  const [selectedSlot, setSelectedSlot] = useState(
+    printer.slots.find((slot) => slot.active)?.slot ?? printer.slots[0]?.slot ?? "A1"
+  );
+  const [autoRefillEnabled, setAutoRefillEnabled] = useState(true);
+  const [movementLabel, setMovementLabel] = useState("Home");
   const tone = printerTone(printer);
   const fans = fanMetrics(printer);
 
   useEffect(() => {
     startTransition(() => {
       setSelectedFeedId(printer.selectedCameraFeedId);
+      setControlTab("printer-parts");
+      setFanPower(100);
+      setLampEnabled(true);
+      setSelectedSlot(printer.slots.find((slot) => slot.active)?.slot ?? printer.slots[0]?.slot ?? "A1");
+      setAutoRefillEnabled(true);
+      setMovementLabel("Home");
     });
-  }, [printer.id, printer.selectedCameraFeedId]);
+  }, [printer]);
+
+  if (focusMode) {
+    return (
+      <FocusWorkspace
+        autoRefillEnabled={autoRefillEnabled}
+        controlTab={controlTab}
+        fanPower={fanPower}
+        lampEnabled={lampEnabled}
+        movementLabel={movementLabel}
+        onFocusModeChange={(next) => {
+          if (!next) {
+            onToggleFocus();
+          }
+        }}
+        onMovement={setMovementLabel}
+        printer={printer}
+        selectedFeedId={selectedFeedId}
+        selectedSlot={selectedSlot}
+        setAutoRefillEnabled={setAutoRefillEnabled}
+        setControlTab={setControlTab}
+        setFanPower={setFanPower}
+        setLampEnabled={setLampEnabled}
+        setSelectedFeedId={setSelectedFeedId}
+        setSelectedSlot={setSelectedSlot}
+      />
+    );
+  }
 
   return (
     <aside className="fleet-console-detail">
       <div className="fleet-console-detail__header">
         <div className="fleet-console-detail__title">{printer.name}</div>
         <div className="fleet-console-detail__actions">
-          <button className="fleet-console-detail__icon-button" onClick={onToggleFocus} type="button">
-            {focusMode ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+          <button className="fleet-console-detail__icon-button fleet-console-detail__icon-button--focus" onClick={onToggleFocus} type="button">
+            <Maximize2 className="h-5 w-5" />
           </button>
           <button className="fleet-console-detail__icon-button" onClick={onClose} type="button">
             <X className="h-5 w-5" />
@@ -417,7 +985,7 @@ function DetailPanel({
         ))}
       </div>
 
-      <section className="fleet-console-detail__section">
+      <section className="fleet-console-detail__section fleet-console-detail__section--status">
         <div className="fleet-console-section-title">Status</div>
         <div className="fleet-console-status">
           <div className="fleet-console-status__copy">
@@ -428,14 +996,11 @@ function DetailPanel({
             <div className="fleet-console-status__rows">
               <div><span>File</span><span>{printer.fileName}</span></div>
               <div><span>Layer</span><span>{printer.layer}</span></div>
+              <div><span>Progress</span><span>{printer.progress}%</span></div>
               <div><span>Print Time</span><span>{printer.elapsed}</span></div>
               <div><span>ETA</span><span>{printer.eta}</span></div>
             </div>
             <div className="fleet-console-status__progress">
-              <div className="fleet-console-status__progress-label">
-                <span>Progress</span>
-                <span>{printer.progress}%</span>
-              </div>
               <div className="fleet-console-meter">
                 <div className={`fleet-console-meter__bar ${tone.progressClass}`} style={{ width: `${printer.progress}%` }} />
               </div>
@@ -449,11 +1014,11 @@ function DetailPanel({
         <div className="fleet-console-section-title">Temperatures</div>
         <div className="fleet-console-temperature-grid">
           {[
-            { label: "Nozzle", value: printer.temperatures[0]?.current ?? "—" },
-            { label: "Bed", value: printer.temperatures[1]?.current ?? "—" },
-            { label: "Chamber", value: printer.temperatures[2]?.current ?? "—" },
-            { label: "Aux Fan", value: fans.aux },
-            { label: "Part Fan", value: fans.part }
+            { label: "Nozzle", value: printer.temperatures[0]?.current ?? "—", target: printer.temperatures[0]?.target ?? "—" },
+            { label: "Bed", value: printer.temperatures[1]?.current ?? "—", target: printer.temperatures[1]?.target ?? "—" },
+            { label: "Chamber", value: printer.temperatures[2]?.current ?? "—", target: printer.temperatures[2]?.target ?? "—" },
+            { label: "Aux Fan", value: fans.aux, target: fans.aux },
+            { label: "Part Fan", value: fans.part, target: fans.part }
           ].map((item) => (
             <div className="fleet-console-temperature-grid__item" key={item.label}>
               <div className="fleet-console-temperature-grid__label">
@@ -461,6 +1026,7 @@ function DetailPanel({
                 <span>{item.label}</span>
               </div>
               <div className="fleet-console-temperature-grid__value">{item.value}</div>
+              <div className="fleet-console-temperature-grid__target">{item.target}</div>
             </div>
           ))}
         </div>
@@ -487,7 +1053,7 @@ function DetailPanel({
                   </div>
                 </div>
                 <div className="fleet-console-filament-card__body">
-                    <div className="fleet-console-filament-card__swatch" style={{ backgroundColor: slot.color }} />
+                  <div className="fleet-console-filament-card__swatch" style={{ backgroundColor: slot.color }} />
                   <div>
                     <div className="fleet-console-filament-card__material">{slot.material}</div>
                     <div className="fleet-console-filament-card__color">{slot.colorName ?? printer.materialColor}</div>
@@ -519,7 +1085,7 @@ function DetailPanel({
               {feed.label}
             </button>
           ))}
-          <button className="fleet-console-camera-tabs__button" type="button">
+          <button className="fleet-console-camera-tabs__button fleet-console-camera-tabs__button--chevron" type="button">
             <ChevronDown className="h-4 w-4" />
           </button>
         </div>
@@ -533,7 +1099,11 @@ function DetailPanel({
           </button>
           <div className="fleet-console-camera-stage__machine" />
           <div className="fleet-console-camera-stage__print">
-            <PrinterPreviewArt className="h-full w-full" kind={printer.previewKind} />
+            <PrinterPreviewArt
+              className="h-full w-full"
+              kind={printer.previewKind}
+              primaryColor={previewColor(printer)}
+            />
           </div>
           <div className="fleet-console-camera-stage__footer">
             <div className="fleet-console-camera-stage__meta">
@@ -544,7 +1114,7 @@ function DetailPanel({
             </div>
             <div className="fleet-console-camera-stage__controls">
               <button className="fleet-console-detail__icon-button fleet-console-detail__icon-button--small" type="button">
-                <ExternalLink className="h-4 w-4" />
+                <Maximize2 className="h-4 w-4" />
               </button>
               <button className="fleet-console-detail__icon-button fleet-console-detail__icon-button--small" type="button">
                 <Camera className="h-4 w-4" />
@@ -678,8 +1248,10 @@ export function FleetPage({ user }: { user: UserProfile }) {
 
         <SidebarCard compact>
           <div className="fleet-console-sidebar-card__row">
-            <div className="fleet-console-sidebar-card__headline">Check for Updates</div>
-            <div className="fleet-console-sidebar-card__copy">New builds and release notes</div>
+            <div>
+              <div className="fleet-console-sidebar-card__headline">Check for Updates</div>
+            </div>
+            <RefreshCcw className="h-4 w-4 text-zinc-500" />
           </div>
         </SidebarCard>
 

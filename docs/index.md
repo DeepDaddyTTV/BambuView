@@ -7,11 +7,11 @@ Start here:
 - [First-time setup](./getting-started.md)
 - [Local Portainer deploys](./portainer-release.md)
 
-What BambuView `0.0.13` includes:
+What BambuView `0.0.14` includes:
 
 - A local first-run admin setup flow
 - Invite-only account creation after bootstrap
-- A fleet dashboard with fullscreen printer focus mode
+- A fleet dashboard with a mockup-aligned shell and fullscreen printer focus mode
 - Camera source management for future Frigate, direct, and Bambu feeds
 - Appearance controls that let each user tune light mode, dark mode, and background art
 
