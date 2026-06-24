@@ -39,6 +39,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { FleetOverview, PrinterDetail, PrinterSummary, UserProfile } from "@bambuview/contracts";
 
 import { useAppearance } from "../app/appearance";
+import { APP_VERSION } from "../app/version";
 import { BrandLogo, PrinterPreviewArt } from "../components/art";
 import { apiFetch } from "../lib/api";
 
@@ -1250,6 +1251,7 @@ export function FleetPage({ user }: { user: UserProfile }) {
           <div className="fleet-console-sidebar-card__row">
             <div>
               <div className="fleet-console-sidebar-card__headline">Check for Updates</div>
+              <div className="fleet-console-sidebar-card__copy">BambuView v{APP_VERSION}</div>
             </div>
             <RefreshCcw className="h-4 w-4 text-zinc-500" />
           </div>

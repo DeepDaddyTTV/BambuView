@@ -10,10 +10,12 @@ import logoMarkSvgRaw from "../../../../img/BambuView_Logo_Only.svg?raw";
 function themeLogoSvg(svg: string) {
   return svg
     .replace(/<\?xml[^>]*>\s*/i, "")
+    .replace(/fill:\s*#(?:000|000000|101317);/gi, "fill: var(--brand-logo-contrast);")
     .replace(/fill:\s*#13bf00;/gi, "fill: var(--brand-logo-green);")
-    .replace(/fill:\s*#fff;/gi, "fill: var(--brand-logo-ink);")
+    .replace(/fill:\s*#(?:fff|ffffff);/gi, "fill: var(--brand-logo-ink);")
+    .replace(/fill=\"#(?:000|000000|101317)\"/gi, 'fill="var(--brand-logo-contrast)"')
     .replace(/fill=\"#13bf00\"/gi, 'fill="var(--brand-logo-green)"')
-    .replace(/fill=\"#fff\"/gi, 'fill="var(--brand-logo-ink)"')
+    .replace(/fill=\"#(?:fff|ffffff)\"/gi, 'fill="var(--brand-logo-ink)"')
     .replace(/<path d="M54\.03,[^>]+\/>/i, (match) =>
       match.replace("<path ", '<path fill="var(--brand-logo-contrast)" ')
     )

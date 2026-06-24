@@ -6,7 +6,7 @@ The intended testing flow is simple: finish a revision, publish it, then update 
 
 ## What the release workflow does
 
-When you push a tag like `v0.0.14`, GitHub Actions will:
+When you push a tag like `v0.0.15`, GitHub Actions will:
 
 1. Install dependencies
 2. Lint, typecheck, test, and build the app
@@ -66,7 +66,7 @@ The helper will:
 If you need to target a different tag explicitly, you can still run:
 
 ```bash
-DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.14 pnpm deploy:portainer
+DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.15 pnpm deploy:portainer
 ```
 
 ## Important limitation

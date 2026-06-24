@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { type AuthSession } from "@bambuview/contracts";
 
+import { APP_VERSION } from "../app/version";
 import { BrandLogo } from "../components/art";
 import { ApiError, apiFetch } from "../lib/api";
 
@@ -118,6 +119,7 @@ export function AuthPage() {
             <BrandLogo className="h-11 w-[208px]" />
             <div>
               <div className="text-sm text-zinc-500">Fleet orchestration for print farms.</div>
+              <div className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-600">v{APP_VERSION}</div>
             </div>
           </div>
           <div className="relative z-10 mt-12 max-w-2xl lg:mt-0">
