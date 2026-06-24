@@ -4,6 +4,10 @@ import { clsx } from "clsx";
 
 import type { PrinterSummary } from "@bambuview/contracts";
 
+import benchyPreview from "../assets/mockup/benchy.png";
+import bracketPreview from "../assets/mockup/bracket.png";
+import dinoPreview from "../assets/mockup/dino.png";
+import housingPreview from "../assets/mockup/housing.png";
 import logoFullSvgRaw from "../../../../img/BambuView_Full_Logo.svg?raw";
 import logoMarkSvgRaw from "../../../../img/BambuView_Logo_Only.svg?raw";
 
@@ -53,6 +57,13 @@ export function LogoMark({ className }: { className?: string }) {
 function resolvePreviewColor(primaryColor?: string) {
   return primaryColor ?? "#7ed321";
 }
+
+const mockupPreviewByKind: Partial<Record<PrinterSummary["previewKind"], string>> = {
+  benchy: benchyPreview,
+  bracket: bracketPreview,
+  dino: dinoPreview,
+  housing: housingPreview
+};
 
 export function FarmPreviewArt({ className }: { className?: string }) {
   return (
@@ -108,6 +119,19 @@ export function PrinterPreviewArt({
   primaryColor?: string;
 }) {
   const activeColor = resolvePreviewColor(primaryColor);
+  const mockupPreview = mockupPreviewByKind[kind];
+
+  if (mockupPreview) {
+    return (
+      <ArtFrame className={className}>
+        <img
+          alt=""
+          className="mockup-preview-image"
+          src={mockupPreview}
+        />
+      </ArtFrame>
+    );
+  }
 
   if (kind === "bracket") {
     return (

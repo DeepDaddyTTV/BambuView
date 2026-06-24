@@ -2,7 +2,7 @@
 
 BambuView is a graphite-and-green web app for monitoring Bambu Lab printers, farms, and camera feeds from one place.
 
-Version `0.0.15` keeps the container-first revision workflow and adds a visible release marker in the app chrome while tightening the Fleet shell toward the approved graphite-and-green mockup:
+Version `0.0.16` keeps the container-first revision workflow and tightens the Fleet shell toward the approved graphite-and-green mockup with mockup-native printer/camera imagery:
 
 - React + Vite + TypeScript frontend with PWA support
 - Fastify + TypeScript API that serves the built app
@@ -73,7 +73,7 @@ docker run --rm \
   bambuview:local
 ```
 
-The container serves the full app from the API process, so self-hosting is a single container in `0.0.15`.
+The container serves the full app from the API process, so self-hosting is a single container in `0.0.16`.
 
 ## Portainer deploys
 
@@ -107,7 +107,7 @@ pnpm deploy:revision
 That helper waits for the matching Docker Hub tag from the current repo version, then updates the Portainer stack to the published image. If you need to override the target explicitly, you can still run:
 
 ```bash
-DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.15 pnpm deploy:portainer
+DOCKER_IMAGE=deepdaddyttv/bambuview:0.0.16 pnpm deploy:portainer
 ```
 
 The Portainer deploy helper updates the image by changing the `BAMBUVIEW_IMAGE` environment value when available, or by replacing the existing `deepdaddyttv/bambuview:*` image reference in the stack file.
@@ -121,4 +121,4 @@ Human-facing first-time docs live in [`docs/`](docs). They are intentionally wri
 - Docker Hub only receives the container image
 - GitHub Releases are the home for release notes now and native installers later
 - Portainer credentials stay local and out of GitHub
-- Desktop installers are intentionally deferred beyond `0.0.15`
+- Desktop installers are intentionally deferred beyond `0.0.16`

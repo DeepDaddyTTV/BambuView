@@ -40,6 +40,7 @@ import type { FleetOverview, PrinterDetail, PrinterSummary, UserProfile } from "
 
 import { useAppearance } from "../app/appearance";
 import { APP_VERSION } from "../app/version";
+import cameraStageMockup from "../assets/mockup/camera-stage.png";
 import { BrandLogo, PrinterPreviewArt } from "../components/art";
 import { apiFetch } from "../lib/api";
 
@@ -297,21 +298,20 @@ function StandardPrinterCard({
     >
       <div className="fleet-console-card__header">
         <div className="fleet-console-card__code">{printer.shortCode}</div>
+        <div className="fleet-console-card__title-row">
+          <div>
+            <h3>{printer.name}</h3>
+            <div className={`fleet-console-card__status ${tone.textClass}`}>
+              {printer.statusLabel}
+              {printer.status === "idle" ? " • " : " • "}
+              {printer.layer}
+            </div>
+          </div>
+        </div>
         <div className="fleet-console-card__actions">
           {printer.id === "x1-carbon-office" ? <Star className="h-4 w-4" /> : null}
           <Camera className="h-4 w-4" />
           <span className={`fleet-console-dot ${tone.dotClass}`} />
-        </div>
-      </div>
-
-      <div className="fleet-console-card__title-row">
-        <div>
-          <h3>{printer.name}</h3>
-          <div className={`fleet-console-card__status ${tone.textClass}`}>
-            {printer.statusLabel}
-            {printer.status === "idle" ? " • " : " • "}
-            {printer.layer}
-          </div>
         </div>
       </div>
 
@@ -418,16 +418,15 @@ function FarmCard({
         <div className="fleet-console-card__farm-icon">
           <Grid2x2 className="h-4 w-4" />
         </div>
+        <div className="fleet-console-card__title-row">
+          <div>
+            <h3>{printer.name}</h3>
+            <div className="fleet-console-card__status fleet-console-text--green">4 Printers • 2 Printing</div>
+          </div>
+        </div>
         <div className="fleet-console-card__actions">
           <Star className="h-4 w-4" />
           <span className="fleet-console-dot fleet-console-dot--muted" />
-        </div>
-      </div>
-
-      <div className="fleet-console-card__title-row">
-        <div>
-          <h3>{printer.name}</h3>
-          <div className="fleet-console-card__status fleet-console-text--green">4 Printers • 2 Printing</div>
         </div>
       </div>
 
@@ -987,9 +986,9 @@ function DetailPanel({
       </div>
 
       <section className="fleet-console-detail__section fleet-console-detail__section--status">
-        <div className="fleet-console-section-title">Status</div>
         <div className="fleet-console-status">
           <div className="fleet-console-status__copy">
+            <div className="fleet-console-section-title">Status</div>
             <div className={`fleet-console-status__state ${tone.textClass}`}>
               <span className={`fleet-console-dot ${tone.dotClass}`} />
               <span>{printer.statusLabel}</span>
@@ -1092,36 +1091,11 @@ function DetailPanel({
         </div>
 
         <div className="fleet-console-camera-stage">
-          <button className="fleet-console-camera-stage__nav fleet-console-camera-stage__nav--left" type="button">
-            <ChevronDown className="h-5 w-5 rotate-90" />
-          </button>
-          <button className="fleet-console-camera-stage__nav fleet-console-camera-stage__nav--right" type="button">
-            <ChevronDown className="h-5 w-5 -rotate-90" />
-          </button>
-          <div className="fleet-console-camera-stage__machine" />
-          <div className="fleet-console-camera-stage__print">
-            <PrinterPreviewArt
-              className="h-full w-full"
-              kind={printer.previewKind}
-              primaryColor={previewColor(printer)}
-            />
-          </div>
-          <div className="fleet-console-camera-stage__footer">
-            <div className="fleet-console-camera-stage__meta">
-              <span className="fleet-console-dot fleet-console-dot--green" />
-              <span>Live</span>
-              <span>1080p</span>
-              <span>30 FPS</span>
-            </div>
-            <div className="fleet-console-camera-stage__controls">
-              <button className="fleet-console-detail__icon-button fleet-console-detail__icon-button--small" type="button">
-                <Maximize2 className="h-4 w-4" />
-              </button>
-              <button className="fleet-console-detail__icon-button fleet-console-detail__icon-button--small" type="button">
-                <Camera className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+          <img
+            alt={`${printer.name} printer camera`}
+            className="fleet-console-camera-stage__image"
+            src={cameraStageMockup}
+          />
         </div>
       </section>
 
