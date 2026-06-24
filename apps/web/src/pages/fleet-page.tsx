@@ -1133,7 +1133,7 @@ export function FleetPage({ user }: { user: UserProfile }) {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortMode, setSortMode] = useState<"name-asc" | "progress-desc">("name-asc");
   const [searchQuery, setSearchQuery] = useState("");
-  const [detailOpen, setDetailOpen] = useState(true);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const deferredSearch = useDeferredValue(searchQuery.trim().toLowerCase());
 
@@ -1181,7 +1181,6 @@ export function FleetPage({ user }: { user: UserProfile }) {
       <aside className="fleet-console-sidebar">
         <div className="fleet-console-sidebar__brand">
           <BrandLogo className="fleet-console-sidebar__brand-logo" />
-          <ChevronDown className="h-4 w-4 text-zinc-500" />
         </div>
 
         <nav className="fleet-console-sidebar__nav">

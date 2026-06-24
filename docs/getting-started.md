@@ -72,7 +72,7 @@ After the first admin exists, new accounts can only be created from invites.
 
 Your appearance settings are saved to your local account.
 
-## What to expect in `0.0.17`
+## What to expect in `0.0.18`
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 

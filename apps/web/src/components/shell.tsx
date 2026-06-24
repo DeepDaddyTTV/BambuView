@@ -94,7 +94,6 @@ export function AppShell({
       <aside className="fleet-console-sidebar">
         <div className="fleet-console-sidebar__brand">
           <BrandLogo className="fleet-console-sidebar__brand-logo" />
-          <ChevronDown className="h-4 w-4 text-zinc-500" />
         </div>
 
         <nav className="fleet-console-sidebar__nav">
