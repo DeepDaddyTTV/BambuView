@@ -7,10 +7,14 @@ import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 import {
   type AppearanceSettings,
+  type BambuPrinterConnectionInput,
   DEFAULT_APPEARANCE,
   type InviteRecord,
+  type PrinterConnectionProvider,
+  type PrinterConnectionRecord,
+  type PrinterConnectionStatus,
   type UserProfile,
-  type UserRole
+  type UserRole,
 } from "@bambuview/contracts";
 
 const users = sqliteTable("users", {
@@ -21,7 +25,7 @@ const users = sqliteTable("users", {
   role: text("role").$type<UserRole>().notNull(),
   status: text("status").$type<"active" | "invited">().notNull(),
   createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull()
+  updatedAt: text("updated_at").notNull(),
 });
 
 const sessions = sqliteTable("sessions", {
@@ -32,7 +36,7 @@ const sessions = sqliteTable("sessions", {
   tokenHash: text("token_hash").notNull().unique(),
   createdAt: text("created_at").notNull(),
   expiresAt: text("expires_at").notNull(),
-  lastSeenAt: text("last_seen_at").notNull()
+  lastSeenAt: text("last_seen_at").notNull(),
 });
 
 const invites = sqliteTable("invites", {
@@ -45,7 +49,7 @@ const invites = sqliteTable("invites", {
     .references(() => users.id, { onDelete: "cascade" }),
   createdAt: text("created_at").notNull(),
   expiresAt: text("expires_at").notNull(),
-  usedAt: text("used_at")
+  usedAt: text("used_at"),
 });
 
 const userPreferences = sqliteTable("user_preferences", {
@@ -60,14 +64,32 @@ const userPreferences = sqliteTable("user_preferences", {
   backgroundStyle: text("background_style")
     .$type<AppearanceSettings["backgroundStyle"]>()
     .notNull(),
-  updatedAt: text("updated_at").notNull()
+  updatedAt: text("updated_at").notNull(),
+});
+
+const printerConnections = sqliteTable("printer_connections", {
+  id: text("id").primaryKey(),
+  provider: text("provider").$type<PrinterConnectionProvider>().notNull(),
+  name: text("name").notNull(),
+  model: text("model").notNull(),
+  host: text("host").notNull(),
+  serial: text("serial").notNull().unique(),
+  accessCode: text("access_code").notNull(),
+  connectionStatus: text("connection_status")
+    .$type<PrinterConnectionStatus>()
+    .notNull(),
+  lastTestedAt: text("last_tested_at"),
+  lastSeenAt: text("last_seen_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
 });
 
 export const schema = {
   invites,
+  printerConnections,
   sessions,
   userPreferences,
-  users
+  users,
 };
 
 export type AppDatabase = BetterSQLite3Database<typeof schema>;
@@ -96,6 +118,11 @@ export interface CreateSessionInput {
   userId: string;
   tokenHash: string;
   expiresAt: string;
+}
+
+export interface CreatePrinterConnectionInput extends BambuPrinterConnectionInput {
+  connectionStatus: PrinterConnectionStatus;
+  lastTestedAt: string | null;
 }
 
 function nowIso(): string {
@@ -146,6 +173,20 @@ export function createDatabase(databaseFile: string): DatabaseClient {
       background_style TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS printer_connections (
+      id TEXT PRIMARY KEY,
+      provider TEXT NOT NULL,
+      name TEXT NOT NULL,
+      model TEXT NOT NULL,
+      host TEXT NOT NULL,
+      serial TEXT NOT NULL UNIQUE,
+      access_code TEXT NOT NULL,
+      connection_status TEXT NOT NULL,
+      last_tested_at TEXT,
+      last_seen_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   const db = drizzle(sqlite, { schema });
@@ -164,12 +205,12 @@ function mapUser(row: typeof users.$inferSelect): UserProfile {
     name: row.name,
     role: row.role,
     status: row.status,
-    createdAt: row.createdAt
+    createdAt: row.createdAt,
   };
 }
 
 function mapAppearance(
-  row: typeof userPreferences.$inferSelect | undefined
+  row: typeof userPreferences.$inferSelect | undefined,
 ): AppearanceSettings {
   if (!row) {
     return DEFAULT_APPEARANCE;
@@ -181,12 +222,33 @@ function mapAppearance(
     darkBackground: row.darkBackground,
     lightHighlight: row.lightHighlight,
     lightBackground: row.lightBackground,
-    backgroundStyle: row.backgroundStyle
+    backgroundStyle: row.backgroundStyle,
+  };
+}
+
+function mapPrinterConnection(
+  row: typeof printerConnections.$inferSelect,
+): PrinterConnectionRecord {
+  return {
+    id: row.id,
+    provider: row.provider,
+    name: row.name,
+    model: row.model,
+    host: row.host,
+    serial: row.serial,
+    accessCodeSet: row.accessCode.length > 0,
+    connectionStatus: row.connectionStatus,
+    lastTestedAt: row.lastTestedAt,
+    lastSeenAt: row.lastSeenAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   };
 }
 
 export async function countUsers(db: AppDatabase): Promise<number> {
-  const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(users);
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(users);
 
   return Number(count);
 }
@@ -202,7 +264,7 @@ export async function countAdmins(db: AppDatabase): Promise<number> {
 
 export async function createUser(
   db: AppDatabase,
-  input: CreateUserInput
+  input: CreateUserInput,
 ): Promise<UserProfile> {
   const timestamp = nowIso();
   const row: typeof users.$inferInsert = {
@@ -213,7 +275,7 @@ export async function createUser(
     role: input.role,
     status: "active",
     createdAt: timestamp,
-    updatedAt: timestamp
+    updatedAt: timestamp,
   };
 
   await db.insert(users).values(row);
@@ -224,19 +286,19 @@ export async function createUser(
 
 export async function getUserByEmail(
   db: AppDatabase,
-  email: string
-): Promise<(typeof users.$inferSelect) | undefined> {
+  email: string,
+): Promise<typeof users.$inferSelect | undefined> {
   return db.query.users.findFirst({
-    where: eq(users.email, email.toLowerCase())
+    where: eq(users.email, email.toLowerCase()),
   });
 }
 
 export async function getUserById(
   db: AppDatabase,
-  userId: string
-): Promise<(typeof users.$inferSelect) | undefined> {
+  userId: string,
+): Promise<typeof users.$inferSelect | undefined> {
   return db.query.users.findFirst({
-    where: eq(users.id, userId)
+    where: eq(users.id, userId),
   });
 }
 
@@ -249,7 +311,7 @@ export async function listUsers(db: AppDatabase): Promise<UserProfile[]> {
 export async function updateUserRole(
   db: AppDatabase,
   userId: string,
-  role: UserRole
+  role: UserRole,
 ): Promise<UserProfile | undefined> {
   const updatedAt = nowIso();
   await db.update(users).set({ role, updatedAt }).where(eq(users.id, userId));
@@ -259,12 +321,70 @@ export async function updateUserRole(
   return row ? mapUser(row) : undefined;
 }
 
+export async function listPrinterConnections(
+  db: AppDatabase,
+): Promise<PrinterConnectionRecord[]> {
+  const rows = await db
+    .select()
+    .from(printerConnections)
+    .orderBy(printerConnections.createdAt);
+
+  return rows.map(mapPrinterConnection);
+}
+
+export async function getPrinterConnectionById(
+  db: AppDatabase,
+  connectionId: string,
+): Promise<PrinterConnectionRecord | undefined> {
+  const row = await db.query.printerConnections.findFirst({
+    where: eq(printerConnections.id, connectionId),
+  });
+
+  return row ? mapPrinterConnection(row) : undefined;
+}
+
+export async function getPrinterConnectionBySerial(
+  db: AppDatabase,
+  serial: string,
+): Promise<PrinterConnectionRecord | undefined> {
+  const row = await db.query.printerConnections.findFirst({
+    where: eq(printerConnections.serial, serial.trim().toUpperCase()),
+  });
+
+  return row ? mapPrinterConnection(row) : undefined;
+}
+
+export async function createPrinterConnection(
+  db: AppDatabase,
+  input: CreatePrinterConnectionInput,
+): Promise<PrinterConnectionRecord> {
+  const timestamp = nowIso();
+  const row: typeof printerConnections.$inferInsert = {
+    id: randomUUID(),
+    provider: "bambu-lan",
+    name: input.name.trim(),
+    model: input.model.trim(),
+    host: input.host.trim(),
+    serial: input.serial.trim().toUpperCase(),
+    accessCode: input.accessCode,
+    connectionStatus: input.connectionStatus,
+    lastTestedAt: input.lastTestedAt,
+    lastSeenAt: input.connectionStatus === "online" ? input.lastTestedAt : null,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  await db.insert(printerConnections).values(row);
+
+  return mapPrinterConnection(row as typeof printerConnections.$inferSelect);
+}
+
 export async function getAppearance(
   db: AppDatabase,
-  userId: string
+  userId: string,
 ): Promise<AppearanceSettings> {
   const row = await db.query.userPreferences.findFirst({
-    where: eq(userPreferences.userId, userId)
+    where: eq(userPreferences.userId, userId),
   });
 
   return mapAppearance(row);
@@ -273,7 +393,7 @@ export async function getAppearance(
 export async function upsertAppearance(
   db: AppDatabase,
   userId: string,
-  appearance: AppearanceSettings
+  appearance: AppearanceSettings,
 ): Promise<AppearanceSettings> {
   const updatedAt = nowIso();
   await db
@@ -281,14 +401,14 @@ export async function upsertAppearance(
     .values({
       userId,
       ...appearance,
-      updatedAt
+      updatedAt,
     })
     .onConflictDoUpdate({
       target: userPreferences.userId,
       set: {
         ...appearance,
-        updatedAt
-      }
+        updatedAt,
+      },
     });
 
   return appearance;
@@ -297,7 +417,7 @@ export async function upsertAppearance(
 export async function createInvite(
   db: AppDatabase,
   baseUrl: string,
-  input: CreateInviteInput
+  input: CreateInviteInput,
 ): Promise<InviteRecord> {
   const row: typeof invites.$inferInsert = {
     id: randomUUID(),
@@ -307,7 +427,7 @@ export async function createInvite(
     createdByUserId: input.createdByUserId,
     createdAt: nowIso(),
     expiresAt: input.expiresAt,
-    usedAt: null
+    usedAt: null,
   };
 
   await db.insert(invites).values(row);
@@ -320,13 +440,13 @@ export async function createInvite(
     expiresAt: row.expiresAt,
     usedAt: row.usedAt ?? null,
     createdBy: row.createdByUserId,
-    inviteUrl: `${baseUrl.replace(/\/$/, "")}/auth/invite/${row.id}`
+    inviteUrl: `${baseUrl.replace(/\/$/, "")}/auth/invite/${row.id}`,
   };
 }
 
 export async function listInvites(
   db: AppDatabase,
-  baseUrl: string
+  baseUrl: string,
 ): Promise<InviteRecord[]> {
   const rows = await db.select().from(invites).orderBy(desc(invites.createdAt));
 
@@ -338,36 +458,33 @@ export async function listInvites(
     expiresAt: row.expiresAt,
     usedAt: row.usedAt ?? null,
     createdBy: row.createdByUserId,
-    inviteUrl: `${baseUrl.replace(/\/$/, "")}/auth/invite/${row.id}`
+    inviteUrl: `${baseUrl.replace(/\/$/, "")}/auth/invite/${row.id}`,
   }));
 }
 
 export async function findInviteById(
   db: AppDatabase,
-  inviteId: string
-): Promise<(typeof invites.$inferSelect) | undefined> {
+  inviteId: string,
+): Promise<typeof invites.$inferSelect | undefined> {
   return db.query.invites.findFirst({
-    where: eq(invites.id, inviteId)
+    where: eq(invites.id, inviteId),
   });
 }
 
 export async function findActiveInviteByTokenHash(
   db: AppDatabase,
-  tokenHash: string
-): Promise<(typeof invites.$inferSelect) | undefined> {
+  tokenHash: string,
+): Promise<typeof invites.$inferSelect | undefined> {
   const now = nowIso();
 
   return db.query.invites.findFirst({
-    where: and(
-      eq(invites.tokenHash, tokenHash),
-      gt(invites.expiresAt, now)
-    )
+    where: and(eq(invites.tokenHash, tokenHash), gt(invites.expiresAt, now)),
   });
 }
 
 export async function markInviteUsed(
   db: AppDatabase,
-  inviteId: string
+  inviteId: string,
 ): Promise<void> {
   await db
     .update(invites)
@@ -377,7 +494,7 @@ export async function markInviteUsed(
 
 export async function createSession(
   db: AppDatabase,
-  input: CreateSessionInput
+  input: CreateSessionInput,
 ): Promise<void> {
   const timestamp = nowIso();
   await db.insert(sessions).values({
@@ -386,24 +503,24 @@ export async function createSession(
     tokenHash: input.tokenHash,
     createdAt: timestamp,
     expiresAt: input.expiresAt,
-    lastSeenAt: timestamp
+    lastSeenAt: timestamp,
   });
 }
 
 export async function getSessionByTokenHash(
   db: AppDatabase,
-  tokenHash: string
-): Promise<(typeof sessions.$inferSelect) | undefined> {
+  tokenHash: string,
+): Promise<typeof sessions.$inferSelect | undefined> {
   const now = nowIso();
 
   return db.query.sessions.findFirst({
-    where: and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, now))
+    where: and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, now)),
   });
 }
 
 export async function touchSession(
   db: AppDatabase,
-  sessionId: string
+  sessionId: string,
 ): Promise<void> {
   await db
     .update(sessions)
@@ -413,7 +530,7 @@ export async function touchSession(
 
 export async function deleteSessionByTokenHash(
   db: AppDatabase,
-  tokenHash: string
+  tokenHash: string,
 ): Promise<void> {
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
 }

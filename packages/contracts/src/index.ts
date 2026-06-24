@@ -105,6 +105,50 @@ export interface PrinterDetail extends PrinterSummary {
   selectedCameraFeedId: string;
 }
 
+export type PrinterConnectionProvider = "bambu-lan";
+
+export type PrinterConnectionStatus = "online" | "offline" | "unverified";
+
+export interface PrinterConnectionRecord {
+  id: string;
+  provider: PrinterConnectionProvider;
+  name: string;
+  model: string;
+  host: string;
+  serial: string;
+  accessCodeSet: boolean;
+  connectionStatus: PrinterConnectionStatus;
+  lastTestedAt: string | null;
+  lastSeenAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BambuPrinterConnectionInput {
+  name: string;
+  model: string;
+  host: string;
+  serial: string;
+  accessCode: string;
+}
+
+export interface PrinterConnectionCheck {
+  detail: string;
+  label: string;
+  latencyMs: number | null;
+  status: "passed" | "failed" | "skipped";
+}
+
+export interface BambuConnectionTestResult {
+  checkedAt: string;
+  checks: {
+    cameraStream: PrinterConnectionCheck;
+    lanControl: PrinterConnectionCheck;
+  };
+  message: string;
+  reachable: boolean;
+}
+
 export interface FleetOverview {
   stats: FleetStats;
   printers: PrinterSummary[];

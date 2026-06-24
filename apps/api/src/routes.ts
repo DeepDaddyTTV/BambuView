@@ -1,8 +1,14 @@
 import { z } from "zod";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
-import type { AppearanceSettings, AuthSession, UserProfile } from "@bambuview/contracts";
+import type {
+  AppearanceSettings,
+  AuthSession,
+  BambuPrinterConnectionInput,
+  UserProfile,
+} from "@bambuview/contracts";
 
+import { testBambuLanConnection } from "./bambu.js";
 import {
   clearSessionCookie,
   createAuthenticatedSession,
@@ -11,53 +17,60 @@ import {
   getSessionContext,
   hashPassword,
   hashToken,
-  verifyPassword
+  verifyPassword,
 } from "./auth.js";
 import type { AppConfig } from "./config.js";
 import {
   countAdmins,
   countUsers,
   createInvite,
+  createPrinterConnection,
   createUser,
   findActiveInviteByTokenHash,
   findInviteById,
   getAppearance,
+  getPrinterConnectionBySerial,
   getUserByEmail,
   getUserById,
   listInvites,
+  listPrinterConnections,
   listUsers,
   markInviteUsed,
   type AppDatabase,
   upsertAppearance,
-  updateUserRole
+  updateUserRole,
 } from "./db.js";
-import type { CameraProvider, PrinterProvider, SliceProvider } from "./providers.js";
+import type {
+  CameraProvider,
+  PrinterProvider,
+  SliceProvider,
+} from "./providers.js";
 
 const bootstrapSchema = z.object({
   email: z.email(),
   name: z.string().trim().min(2),
-  password: z.string().min(8)
+  password: z.string().min(8),
 });
 
 const loginSchema = z.object({
   email: z.email(),
-  password: z.string().min(8)
+  password: z.string().min(8),
 });
 
 const registerSchema = z.object({
   inviteId: z.uuid(),
   inviteToken: z.string().min(24),
   name: z.string().trim().min(2),
-  password: z.string().min(8)
+  password: z.string().min(8),
 });
 
 const inviteSchema = z.object({
   email: z.email(),
-  role: z.enum(["admin", "operator", "viewer"])
+  role: z.enum(["admin", "operator", "viewer"]),
 });
 
 const roleSchema = z.object({
-  role: z.enum(["admin", "operator", "viewer"])
+  role: z.enum(["admin", "operator", "viewer"]),
 });
 
 const appearanceSchema = z.object({
@@ -66,7 +79,22 @@ const appearanceSchema = z.object({
   darkBackground: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   lightHighlight: z.string().regex(/^#[0-9a-fA-F]{6}$/),
   lightBackground: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  backgroundStyle: z.enum(["topo", "two-tone", "blueprint", "sweep", "plain"])
+  backgroundStyle: z.enum(["topo", "two-tone", "blueprint", "sweep", "plain"]),
+});
+
+const bambuPrinterSchema = z.object({
+  accessCode: z.string().trim().min(4).max(128),
+  host: z
+    .string()
+    .trim()
+    .min(1)
+    .max(255)
+    .refine((value) => !value.includes("://") && !/\s/.test(value), {
+      message: "Enter a hostname or IP address without a protocol.",
+    }),
+  model: z.string().trim().min(2).max(80),
+  name: z.string().trim().min(2).max(80),
+  serial: z.string().trim().min(4).max(80),
 });
 
 interface RouteDependencies {
@@ -77,23 +105,24 @@ interface RouteDependencies {
   sliceProvider: SliceProvider;
 }
 
-type SessionLike =
-  | {
-      appearance: AppearanceSettings;
-      user: Pick<UserProfile, "createdAt" | "email" | "id" | "name" | "role" | "status">;
-    }
-  | null;
+type SessionLike = {
+  appearance: AppearanceSettings;
+  user: Pick<
+    UserProfile,
+    "createdAt" | "email" | "id" | "name" | "role" | "status"
+  >;
+} | null;
 
 function buildSessionResponse(
   session: SessionLike,
-  bootstrapRequired: boolean
+  bootstrapRequired: boolean,
 ): AuthSession {
   if (!session) {
     return {
       authenticated: false,
       bootstrapRequired,
       user: null,
-      appearance: null
+      appearance: null,
     };
   }
 
@@ -106,18 +135,22 @@ function buildSessionResponse(
       name: session.user.name,
       role: session.user.role,
       status: session.user.status,
-      createdAt: session.user.createdAt
+      createdAt: session.user.createdAt,
     },
-    appearance: session.appearance
+    appearance: session.appearance,
   };
 }
 
 async function requireSession(
   request: FastifyRequest,
   reply: FastifyReply,
-  dependencies: RouteDependencies
+  dependencies: RouteDependencies,
 ) {
-  const session = await getSessionContext(dependencies.db, dependencies.config, request);
+  const session = await getSessionContext(
+    dependencies.db,
+    dependencies.config,
+    request,
+  );
   if (!session) {
     clearSessionCookie(reply, dependencies.config);
     return reply.code(401).send({ message: "Authentication required." });
@@ -129,7 +162,7 @@ async function requireSession(
 async function requireAdmin(
   request: FastifyRequest,
   reply: FastifyReply,
-  dependencies: RouteDependencies
+  dependencies: RouteDependencies,
 ) {
   const session = await requireSession(request, reply, dependencies);
   if (!session || "statusCode" in session) {
@@ -145,15 +178,19 @@ async function requireAdmin(
 
 export async function registerRoutes(
   app: FastifyInstance,
-  dependencies: RouteDependencies
+  dependencies: RouteDependencies,
 ): Promise<void> {
   app.get("/api/health", async () => ({
-    ok: true
+    ok: true,
   }));
 
   app.get("/api/auth/session", async (request, reply) => {
     const bootstrapRequired = (await countUsers(dependencies.db)) === 0;
-    const session = await getSessionContext(dependencies.db, dependencies.config, request);
+    const session = await getSessionContext(
+      dependencies.db,
+      dependencies.config,
+      request,
+    );
     if (!session) {
       clearSessionCookie(reply, dependencies.config);
     }
@@ -163,7 +200,9 @@ export async function registerRoutes(
 
   app.post("/api/auth/bootstrap", async (request, reply) => {
     if ((await countUsers(dependencies.db)) > 0) {
-      return reply.code(409).send({ message: "Bootstrap has already been completed." });
+      return reply
+        .code(409)
+        .send({ message: "Bootstrap has already been completed." });
     }
 
     const body = bootstrapSchema.parse(request.body);
@@ -176,23 +215,23 @@ export async function registerRoutes(
       email: body.email,
       name: body.name,
       passwordHash: hashPassword(body.password),
-      role: "admin"
+      role: "admin",
     });
 
     await createAuthenticatedSession(
       dependencies.db,
       dependencies.config,
       reply,
-      user.id
+      user.id,
     );
 
     const appearance = await getAppearance(dependencies.db, user.id);
     return buildSessionResponse(
       {
         user,
-        appearance
+        appearance,
       },
-      false
+      false,
     );
   });
 
@@ -208,21 +247,23 @@ export async function registerRoutes(
       dependencies.db,
       dependencies.config,
       reply,
-      user.id
+      user.id,
     );
 
     return buildSessionResponse(
       {
         user,
-        appearance: await getAppearance(dependencies.db, user.id)
+        appearance: await getAppearance(dependencies.db, user.id),
       },
-      false
+      false,
     );
   });
 
   app.post("/api/auth/register", async (request, reply) => {
     if ((await countUsers(dependencies.db)) === 0) {
-      return reply.code(409).send({ message: "Complete bootstrap before registering invited users." });
+      return reply.code(409).send({
+        message: "Complete bootstrap before registering invited users.",
+      });
     }
 
     const body = registerSchema.parse(request.body);
@@ -232,7 +273,9 @@ export async function registerRoutes(
     }
 
     if (invite.usedAt) {
-      return reply.code(409).send({ message: "That invite has already been used." });
+      return reply
+        .code(409)
+        .send({ message: "That invite has already been used." });
     }
 
     if (new Date(invite.expiresAt).getTime() <= Date.now()) {
@@ -241,7 +284,7 @@ export async function registerRoutes(
 
     const activeInvite = await findActiveInviteByTokenHash(
       dependencies.db,
-      hashToken(body.inviteToken)
+      hashToken(body.inviteToken),
     );
     if (!activeInvite || activeInvite.id !== invite.id) {
       return reply.code(401).send({ message: "Invite token is invalid." });
@@ -249,14 +292,16 @@ export async function registerRoutes(
 
     const existing = await getUserByEmail(dependencies.db, invite.email);
     if (existing) {
-      return reply.code(409).send({ message: "That invited email is already registered." });
+      return reply
+        .code(409)
+        .send({ message: "That invited email is already registered." });
     }
 
     const user = await createUser(dependencies.db, {
       email: invite.email,
       name: body.name,
       passwordHash: hashPassword(body.password),
-      role: invite.role
+      role: invite.role,
     });
 
     await markInviteUsed(dependencies.db, invite.id);
@@ -264,15 +309,15 @@ export async function registerRoutes(
       dependencies.db,
       dependencies.config,
       reply,
-      user.id
+      user.id,
     );
 
     return buildSessionResponse(
       {
         user,
-        appearance: await getAppearance(dependencies.db, user.id)
+        appearance: await getAppearance(dependencies.db, user.id),
       },
-      false
+      false,
     );
   });
 
@@ -290,7 +335,7 @@ export async function registerRoutes(
 
     return {
       currentUserId: session.user.id,
-      users: await listUsers(dependencies.db)
+      users: await listUsers(dependencies.db),
     };
   });
 
@@ -301,7 +346,10 @@ export async function registerRoutes(
     }
 
     return {
-      invites: await listInvites(dependencies.db, dependencies.config.appOrigin)
+      invites: await listInvites(
+        dependencies.db,
+        dependencies.config.appOrigin,
+      ),
     };
   });
 
@@ -314,21 +362,29 @@ export async function registerRoutes(
     const body = inviteSchema.parse(request.body);
     const existing = await getUserByEmail(dependencies.db, body.email);
     if (existing) {
-      return reply.code(409).send({ message: "That email already belongs to a user." });
+      return reply
+        .code(409)
+        .send({ message: "That email already belongs to a user." });
     }
 
-    const token = hashPassword(`${body.email}:${Date.now()}`).replace(/:/g, "").slice(0, 32);
-    const invite = await createInvite(dependencies.db, dependencies.config.appOrigin, {
-      email: body.email,
-      role: body.role,
-      tokenHash: hashToken(token),
-      expiresAt: getExpiry(7),
-      createdByUserId: session.user.id
-    });
+    const token = hashPassword(`${body.email}:${Date.now()}`)
+      .replace(/:/g, "")
+      .slice(0, 32);
+    const invite = await createInvite(
+      dependencies.db,
+      dependencies.config.appOrigin,
+      {
+        email: body.email,
+        role: body.role,
+        tokenHash: hashToken(token),
+        expiresAt: getExpiry(7),
+        createdByUserId: session.user.id,
+      },
+    );
 
     return reply.code(201).send({
       invite,
-      inviteToken: token
+      inviteToken: token,
     });
   });
 
@@ -349,13 +405,15 @@ export async function registerRoutes(
     if (target.role === "admin" && body.role !== "admin") {
       const adminCount = await countAdmins(dependencies.db);
       if (adminCount <= 1) {
-        return reply.code(409).send({ message: "You must keep at least one admin account." });
+        return reply
+          .code(409)
+          .send({ message: "You must keep at least one admin account." });
       }
     }
 
     const updated = await updateUserRole(dependencies.db, target.id, body.role);
     return {
-      user: updated
+      user: updated,
     };
   });
 
@@ -366,7 +424,7 @@ export async function registerRoutes(
     }
 
     return {
-      appearance: await getAppearance(dependencies.db, session.user.id)
+      appearance: await getAppearance(dependencies.db, session.user.id),
     };
   });
 
@@ -377,11 +435,73 @@ export async function registerRoutes(
     }
 
     const body: AppearanceSettings = appearanceSchema.parse(request.body);
-    const appearance = await upsertAppearance(dependencies.db, session.user.id, body);
+    const appearance = await upsertAppearance(
+      dependencies.db,
+      session.user.id,
+      body,
+    );
 
     return {
-      appearance
+      appearance,
     };
+  });
+
+  app.get("/api/printers/connections", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    return {
+      printers: await listPrinterConnections(dependencies.db),
+    };
+  });
+
+  app.post("/api/printers/bambu/test", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const body: BambuPrinterConnectionInput = bambuPrinterSchema.parse(
+      request.body,
+    );
+
+    return {
+      test: await testBambuLanConnection(body),
+    };
+  });
+
+  app.post("/api/printers/bambu", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const body: BambuPrinterConnectionInput = bambuPrinterSchema.parse(
+      request.body,
+    );
+    const existing = await getPrinterConnectionBySerial(
+      dependencies.db,
+      body.serial,
+    );
+    if (existing) {
+      return reply
+        .code(409)
+        .send({ message: "That printer serial is already connected." });
+    }
+
+    const test = await testBambuLanConnection(body);
+    const printer = await createPrinterConnection(dependencies.db, {
+      ...body,
+      connectionStatus: test.reachable ? "online" : "offline",
+      lastTestedAt: test.checkedAt,
+    });
+
+    return reply.code(201).send({
+      printer,
+      test,
+    });
   });
 
   app.get("/api/fleet/overview", async (request, reply) => {
@@ -400,7 +520,9 @@ export async function registerRoutes(
     }
 
     const params = z.object({ id: z.string().min(1) }).parse(request.params);
-    const printer = await dependencies.printerProvider.getPrinterDetail(params.id);
+    const printer = await dependencies.printerProvider.getPrinterDetail(
+      params.id,
+    );
     if (!printer) {
       return reply.code(404).send({ message: "Printer not found." });
     }

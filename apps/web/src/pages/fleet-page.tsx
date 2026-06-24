@@ -30,13 +30,28 @@ import {
   SunMedium,
   Thermometer,
   Users2,
-  X
+  X,
 } from "lucide-react";
-import { startTransition, useDeferredValue, useEffect, useState, type KeyboardEvent } from "react";
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { Link, NavLink } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import type { FleetOverview, PrinterDetail, PrinterSummary, UserProfile } from "@bambuview/contracts";
+import type {
+  BambuConnectionTestResult,
+  BambuPrinterConnectionInput,
+  FleetOverview,
+  PrinterConnectionRecord,
+  PrinterDetail,
+  PrinterSummary,
+  UserProfile,
+} from "@bambuview/contracts";
 
 import { useAppearance } from "../app/appearance";
 import { APP_VERSION } from "../app/version";
@@ -49,21 +64,27 @@ const navigationItems = [
   { icon: FileCode2, label: "Prepare & Slice", to: "/prepare" },
   { icon: Camera, label: "Cameras", to: "/cameras" },
   { icon: Users2, label: "Users", to: "/users" },
-  { icon: Settings, label: "Settings", to: "/settings" }
+  { icon: Settings, label: "Settings", to: "/settings" },
 ] as const;
 
 const scopeOptions = [
   ["all", "All"],
   ["printers", "Printers"],
   ["farms", "Farms"],
-  ["offline", "Offline"]
+  ["offline", "Offline"],
 ] as const;
 
-const detailTabs = ["Overview", "Jobs", "History", "Maintenance", "Config"] as const;
+const detailTabs = [
+  "Overview",
+  "Jobs",
+  "History",
+  "Maintenance",
+  "Config",
+] as const;
 const controlTabs = [
   ["printer-parts", "Printer Parts"],
   ["print-options", "Print Options"],
-  ["calibration", "Calibration"]
+  ["calibration", "Calibration"],
 ] as const;
 
 function initials(name: string) {
@@ -81,7 +102,7 @@ function printerTone(printer: Pick<PrinterSummary, "status">) {
     return {
       dotClass: "fleet-console-dot--amber",
       progressClass: "fleet-console-meter__bar--amber",
-      textClass: "fleet-console-text--amber"
+      textClass: "fleet-console-text--amber",
     };
   }
 
@@ -89,7 +110,7 @@ function printerTone(printer: Pick<PrinterSummary, "status">) {
     return {
       dotClass: "fleet-console-dot--blue",
       progressClass: "fleet-console-meter__bar--blue",
-      textClass: "fleet-console-text--blue"
+      textClass: "fleet-console-text--blue",
     };
   }
 
@@ -97,14 +118,14 @@ function printerTone(printer: Pick<PrinterSummary, "status">) {
     return {
       dotClass: "fleet-console-dot--red",
       progressClass: "fleet-console-meter__bar--muted",
-      textClass: "fleet-console-text--muted"
+      textClass: "fleet-console-text--muted",
     };
   }
 
   return {
     dotClass: "fleet-console-dot--green",
     progressClass: "fleet-console-meter__bar--green",
-    textClass: "fleet-console-text--green"
+    textClass: "fleet-console-text--green",
   };
 }
 
@@ -114,7 +135,7 @@ function slotMetrics(printer: PrinterDetail, index: number) {
       { weight: "612g", percent: 72 },
       { weight: "411g", percent: 51 },
       { weight: "256g", percent: 32 },
-      { weight: "812g", percent: 90 }
+      { weight: "812g", percent: 90 },
     ][index];
   }
 
@@ -123,7 +144,7 @@ function slotMetrics(printer: PrinterDetail, index: number) {
       { weight: "812g", percent: 90 },
       { weight: "480g", percent: 52 },
       { weight: "198g", percent: 24 },
-      { weight: "126g", percent: 14 }
+      { weight: "126g", percent: 14 },
     ][index];
   }
 
@@ -132,7 +153,7 @@ function slotMetrics(printer: PrinterDetail, index: number) {
       { weight: "12", percent: 100 },
       { weight: "8", percent: 68 },
       { weight: "6", percent: 51 },
-      { weight: "4", percent: 34 }
+      { weight: "4", percent: 34 },
     ][index];
   }
 
@@ -140,7 +161,7 @@ function slotMetrics(printer: PrinterDetail, index: number) {
     { weight: "428g", percent: 63 },
     { weight: "311g", percent: 46 },
     { weight: "198g", percent: 31 },
-    { weight: "612g", percent: 76 }
+    { weight: "612g", percent: 76 },
   ][index];
 }
 
@@ -161,19 +182,23 @@ function fanMetrics(printer: PrinterDetail) {
 }
 
 function previewColor(printer: Pick<PrinterSummary, "slots">) {
-  return printer.slots.find((slot) => slot.active)?.color ?? printer.slots[0]?.color;
+  return (
+    printer.slots.find((slot) => slot.active)?.color ?? printer.slots[0]?.color
+  );
 }
 
 function FleetPreview({
   printer,
-  large = false
+  large = false,
 }: {
   large?: boolean;
   printer: PrinterSummary;
 }) {
   if (printer.status === "offline") {
     return (
-      <div className={`fleet-console-preview ${large ? "fleet-console-preview--large" : ""}`}>
+      <div
+        className={`fleet-console-preview ${large ? "fleet-console-preview--large" : ""}`}
+      >
         <div className="fleet-console-preview__offline">
           <Ban className="h-10 w-10" />
         </div>
@@ -182,7 +207,9 @@ function FleetPreview({
   }
 
   return (
-    <div className={`fleet-console-preview ${large ? "fleet-console-preview--large" : ""}`}>
+    <div
+      className={`fleet-console-preview ${large ? "fleet-console-preview--large" : ""}`}
+    >
       <PrinterPreviewArt
         className="h-full w-full"
         kind={printer.previewKind}
@@ -202,16 +229,18 @@ function ModeToggle() {
 
     await updateAppearance({
       ...appearance,
-      mode
+      mode,
     });
   }
 
   return (
     <div className="fleet-console-toolbar__group">
-      {([
-        { icon: Moon, key: "dark", label: "Dark" },
-        { icon: SunMedium, key: "light", label: "Light" }
-      ] as const).map((mode) => (
+      {(
+        [
+          { icon: Moon, key: "dark", label: "Dark" },
+          { icon: SunMedium, key: "light", label: "Light" },
+        ] as const
+      ).map((mode) => (
         <button
           className={`fleet-console-toolbar__mode ${appearance.mode === mode.key ? "fleet-console-toolbar__mode--active" : ""}`}
           key={mode.key}
@@ -230,28 +259,38 @@ function ModeToggle() {
 
 function SidebarCard({
   children,
-  compact = false
+  compact = false,
 }: {
   children: React.ReactNode;
   compact?: boolean;
 }) {
   return (
-    <section className={`fleet-console-sidebar-card ${compact ? "fleet-console-sidebar-card--compact" : ""}`}>
+    <section
+      className={`fleet-console-sidebar-card ${compact ? "fleet-console-sidebar-card--compact" : ""}`}
+    >
       {children}
     </section>
   );
 }
 
-function FleetStats({
-  overview
-}: {
-  overview: FleetOverview;
-}) {
+function FleetStats({ overview }: { overview: FleetOverview }) {
   const items = [
     { label: "PRINTERS", value: overview.stats.printers, sublabel: "Online" },
-    { label: "ACTIVE PRINTS", value: overview.stats.activePrints, sublabel: "Printing" },
-    { label: "COMPLETED", value: overview.stats.completedToday, sublabel: "Today" },
-    { label: "FARM GROUPS", value: overview.stats.farmGroups, sublabel: "Online" }
+    {
+      label: "ACTIVE PRINTS",
+      value: overview.stats.activePrints,
+      sublabel: "Printing",
+    },
+    {
+      label: "COMPLETED",
+      value: overview.stats.completedToday,
+      sublabel: "Today",
+    },
+    {
+      label: "FARM GROUPS",
+      value: overview.stats.farmGroups,
+      sublabel: "Online",
+    },
   ];
 
   return (
@@ -273,7 +312,7 @@ function FleetStats({
 function StandardPrinterCard({
   isSelected,
   onSelect,
-  printer
+  printer,
 }: {
   isSelected: boolean;
   onSelect: () => void;
@@ -309,26 +348,38 @@ function StandardPrinterCard({
           </div>
         </div>
         <div className="fleet-console-card__actions">
-          {printer.id === "x1-carbon-office" ? <Star className="h-4 w-4" /> : null}
+          {printer.id === "x1-carbon-office" ? (
+            <Star className="h-4 w-4" />
+          ) : null}
           <Camera className="h-4 w-4" />
           <span className={`fleet-console-dot ${tone.dotClass}`} />
         </div>
       </div>
 
-      <div className={`fleet-console-card__content ${printer.status === "offline" ? "fleet-console-card__content--offline" : ""}`}>
+      <div
+        className={`fleet-console-card__content ${printer.status === "offline" ? "fleet-console-card__content--offline" : ""}`}
+      >
         <FleetPreview printer={printer} />
 
         {printer.status === "offline" ? (
           <div className="fleet-console-card__offline-copy">
-            <div className="fleet-console-card__offline-title">Printer is offline</div>
-            <div className="fleet-console-card__offline-body">Check the connection and power.</div>
+            <div className="fleet-console-card__offline-title">
+              Printer is offline
+            </div>
+            <div className="fleet-console-card__offline-body">
+              Check the connection and power.
+            </div>
           </div>
         ) : printer.status === "idle" ? (
           <div className="fleet-console-card__idle-copy">
             <div className="fleet-console-card__idle-topline">
               <div className="fleet-console-card__idle-body">
-                <div className="fleet-console-card__idle-title">No active print</div>
-                <div className="fleet-console-card__idle-subtitle">Send a print job to get started.</div>
+                <div className="fleet-console-card__idle-title">
+                  No active print
+                </div>
+                <div className="fleet-console-card__idle-subtitle">
+                  Send a print job to get started.
+                </div>
               </div>
               <div className="fleet-console-card__time">
                 <div>Idle</div>
@@ -343,12 +394,17 @@ function StandardPrinterCard({
               <span>{printer.materialColor}</span>
             </div>
             <div className="fleet-console-meter">
-              <div className={`fleet-console-meter__bar ${tone.progressClass}`} style={{ width: "14%" }} />
+              <div
+                className={`fleet-console-meter__bar ${tone.progressClass}`}
+                style={{ width: "14%" }}
+              />
             </div>
           </div>
         ) : (
           <div className="fleet-console-card__metrics">
-            <div className={`fleet-console-card__percent ${tone.textClass}`}>{printer.progress}%</div>
+            <div className={`fleet-console-card__percent ${tone.textClass}`}>
+              {printer.progress}%
+            </div>
             <div className="fleet-console-card__time">
               <div>{printer.elapsed}</div>
               <div>{printer.eta}</div>
@@ -372,12 +428,17 @@ function StandardPrinterCard({
       </div>
 
       <div className="fleet-console-card__footer">
-        <div className="fleet-console-card__footer-material">{printer.material}</div>
+        <div className="fleet-console-card__footer-material">
+          {printer.material}
+        </div>
         <div className="fleet-console-card__slot-row">
           {printer.slots.map((slot) => (
             <span className="fleet-console-card__slot-chip" key={slot.slot}>
               <span>{slot.label}</span>
-              <span className="fleet-console-card__slot-swatch" style={{ backgroundColor: slot.color }} />
+              <span
+                className="fleet-console-card__slot-swatch"
+                style={{ backgroundColor: slot.color }}
+              />
             </span>
           ))}
         </div>
@@ -392,7 +453,7 @@ function StandardPrinterCard({
 function FarmCard({
   isSelected,
   onSelect,
-  printer
+  printer,
 }: {
   isSelected: boolean;
   onSelect: () => void;
@@ -421,7 +482,9 @@ function FarmCard({
         <div className="fleet-console-card__title-row">
           <div>
             <h3>{printer.name}</h3>
-            <div className="fleet-console-card__status fleet-console-text--green">4 Printers • 2 Printing</div>
+            <div className="fleet-console-card__status fleet-console-text--green">
+              4 Printers • 2 Printing
+            </div>
           </div>
         </div>
         <div className="fleet-console-card__actions">
@@ -444,22 +507,35 @@ function FarmCard({
           <div className="fleet-console-card__farm-jobs">
             <span>Active Jobs</span>
             <div>
-              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--green">2 Printing</span>
-              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--amber">1 Paused</span>
-              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--muted">1 Idle</span>
-              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--red">0 Offline</span>
+              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--green">
+                2 Printing
+              </span>
+              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--amber">
+                1 Paused
+              </span>
+              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--muted">
+                1 Idle
+              </span>
+              <span className="fleet-console-card__farm-pill fleet-console-card__farm-pill--red">
+                0 Offline
+              </span>
             </div>
           </div>
         </div>
       </div>
 
       <div className="fleet-console-card__footer">
-        <div className="fleet-console-card__footer-material">{printer.material}</div>
+        <div className="fleet-console-card__footer-material">
+          {printer.material}
+        </div>
         <div className="fleet-console-card__slot-row">
           {printer.slots.map((slot) => (
             <span className="fleet-console-card__slot-chip" key={slot.slot}>
               <span>{slot.label}</span>
-              <span className="fleet-console-card__slot-swatch" style={{ backgroundColor: slot.color }} />
+              <span
+                className="fleet-console-card__slot-swatch"
+                style={{ backgroundColor: slot.color }}
+              />
             </span>
           ))}
         </div>
@@ -483,19 +559,266 @@ function FleetCard(props: {
   return <StandardPrinterCard {...props} />;
 }
 
-function AddCard() {
+const bambuModelOptions = [
+  "X1 Carbon",
+  "X1E",
+  "P1S",
+  "P1P",
+  "A1",
+  "A1 Mini",
+] as const;
+
+function AddCard({ onClick }: { onClick: () => void }) {
   return (
-    <button className="fleet-console-add-card" type="button">
+    <button className="fleet-console-add-card" onClick={onClick} type="button">
       <div className="fleet-console-add-card__icon">
         <Plus className="h-7 w-7" />
       </div>
       <div>
         <div className="fleet-console-add-card__title">Add Printer or Farm</div>
         <div className="fleet-console-add-card__copy">
-          Connect a Bambu Lab printer or create a farm to manage multiple printers.
+          Connect a Bambu Lab printer or create a farm to manage multiple
+          printers.
         </div>
       </div>
     </button>
+  );
+}
+
+function AddPrinterDialog({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void;
+  onSaved: (printerId: string) => void;
+}) {
+  const queryClient = useQueryClient();
+  const [form, setForm] = useState<BambuPrinterConnectionInput>({
+    accessCode: "",
+    host: "",
+    model: "X1 Carbon",
+    name: "",
+    serial: "",
+  });
+  const [testResult, setTestResult] =
+    useState<BambuConnectionTestResult | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const testMutation = useMutation({
+    mutationFn: (payload: BambuPrinterConnectionInput) =>
+      apiFetch<{ test: BambuConnectionTestResult }>(
+        "/api/printers/bambu/test",
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        },
+      ),
+  });
+  const saveMutation = useMutation({
+    mutationFn: (payload: BambuPrinterConnectionInput) =>
+      apiFetch<{
+        printer: PrinterConnectionRecord;
+        test: BambuConnectionTestResult;
+      }>("/api/printers/bambu", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      }),
+  });
+
+  function updateField(
+    field: keyof BambuPrinterConnectionInput,
+    value: string,
+  ) {
+    setErrorMessage(null);
+    setForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function invalidatePrinterData() {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["fleet-overview"] }),
+      queryClient.invalidateQueries({ queryKey: ["cameras"] }),
+      queryClient.invalidateQueries({ queryKey: ["printer-connections"] }),
+    ]);
+  }
+
+  async function testConnection() {
+    setErrorMessage(null);
+    try {
+      const response = await testMutation.mutateAsync(form);
+      setTestResult(response.test);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not test this printer.",
+      );
+    }
+  }
+
+  async function savePrinter(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage(null);
+
+    try {
+      const response = await saveMutation.mutateAsync(form);
+      setTestResult(response.test);
+      await invalidatePrinterData();
+      onSaved(response.printer.id);
+      onClose();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not save this printer.",
+      );
+    }
+  }
+
+  const isBusy = testMutation.isPending || saveMutation.isPending;
+
+  return (
+    <div className="fleet-console-modal-backdrop" role="presentation">
+      <div
+        aria-labelledby="add-bambu-printer-title"
+        aria-modal="true"
+        className="fleet-console-modal"
+        role="dialog"
+      >
+        <div className="fleet-console-modal__header">
+          <div>
+            <div className="fleet-console-modal__kicker">Bambu LAN printer</div>
+            <h2 id="add-bambu-printer-title">Add Bambu Printer</h2>
+          </div>
+          <button
+            aria-label="Close add printer dialog"
+            className="fleet-console-detail__icon-button"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <p className="fleet-console-modal__copy">
+          Add the printer from its local network details. The access code stays
+          in the local SQLite database and is never returned after saving.
+        </p>
+
+        <form className="fleet-console-printer-form" onSubmit={savePrinter}>
+          <label>
+            <span>Display name</span>
+            <input
+              onChange={(event) => updateField("name", event.target.value)}
+              placeholder="Office X1 Carbon"
+              required
+              type="text"
+              value={form.name}
+            />
+          </label>
+
+          <label>
+            <span>Model</span>
+            <select
+              onChange={(event) => updateField("model", event.target.value)}
+              value={form.model}
+            >
+              {bambuModelOptions.map((model) => (
+                <option key={model} value={model}>
+                  {model}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span>Hostname or IP</span>
+            <input
+              autoCapitalize="off"
+              autoCorrect="off"
+              onChange={(event) => updateField("host", event.target.value)}
+              placeholder="printer.local or 192.0.2.20"
+              required
+              type="text"
+              value={form.host}
+            />
+          </label>
+
+          <label>
+            <span>Serial number</span>
+            <input
+              autoCapitalize="characters"
+              autoCorrect="off"
+              onChange={(event) => updateField("serial", event.target.value)}
+              placeholder="Printer serial"
+              required
+              type="text"
+              value={form.serial}
+            />
+          </label>
+
+          <label className="fleet-console-printer-form__wide">
+            <span>LAN access code</span>
+            <input
+              autoCapitalize="off"
+              autoCorrect="off"
+              onChange={(event) =>
+                updateField("accessCode", event.target.value)
+              }
+              placeholder="Local access code"
+              required
+              type="password"
+              value={form.accessCode}
+            />
+          </label>
+
+          {testResult ? (
+            <div
+              className={`fleet-console-connection-result ${testResult.reachable ? "fleet-console-connection-result--ok" : "fleet-console-connection-result--warn"}`}
+            >
+              <div className="fleet-console-connection-result__headline">
+                {testResult.message}
+              </div>
+              {[
+                testResult.checks.lanControl,
+                testResult.checks.cameraStream,
+              ].map((check) => (
+                <div
+                  className="fleet-console-connection-result__check"
+                  key={check.label}
+                >
+                  <span>{check.label}</span>
+                  <strong>{check.status}</strong>
+                  <small>{check.detail}</small>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {errorMessage ? (
+            <div className="fleet-console-form-error">{errorMessage}</div>
+          ) : null}
+
+          <div className="fleet-console-modal__actions">
+            <button
+              className="fleet-console-controls__button"
+              disabled={isBusy}
+              onClick={() => {
+                void testConnection();
+              }}
+              type="button"
+            >
+              Test Connection
+            </button>
+            <button
+              className="fleet-console-controls__button fleet-console-controls__button--primary"
+              disabled={isBusy}
+              type="submit"
+            >
+              Save Printer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
@@ -512,7 +835,7 @@ function FocusControlDeck({
   setControlTab,
   setFanPower,
   setLampEnabled,
-  setSelectedSlot
+  setSelectedSlot,
 }: {
   autoRefillEnabled: boolean;
   controlTab: "printer-parts" | "print-options" | "calibration";
@@ -523,7 +846,9 @@ function FocusControlDeck({
   printer: PrinterDetail;
   selectedSlot: string;
   setAutoRefillEnabled: (next: boolean) => void;
-  setControlTab: (next: "printer-parts" | "print-options" | "calibration") => void;
+  setControlTab: (
+    next: "printer-parts" | "print-options" | "calibration",
+  ) => void;
   setFanPower: (next: number) => void;
   setLampEnabled: (next: boolean) => void;
   setSelectedSlot: (next: string) => void;
@@ -550,10 +875,7 @@ function FocusControlDeck({
         <div className="grid gap-5 xl:grid-cols-[208px_1fr_116px]">
           <div className="fleet-console-focus-surface">
             {printer.temperatures.map((temperature) => (
-              <div
-                className="fleet-console-focus-temp"
-                key={temperature.label}
-              >
+              <div className="fleet-console-focus-temp" key={temperature.label}>
                 <div className="fleet-console-focus-temp__label">
                   <Thermometer className="h-4 w-4" />
                   <span>{temperature.label}</span>
@@ -593,22 +915,44 @@ function FocusControlDeck({
           </div>
 
           <div className="fleet-console-focus-surface">
-            <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Motion</div>
+            <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">
+              Motion
+            </div>
             <div className="mt-5 grid place-items-center">
               <div className="motion-pad">
-                <button className="motion-pad__home" onClick={() => onMovement("Home")} type="button">
+                <button
+                  className="motion-pad__home"
+                  onClick={() => onMovement("Home")}
+                  type="button"
+                >
                   <Move3d className="h-5 w-5" />
                 </button>
-                <button className="motion-pad__north" onClick={() => onMovement("Y +10")} type="button">
+                <button
+                  className="motion-pad__north"
+                  onClick={() => onMovement("Y +10")}
+                  type="button"
+                >
                   Y
                 </button>
-                <button className="motion-pad__south" onClick={() => onMovement("Y -10")} type="button">
+                <button
+                  className="motion-pad__south"
+                  onClick={() => onMovement("Y -10")}
+                  type="button"
+                >
                   -Y
                 </button>
-                <button className="motion-pad__west" onClick={() => onMovement("X -10")} type="button">
+                <button
+                  className="motion-pad__west"
+                  onClick={() => onMovement("X -10")}
+                  type="button"
+                >
                   -X
                 </button>
-                <button className="motion-pad__east" onClick={() => onMovement("X +10")} type="button">
+                <button
+                  className="motion-pad__east"
+                  onClick={() => onMovement("X +10")}
+                  type="button"
+                >
                   X
                 </button>
               </div>
@@ -618,7 +962,7 @@ function FocusControlDeck({
                 { icon: <ArrowUp className="h-4 w-4" />, label: "Z +10" },
                 { icon: <ArrowUp className="h-4 w-4" />, label: "Z +1" },
                 { icon: <ArrowDown className="h-4 w-4" />, label: "Bed -1" },
-                { icon: <ArrowDown className="h-4 w-4" />, label: "Bed -10" }
+                { icon: <ArrowDown className="h-4 w-4" />, label: "Bed -10" },
               ].map(({ icon, label }) => (
                 <button
                   className="fleet-console-focus-step"
@@ -631,18 +975,28 @@ function FocusControlDeck({
                 </button>
               ))}
             </div>
-            <div className="mt-4 text-sm text-zinc-500">Last command: {movementLabel}</div>
+            <div className="mt-4 text-sm text-zinc-500">
+              Last command: {movementLabel}
+            </div>
           </div>
 
           <div className="fleet-console-focus-surface fleet-console-focus-surface--extruder">
-            <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Extruder</div>
-            <button className="fleet-console-focus-extruder-button" type="button">
+            <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">
+              Extruder
+            </div>
+            <button
+              className="fleet-console-focus-extruder-button"
+              type="button"
+            >
               <ArrowUp className="h-5 w-5" />
             </button>
             <div className="fleet-console-focus-extruder-core">
               <Flame className="h-6 w-6" />
             </div>
-            <button className="fleet-console-focus-extruder-button" type="button">
+            <button
+              className="fleet-console-focus-extruder-button"
+              type="button"
+            >
               <ArrowDown className="h-5 w-5" />
             </button>
           </div>
@@ -679,7 +1033,9 @@ function FocusControlDeck({
                       style={{ backgroundColor: slot.color }}
                     />
                   </div>
-                  <div className="mt-6 text-2xl font-semibold text-white">{slot.material}</div>
+                  <div className="mt-6 text-2xl font-semibold text-white">
+                    {slot.material}
+                  </div>
                   <div className="mt-2 text-sm text-zinc-300">
                     {selectedSlot === slot.slot ? "Loaded" : "Ready"}
                   </div>
@@ -688,16 +1044,27 @@ function FocusControlDeck({
             </div>
 
             <div className="fleet-console-focus-slot-detail">
-              <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Selected filament</div>
-              <div className="mt-4 text-3xl font-semibold text-white">{selectedSlot}</div>
+              <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">
+                Selected filament
+              </div>
+              <div className="mt-4 text-3xl font-semibold text-white">
+                {selectedSlot}
+              </div>
               <div className="mt-2 text-sm text-zinc-400">
-                {printer.slots.find((slot) => slot.slot === selectedSlot)?.material} spool routed to the extruder path.
+                {
+                  printer.slots.find((slot) => slot.slot === selectedSlot)
+                    ?.material
+                }{" "}
+                spool routed to the extruder path.
               </div>
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button className="fleet-console-focus-action" type="button">
                   Unload
                 </button>
-                <button className="fleet-console-focus-action fleet-console-focus-action--primary" type="button">
+                <button
+                  className="fleet-console-focus-action fleet-console-focus-action--primary"
+                  type="button"
+                >
                   Load
                 </button>
               </div>
@@ -733,7 +1100,7 @@ function FocusWorkspace({
   setFanPower,
   setLampEnabled,
   setSelectedFeedId,
-  setSelectedSlot
+  setSelectedSlot,
 }: {
   autoRefillEnabled: boolean;
   controlTab: "printer-parts" | "print-options" | "calibration";
@@ -746,7 +1113,9 @@ function FocusWorkspace({
   selectedFeedId: string;
   selectedSlot: string;
   setAutoRefillEnabled: (next: boolean) => void;
-  setControlTab: (next: "printer-parts" | "print-options" | "calibration") => void;
+  setControlTab: (
+    next: "printer-parts" | "print-options" | "calibration",
+  ) => void;
   setFanPower: (next: number) => void;
   setLampEnabled: (next: boolean) => void;
   setSelectedFeedId: (next: string) => void;
@@ -756,8 +1125,12 @@ function FocusWorkspace({
     <aside className="detail-panel detail-panel--focus">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Fullscreen printer workspace</div>
-          <h2 className="mt-2 text-[42px] font-semibold leading-none text-white">{printer.name}</h2>
+          <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">
+            Fullscreen printer workspace
+          </div>
+          <h2 className="mt-2 text-[42px] font-semibold leading-none text-white">
+            {printer.name}
+          </h2>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -789,7 +1162,9 @@ function FocusWorkspace({
                   <button
                     className={`fleet-console-camera-tabs__button ${selectedFeedId === feed.id ? "fleet-console-camera-tabs__button--active" : ""}`}
                     key={feed.id}
-                    onClick={() => startTransition(() => setSelectedFeedId(feed.id))}
+                    onClick={() =>
+                      startTransition(() => setSelectedFeedId(feed.id))
+                    }
                     type="button"
                   >
                     {feed.label}
@@ -800,7 +1175,9 @@ function FocusWorkspace({
 
             <div className="camera-stage mt-5">
               <div className="camera-stage__top">
-                <div className="text-sm text-zinc-300">{printer.cameraLabel}</div>
+                <div className="text-sm text-zinc-300">
+                  {printer.cameraLabel}
+                </div>
                 <div className="camera-stage__meta">
                   <span className="fleet-console-dot fleet-console-dot--green" />
                   <span>Live stream</span>
@@ -831,7 +1208,9 @@ function FocusWorkspace({
           </section>
 
           <section className="panel">
-            <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">Printing Progress</div>
+            <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">
+              Printing Progress
+            </div>
             <div className="mt-5 grid gap-5 lg:grid-cols-[120px_1fr]">
               <PrinterPreviewArt
                 className="h-[112px]"
@@ -841,9 +1220,13 @@ function FocusWorkspace({
               <div>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <div className="text-2xl font-semibold text-white">{printer.fileName}</div>
+                    <div className="text-2xl font-semibold text-white">
+                      {printer.fileName}
+                    </div>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
-                      <span className={printerTone(printer).textClass}>{printer.statusLabel}</span>
+                      <span className={printerTone(printer).textClass}>
+                        {printer.statusLabel}
+                      </span>
                       <span>&bull;</span>
                       <span>{printer.layer}</span>
                       <span>&bull;</span>
@@ -862,9 +1245,16 @@ function FocusWorkspace({
                   />
                 </div>
                 <div className="mt-5 flex items-center justify-between gap-3">
-                  <div className={`text-4xl font-semibold ${printerTone(printer).textClass}`}>{printer.progress}%</div>
+                  <div
+                    className={`text-4xl font-semibold ${printerTone(printer).textClass}`}
+                  >
+                    {printer.progress}%
+                  </div>
                   <div className="flex items-center gap-3">
-                    <button className="icon-button text-amber-400" type="button">
+                    <button
+                      className="icon-button text-amber-400"
+                      type="button"
+                    >
                       <Pause className="h-4 w-4" />
                     </button>
                     <button className="icon-button text-red-400" type="button">
@@ -901,19 +1291,25 @@ function DetailPanel({
   focusMode,
   onClose,
   onToggleFocus,
-  printer
+  printer,
 }: {
   focusMode: boolean;
   onClose: () => void;
   onToggleFocus: () => void;
   printer: PrinterDetail;
 }) {
-  const [selectedFeedId, setSelectedFeedId] = useState(printer.selectedCameraFeedId);
-  const [controlTab, setControlTab] = useState<"printer-parts" | "print-options" | "calibration">("printer-parts");
+  const [selectedFeedId, setSelectedFeedId] = useState(
+    printer.selectedCameraFeedId,
+  );
+  const [controlTab, setControlTab] = useState<
+    "printer-parts" | "print-options" | "calibration"
+  >("printer-parts");
   const [fanPower, setFanPower] = useState(100);
   const [lampEnabled, setLampEnabled] = useState(true);
   const [selectedSlot, setSelectedSlot] = useState(
-    printer.slots.find((slot) => slot.active)?.slot ?? printer.slots[0]?.slot ?? "A1"
+    printer.slots.find((slot) => slot.active)?.slot ??
+      printer.slots[0]?.slot ??
+      "A1",
   );
   const [autoRefillEnabled, setAutoRefillEnabled] = useState(true);
   const [movementLabel, setMovementLabel] = useState("Home");
@@ -926,7 +1322,11 @@ function DetailPanel({
       setControlTab("printer-parts");
       setFanPower(100);
       setLampEnabled(true);
-      setSelectedSlot(printer.slots.find((slot) => slot.active)?.slot ?? printer.slots[0]?.slot ?? "A1");
+      setSelectedSlot(
+        printer.slots.find((slot) => slot.active)?.slot ??
+          printer.slots[0]?.slot ??
+          "A1",
+      );
       setAutoRefillEnabled(true);
       setMovementLabel("Home");
     });
@@ -964,10 +1364,18 @@ function DetailPanel({
       <div className="fleet-console-detail__header">
         <div className="fleet-console-detail__title">{printer.name}</div>
         <div className="fleet-console-detail__actions">
-          <button className="fleet-console-detail__icon-button fleet-console-detail__icon-button--focus" onClick={onToggleFocus} type="button">
+          <button
+            className="fleet-console-detail__icon-button fleet-console-detail__icon-button--focus"
+            onClick={onToggleFocus}
+            type="button"
+          >
             <Maximize2 className="h-5 w-5" />
           </button>
-          <button className="fleet-console-detail__icon-button" onClick={onClose} type="button">
+          <button
+            className="fleet-console-detail__icon-button"
+            onClick={onClose}
+            type="button"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -994,15 +1402,33 @@ function DetailPanel({
               <span>{printer.statusLabel}</span>
             </div>
             <div className="fleet-console-status__rows">
-              <div><span>File</span><span>{printer.fileName}</span></div>
-              <div><span>Layer</span><span>{printer.layer}</span></div>
-              <div><span>Progress</span><span>{printer.progress}%</span></div>
-              <div><span>Print Time</span><span>{printer.elapsed}</span></div>
-              <div><span>ETA</span><span>{printer.eta}</span></div>
+              <div>
+                <span>File</span>
+                <span>{printer.fileName}</span>
+              </div>
+              <div>
+                <span>Layer</span>
+                <span>{printer.layer}</span>
+              </div>
+              <div>
+                <span>Progress</span>
+                <span>{printer.progress}%</span>
+              </div>
+              <div>
+                <span>Print Time</span>
+                <span>{printer.elapsed}</span>
+              </div>
+              <div>
+                <span>ETA</span>
+                <span>{printer.eta}</span>
+              </div>
             </div>
             <div className="fleet-console-status__progress">
               <div className="fleet-console-meter">
-                <div className={`fleet-console-meter__bar ${tone.progressClass}`} style={{ width: `${printer.progress}%` }} />
+                <div
+                  className={`fleet-console-meter__bar ${tone.progressClass}`}
+                  style={{ width: `${printer.progress}%` }}
+                />
               </div>
             </div>
           </div>
@@ -1014,19 +1440,38 @@ function DetailPanel({
         <div className="fleet-console-section-title">Temperatures</div>
         <div className="fleet-console-temperature-grid">
           {[
-            { label: "Nozzle", value: printer.temperatures[0]?.current ?? "—", target: printer.temperatures[0]?.target ?? "—" },
-            { label: "Bed", value: printer.temperatures[1]?.current ?? "—", target: printer.temperatures[1]?.target ?? "—" },
-            { label: "Chamber", value: printer.temperatures[2]?.current ?? "—", target: printer.temperatures[2]?.target ?? "—" },
+            {
+              label: "Nozzle",
+              value: printer.temperatures[0]?.current ?? "—",
+              target: printer.temperatures[0]?.target ?? "—",
+            },
+            {
+              label: "Bed",
+              value: printer.temperatures[1]?.current ?? "—",
+              target: printer.temperatures[1]?.target ?? "—",
+            },
+            {
+              label: "Chamber",
+              value: printer.temperatures[2]?.current ?? "—",
+              target: printer.temperatures[2]?.target ?? "—",
+            },
             { label: "Aux Fan", value: fans.aux, target: fans.aux },
-            { label: "Part Fan", value: fans.part, target: fans.part }
+            { label: "Part Fan", value: fans.part, target: fans.part },
           ].map((item) => (
-            <div className="fleet-console-temperature-grid__item" key={item.label}>
+            <div
+              className="fleet-console-temperature-grid__item"
+              key={item.label}
+            >
               <div className="fleet-console-temperature-grid__label">
                 <Thermometer className="h-3.5 w-3.5" />
                 <span>{item.label}</span>
               </div>
-              <div className="fleet-console-temperature-grid__value">{item.value}</div>
-              <div className="fleet-console-temperature-grid__target">{item.target}</div>
+              <div className="fleet-console-temperature-grid__value">
+                {item.value}
+              </div>
+              <div className="fleet-console-temperature-grid__target">
+                {item.target}
+              </div>
             </div>
           ))}
         </div>
@@ -1049,14 +1494,23 @@ function DetailPanel({
                 <div className="fleet-console-filament-card__top">
                   <div className="fleet-console-filament-card__slot">
                     {slot.slot}
-                    {slot.active ? <span className="fleet-console-dot fleet-console-dot--green" /> : null}
+                    {slot.active ? (
+                      <span className="fleet-console-dot fleet-console-dot--green" />
+                    ) : null}
                   </div>
                 </div>
                 <div className="fleet-console-filament-card__body">
-                  <div className="fleet-console-filament-card__swatch" style={{ backgroundColor: slot.color }} />
+                  <div
+                    className="fleet-console-filament-card__swatch"
+                    style={{ backgroundColor: slot.color }}
+                  />
                   <div>
-                    <div className="fleet-console-filament-card__material">{slot.material}</div>
-                    <div className="fleet-console-filament-card__color">{slot.colorName ?? printer.materialColor}</div>
+                    <div className="fleet-console-filament-card__material">
+                      {slot.material}
+                    </div>
+                    <div className="fleet-console-filament-card__color">
+                      {slot.colorName ?? printer.materialColor}
+                    </div>
                   </div>
                 </div>
                 <div className="fleet-console-filament-card__metrics">
@@ -1064,7 +1518,10 @@ function DetailPanel({
                   <span>{metrics.percent}%</span>
                 </div>
                 <div className="fleet-console-meter">
-                  <div className="fleet-console-meter__bar fleet-console-meter__bar--green" style={{ width: `${metrics.percent}%` }} />
+                  <div
+                    className="fleet-console-meter__bar fleet-console-meter__bar--green"
+                    style={{ width: `${metrics.percent}%` }}
+                  />
                 </div>
               </div>
             );
@@ -1085,7 +1542,10 @@ function DetailPanel({
               {feed.label}
             </button>
           ))}
-          <button className="fleet-console-camera-tabs__button fleet-console-camera-tabs__button--chevron" type="button">
+          <button
+            className="fleet-console-camera-tabs__button fleet-console-camera-tabs__button--chevron"
+            type="button"
+          >
             <ChevronDown className="h-4 w-4" />
           </button>
         </div>
@@ -1102,7 +1562,10 @@ function DetailPanel({
       <section className="fleet-console-detail__section">
         <div className="fleet-console-section-title">Controls</div>
         <div className="fleet-console-controls">
-          <button className="fleet-console-controls__button fleet-console-controls__button--primary" type="button">
+          <button
+            className="fleet-console-controls__button fleet-console-controls__button--primary"
+            type="button"
+          >
             <Pause className="h-4 w-4" />
             <span>Pause Print</span>
           </button>
@@ -1114,7 +1577,10 @@ function DetailPanel({
             <Send className="h-4 w-4" />
             <span>Send File</span>
           </button>
-          <button className="fleet-console-controls__button fleet-console-controls__button--icon" type="button">
+          <button
+            className="fleet-console-controls__button fleet-console-controls__button--icon"
+            type="button"
+          >
             <MoreHorizontal className="h-4 w-4" />
           </button>
         </div>
@@ -1126,25 +1592,34 @@ function DetailPanel({
 export function FleetPage({ user }: { user: UserProfile }) {
   const overviewQuery = useQuery({
     queryKey: ["fleet-overview"],
-    queryFn: () => apiFetch<FleetOverview>("/api/fleet/overview")
+    queryFn: () => apiFetch<FleetOverview>("/api/fleet/overview"),
   });
-  const [selectedPrinterId, setSelectedPrinterId] = useState<string | null>(null);
+  const [selectedPrinterId, setSelectedPrinterId] = useState<string | null>(
+    null,
+  );
   const [scope, setScope] = useState<(typeof scopeOptions)[number][0]>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [sortMode, setSortMode] = useState<"name-asc" | "progress-desc">("name-asc");
+  const [sortMode, setSortMode] = useState<"name-asc" | "progress-desc">(
+    "name-asc",
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [detailOpen, setDetailOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
+  const [addPrinterOpen, setAddPrinterOpen] = useState(false);
   const deferredSearch = useDeferredValue(searchQuery.trim().toLowerCase());
 
   const overview = overviewQuery.data;
-  const activePrinterId = selectedPrinterId ?? overview?.selectedPrinterId ?? "";
+  const activePrinterId =
+    selectedPrinterId ?? overview?.selectedPrinterId ?? "";
   const printerDetailQuery = useQuery({
     enabled: activePrinterId.length > 0,
     placeholderData: (previousData) =>
-      previousData ?? (activePrinterId === overview?.selectedPrinterId ? overview?.selectedPrinter : undefined),
+      previousData ??
+      (activePrinterId === overview?.selectedPrinterId
+        ? overview?.selectedPrinter
+        : undefined),
     queryKey: ["printer-detail", activePrinterId],
-    queryFn: () => apiFetch<PrinterDetail>(`/api/printers/${activePrinterId}`)
+    queryFn: () => apiFetch<PrinterDetail>(`/api/printers/${activePrinterId}`),
   });
 
   if (overviewQuery.isLoading || !overview || !printerDetailQuery.data) {
@@ -1160,24 +1635,36 @@ export function FleetPage({ user }: { user: UserProfile }) {
     })
     .filter((printer) => {
       if (deferredSearch.length === 0) return true;
-      return [printer.name, printer.cameraLabel, printer.material, printer.location]
+      return [
+        printer.name,
+        printer.cameraLabel,
+        printer.material,
+        printer.location,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(deferredSearch);
     });
 
-  const layoutOrder = new Map(overview.printers.map((printer, index) => [printer.id, index]));
+  const layoutOrder = new Map(
+    overview.printers.map((printer, index) => [printer.id, index]),
+  );
   const visiblePrinters =
     sortMode === "progress-desc"
-      ? [...filteredPrinters].sort((left, right) => right.progress - left.progress)
+      ? [...filteredPrinters].sort(
+          (left, right) => right.progress - left.progress,
+        )
       : [...filteredPrinters].sort(
-          (left, right) => (layoutOrder.get(left.id) ?? 0) - (layoutOrder.get(right.id) ?? 0)
+          (left, right) =>
+            (layoutOrder.get(left.id) ?? 0) - (layoutOrder.get(right.id) ?? 0),
         );
 
   const detailPrinter = printerDetailQuery.data;
 
   return (
-    <div className={`fleet-console-shell ${detailOpen ? "" : "fleet-console-shell--detail-closed"} ${focusMode ? "fleet-console-shell--focus" : ""}`}>
+    <div
+      className={`fleet-console-shell ${detailOpen ? "" : "fleet-console-shell--detail-closed"} ${focusMode ? "fleet-console-shell--focus" : ""}`}
+    >
       <aside className="fleet-console-sidebar">
         <div className="fleet-console-sidebar__brand">
           <BrandLogo className="fleet-console-sidebar__brand-logo" />
@@ -1187,7 +1674,9 @@ export function FleetPage({ user }: { user: UserProfile }) {
           {navigationItems.map((item) => (
             <NavLink
               className={({ isActive }) =>
-                isActive ? "fleet-console-sidebar__link fleet-console-sidebar__link--active" : "fleet-console-sidebar__link"
+                isActive
+                  ? "fleet-console-sidebar__link fleet-console-sidebar__link--active"
+                  : "fleet-console-sidebar__link"
               }
               key={item.to}
               to={item.to}
@@ -1205,16 +1694,24 @@ export function FleetPage({ user }: { user: UserProfile }) {
             <span className="fleet-console-dot fleet-console-dot--green" />
             <span>All Systems Operational</span>
           </div>
-          <div className="fleet-console-sidebar-card__copy">12 Printers • 1 Farm • 8 Cameras</div>
-          <div className="fleet-console-sidebar-card__copy">Updated just now</div>
+          <div className="fleet-console-sidebar-card__copy">
+            12 Printers • 1 Farm • 8 Cameras
+          </div>
+          <div className="fleet-console-sidebar-card__copy">
+            Updated just now
+          </div>
           <div className="fleet-console-sidebar-card__sparkline" />
         </SidebarCard>
 
         <SidebarCard compact>
           <div className="fleet-console-sidebar-card__row">
             <div>
-              <div className="fleet-console-sidebar-card__headline">Need help?</div>
-              <div className="fleet-console-sidebar-card__copy">Browse docs and guides</div>
+              <div className="fleet-console-sidebar-card__headline">
+                Need help?
+              </div>
+              <div className="fleet-console-sidebar-card__copy">
+                Browse docs and guides
+              </div>
             </div>
             <ExternalLink className="h-4 w-4 text-zinc-500" />
           </div>
@@ -1223,8 +1720,12 @@ export function FleetPage({ user }: { user: UserProfile }) {
         <SidebarCard compact>
           <div className="fleet-console-sidebar-card__row">
             <div>
-              <div className="fleet-console-sidebar-card__headline">Check for Updates</div>
-              <div className="fleet-console-sidebar-card__copy">BambuView v{APP_VERSION}</div>
+              <div className="fleet-console-sidebar-card__headline">
+                Check for Updates
+              </div>
+              <div className="fleet-console-sidebar-card__copy">
+                BambuView v{APP_VERSION}
+              </div>
             </div>
             <RefreshCcw className="h-4 w-4 text-zinc-500" />
           </div>
@@ -1232,7 +1733,9 @@ export function FleetPage({ user }: { user: UserProfile }) {
 
         <SidebarCard compact>
           <div className="fleet-console-user">
-            <div className="fleet-console-user__avatar">{initials(user.name)}</div>
+            <div className="fleet-console-user__avatar">
+              {initials(user.name)}
+            </div>
             <div className="fleet-console-user__copy">
               <div className="fleet-console-user__name">{user.name}</div>
               <div className="fleet-console-user__role">Administrator</div>
@@ -1283,14 +1786,22 @@ export function FleetPage({ user }: { user: UserProfile }) {
 
           <div className="fleet-console-view-toggle">
             <button
-              className={viewMode === "grid" ? "fleet-console-view-toggle__button fleet-console-view-toggle__button--active" : "fleet-console-view-toggle__button"}
+              className={
+                viewMode === "grid"
+                  ? "fleet-console-view-toggle__button fleet-console-view-toggle__button--active"
+                  : "fleet-console-view-toggle__button"
+              }
               onClick={() => setViewMode("grid")}
               type="button"
             >
               <LayoutGrid className="h-4 w-4" />
             </button>
             <button
-              className={viewMode === "list" ? "fleet-console-view-toggle__button fleet-console-view-toggle__button--active" : "fleet-console-view-toggle__button"}
+              className={
+                viewMode === "list"
+                  ? "fleet-console-view-toggle__button fleet-console-view-toggle__button--active"
+                  : "fleet-console-view-toggle__button"
+              }
               onClick={() => setViewMode("list")}
               type="button"
             >
@@ -1299,7 +1810,12 @@ export function FleetPage({ user }: { user: UserProfile }) {
           </div>
 
           <label className="fleet-console-select">
-            <select onChange={(event) => setSortMode(event.target.value as typeof sortMode)} value={sortMode}>
+            <select
+              onChange={(event) =>
+                setSortMode(event.target.value as typeof sortMode)
+              }
+              value={sortMode}
+            >
               <option value="name-asc">Name (A-Z)</option>
               <option value="progress-desc">Progress</option>
             </select>
@@ -1309,7 +1825,9 @@ export function FleetPage({ user }: { user: UserProfile }) {
 
         <FleetStats overview={overview} />
 
-        <div className={`fleet-console-grid ${viewMode === "list" ? "fleet-console-grid--list" : ""}`}>
+        <div
+          className={`fleet-console-grid ${viewMode === "list" ? "fleet-console-grid--list" : ""}`}
+        >
           {visiblePrinters.map((printer) => (
             <FleetCard
               isSelected={printer.id === activePrinterId}
@@ -1324,16 +1842,19 @@ export function FleetPage({ user }: { user: UserProfile }) {
               printer={printer}
             />
           ))}
-          <AddCard />
+          <AddCard onClick={() => setAddPrinterOpen(true)} />
         </div>
 
         {visiblePrinters.length === 0 ? (
           <section className="fleet-console-empty">
             <CircleHelp className="h-6 w-6" />
             <div>
-              <div className="fleet-console-empty__title">No printers matched this filter.</div>
+              <div className="fleet-console-empty__title">
+                No printers matched this filter.
+              </div>
               <div className="fleet-console-empty__copy">
-                Try another scope or search term to bring printers, farms, or offline devices back into view.
+                Try another scope or search term to bring printers, farms, or
+                offline devices back into view.
               </div>
             </div>
           </section>
@@ -1349,6 +1870,19 @@ export function FleetPage({ user }: { user: UserProfile }) {
           }}
           onToggleFocus={() => setFocusMode((current) => !current)}
           printer={detailPrinter}
+        />
+      ) : null}
+
+      {addPrinterOpen ? (
+        <AddPrinterDialog
+          onClose={() => setAddPrinterOpen(false)}
+          onSaved={(printerId) => {
+            startTransition(() => {
+              setSelectedPrinterId(printerId);
+              setDetailOpen(true);
+              setFocusMode(false);
+            });
+          }}
         />
       ) : null}
     </div>

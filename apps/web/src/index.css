@@ -21,12 +21,7 @@
   --texture-line: rgba(255, 255, 255, 0.035);
   --texture-line-strong: rgba(255, 255, 255, 0.06);
   color: #ffffff;
-  font-family:
-    "SF Pro Display",
-    "Segoe UI",
-    "Inter",
-    system-ui,
-    sans-serif;
+  font-family: "SF Pro Display", "Segoe UI", "Inter", system-ui, sans-serif;
 }
 
 html,
@@ -38,7 +33,11 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.02), transparent 28%),
+    radial-gradient(
+      circle at 50% 0%,
+      rgba(255, 255, 255, 0.02),
+      transparent 28%
+    ),
     var(--surface-bg);
   color: #fff;
 }
@@ -73,9 +72,24 @@ html[data-theme="light"] body {
 .app-background--topo::after,
 html[data-background-style="topo"] .fleet-console-shell::after {
   background:
-    repeating-radial-gradient(ellipse at 13% 88%, transparent 0 33px, var(--accent-10) 34px 36px, transparent 37px 53px),
-    repeating-radial-gradient(ellipse at 86% 3%, transparent 0 42px, var(--texture-line-strong) 43px 45px, transparent 46px 64px),
-    repeating-radial-gradient(ellipse at 54% 48%, transparent 0 76px, var(--texture-line) 77px 78px, transparent 79px 102px),
+    repeating-radial-gradient(
+      ellipse at 13% 88%,
+      transparent 0 33px,
+      var(--accent-10) 34px 36px,
+      transparent 37px 53px
+    ),
+    repeating-radial-gradient(
+      ellipse at 86% 3%,
+      transparent 0 42px,
+      var(--texture-line-strong) 43px 45px,
+      transparent 46px 64px
+    ),
+    repeating-radial-gradient(
+      ellipse at 54% 48%,
+      transparent 0 76px,
+      var(--texture-line) 77px 78px,
+      transparent 79px 102px
+    ),
     radial-gradient(circle at 18% 88%, var(--accent-10), transparent 20%);
   opacity: 0.9;
 }
@@ -83,23 +97,56 @@ html[data-background-style="topo"] .fleet-console-shell::after {
 .app-background--two-tone::after,
 html[data-background-style="two-tone"] .fleet-console-shell::after {
   background:
-    radial-gradient(760px 260px at 14% 106%, color-mix(in oklab, var(--accent) 26%, transparent), transparent 68%),
-    radial-gradient(900px 260px at 86% -8%, color-mix(in oklab, var(--accent) 19%, transparent), transparent 72%),
-    linear-gradient(150deg, transparent 0 47%, color-mix(in oklab, var(--accent) 34%, transparent) 47% 52%, transparent 52% 61%, color-mix(in oklab, var(--accent) 17%, transparent) 61% 65%, transparent 65%),
-    linear-gradient(150deg, transparent 0 55%, rgba(255, 255, 255, 0.05) 55% 56%, transparent 56%);
+    radial-gradient(
+      760px 260px at 14% 106%,
+      color-mix(in oklab, var(--accent) 26%, transparent),
+      transparent 68%
+    ),
+    radial-gradient(
+      900px 260px at 86% -8%,
+      color-mix(in oklab, var(--accent) 19%, transparent),
+      transparent 72%
+    ),
+    linear-gradient(
+      150deg,
+      transparent 0 47%,
+      color-mix(in oklab, var(--accent) 34%, transparent) 47% 52%,
+      transparent 52% 61%,
+      color-mix(in oklab, var(--accent) 17%, transparent) 61% 65%,
+      transparent 65%
+    ),
+    linear-gradient(
+      150deg,
+      transparent 0 55%,
+      rgba(255, 255, 255, 0.05) 55% 56%,
+      transparent 56%
+    );
   opacity: 0.88;
 }
 
 .app-background--blueprint::after,
 html[data-background-style="blueprint"] .fleet-console-shell::after {
   background:
-    radial-gradient(circle at 76% 18%, transparent 0 72px, var(--accent-18) 73px 75px, transparent 76px 116px, var(--accent-10) 117px 118px, transparent 119px),
+    radial-gradient(
+      circle at 76% 18%,
+      transparent 0 72px,
+      var(--accent-18) 73px 75px,
+      transparent 76px 116px,
+      var(--accent-10) 117px 118px,
+      transparent 119px
+    ),
     linear-gradient(var(--accent-10) 1px, transparent 1px),
     linear-gradient(90deg, var(--accent-10) 1px, transparent 1px),
     linear-gradient(var(--texture-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--texture-line) 1px, transparent 1px),
     linear-gradient(180deg, rgba(255, 255, 255, 0.014), transparent 20%);
-  background-size: auto, 48px 48px, 48px 48px, 12px 12px, 12px 12px, auto;
+  background-size:
+    auto,
+    48px 48px,
+    48px 48px,
+    12px 12px,
+    12px 12px,
+    auto;
   opacity: 0.86;
 }
 
@@ -108,8 +155,22 @@ html[data-background-style="sweep"] .fleet-console-shell::after {
   background:
     radial-gradient(720px 360px at -8% 112%, var(--accent-24), transparent 68%),
     radial-gradient(680px 320px at 105% -4%, var(--accent-18), transparent 66%),
-    linear-gradient(142deg, transparent 0 42%, var(--accent-18) 42% 47%, transparent 47% 54%, var(--accent-10) 54% 58%, transparent 58%),
-    linear-gradient(322deg, transparent 0 63%, rgba(255, 255, 255, 0.052) 63% 64%, transparent 64% 70%, var(--accent-06) 70% 73%, transparent 73%);
+    linear-gradient(
+      142deg,
+      transparent 0 42%,
+      var(--accent-18) 42% 47%,
+      transparent 47% 54%,
+      var(--accent-10) 54% 58%,
+      transparent 58%
+    ),
+    linear-gradient(
+      322deg,
+      transparent 0 63%,
+      rgba(255, 255, 255, 0.052) 63% 64%,
+      transparent 64% 70%,
+      var(--accent-06) 70% 73%,
+      transparent 73%
+    );
   opacity: 0.9;
 }
 
@@ -219,7 +280,11 @@ html[data-theme="light"] .section-title {
 
 .nav-pill--active,
 .mobile-nav__item--active {
-  background: linear-gradient(90deg, var(--accent-soft), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(
+    90deg,
+    var(--accent-soft),
+    rgba(255, 255, 255, 0.04)
+  );
   color: white;
 }
 
@@ -254,9 +319,34 @@ html[data-theme="light"] .section-title {
 .system-sparkline {
   height: 100%;
   width: 100%;
-  background:
-    linear-gradient(90deg, transparent 0 8%, var(--accent) 8% 9%, transparent 9% 16%, var(--accent) 16% 17%, transparent 17% 22%, var(--accent) 22% 23%, transparent 23% 31%, var(--accent) 31% 32%, transparent 32% 40%, var(--accent) 40% 41%, transparent 41% 50%, var(--accent) 50% 51%, transparent 51% 60%, var(--accent) 60% 61%, transparent 61% 72%, var(--accent) 72% 73%, transparent 73% 86%, var(--accent) 86% 87%, transparent 87% 100%);
-  mask: linear-gradient(180deg, transparent 0 20%, black 20% 78%, transparent 78% 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0 8%,
+    var(--accent) 8% 9%,
+    transparent 9% 16%,
+    var(--accent) 16% 17%,
+    transparent 17% 22%,
+    var(--accent) 22% 23%,
+    transparent 23% 31%,
+    var(--accent) 31% 32%,
+    transparent 32% 40%,
+    var(--accent) 40% 41%,
+    transparent 41% 50%,
+    var(--accent) 50% 51%,
+    transparent 51% 60%,
+    var(--accent) 60% 61%,
+    transparent 61% 72%,
+    var(--accent) 72% 73%,
+    transparent 73% 86%,
+    var(--accent) 86% 87%,
+    transparent 87% 100%
+  );
+  mask: linear-gradient(
+    180deg,
+    transparent 0 20%,
+    black 20% 78%,
+    transparent 78% 100%
+  );
 }
 
 .fleet-console-shell {
@@ -293,8 +383,26 @@ html[data-theme="light"] .section-title {
 .fleet-console-shell::before {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 19%),
-    radial-gradient(1200px 460px at 18% 110%, transparent 0 67%, rgba(255, 255, 255, 0.045) 67.2% 67.45%, transparent 67.7% 71%, rgba(255, 255, 255, 0.032) 71.2% 71.45%, transparent 71.7% 75%, rgba(255, 255, 255, 0.024) 75.2% 75.45%, transparent 75.7% 79%),
-    radial-gradient(1180px 480px at 70% -10%, transparent 0 71%, rgba(255, 255, 255, 0.04) 71.2% 71.45%, transparent 71.7% 75%, rgba(255, 255, 255, 0.028) 75.2% 75.45%, transparent 75.7% 79%, rgba(255, 255, 255, 0.02) 79.2% 79.45%, transparent 79.7% 83%);
+    radial-gradient(
+      1200px 460px at 18% 110%,
+      transparent 0 67%,
+      rgba(255, 255, 255, 0.045) 67.2% 67.45%,
+      transparent 67.7% 71%,
+      rgba(255, 255, 255, 0.032) 71.2% 71.45%,
+      transparent 71.7% 75%,
+      rgba(255, 255, 255, 0.024) 75.2% 75.45%,
+      transparent 75.7% 79%
+    ),
+    radial-gradient(
+      1180px 480px at 70% -10%,
+      transparent 0 71%,
+      rgba(255, 255, 255, 0.04) 71.2% 71.45%,
+      transparent 71.7% 75%,
+      rgba(255, 255, 255, 0.028) 75.2% 75.45%,
+      transparent 75.7% 79%,
+      rgba(255, 255, 255, 0.02) 79.2% 79.45%,
+      transparent 79.7% 83%
+    );
   opacity: 0.74;
 }
 
@@ -365,7 +473,11 @@ html[data-theme="light"] .section-title {
 
 .fleet-console-sidebar__link--active {
   border-color: rgba(126, 211, 33, 0.2);
-  background: linear-gradient(90deg, rgba(126, 211, 33, 0.22), rgba(126, 211, 33, 0.08));
+  background: linear-gradient(
+    90deg,
+    rgba(126, 211, 33, 0.22),
+    rgba(126, 211, 33, 0.08)
+  );
   box-shadow:
     inset 3px 0 0 var(--accent),
     inset 0 0 0 1px rgba(126, 211, 33, 0.16);
@@ -406,9 +518,34 @@ html[data-theme="light"] .section-title {
 .fleet-console-sidebar-card__sparkline {
   height: 28px;
   margin-top: 12px;
-  background:
-    linear-gradient(90deg, transparent 0 4%, var(--accent) 4% 5%, transparent 5% 13%, var(--accent) 13% 14%, transparent 14% 21%, var(--accent) 21% 22%, transparent 22% 29%, var(--accent) 29% 30%, transparent 30% 39%, var(--accent) 39% 40%, transparent 40% 48%, var(--accent) 48% 49%, transparent 49% 59%, var(--accent) 59% 60%, transparent 60% 72%, var(--accent) 72% 73%, transparent 73% 86%, var(--accent) 86% 87%, transparent 87% 100%);
-  mask: linear-gradient(180deg, transparent 0 30%, black 30% 76%, transparent 76% 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0 4%,
+    var(--accent) 4% 5%,
+    transparent 5% 13%,
+    var(--accent) 13% 14%,
+    transparent 14% 21%,
+    var(--accent) 21% 22%,
+    transparent 22% 29%,
+    var(--accent) 29% 30%,
+    transparent 30% 39%,
+    var(--accent) 39% 40%,
+    transparent 40% 48%,
+    var(--accent) 48% 49%,
+    transparent 49% 59%,
+    var(--accent) 59% 60%,
+    transparent 60% 72%,
+    var(--accent) 72% 73%,
+    transparent 73% 86%,
+    var(--accent) 86% 87%,
+    transparent 87% 100%
+  );
+  mask: linear-gradient(
+    180deg,
+    transparent 0 30%,
+    black 30% 76%,
+    transparent 76% 100%
+  );
 }
 
 .fleet-console-sidebar-card__row {
@@ -869,8 +1006,7 @@ html[data-theme="light"] .section-title {
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 12px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.02), transparent 60%),
-    #20252a;
+    linear-gradient(135deg, rgba(255, 255, 255, 0.02), transparent 60%), #20252a;
 }
 
 .fleet-console-preview--large {
@@ -1179,7 +1315,11 @@ html[data-theme="light"] .section-title {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.1), transparent 22%),
+    radial-gradient(
+      circle at 50% 18%,
+      rgba(255, 255, 255, 0.1),
+      transparent 22%
+    ),
     linear-gradient(180deg, #20252a, #111417);
 }
 
@@ -1330,15 +1470,38 @@ html[data-theme="light"] .fleet-console-shell {
 html[data-theme="light"] .fleet-console-shell::before {
   background:
     linear-gradient(180deg, rgba(15, 23, 42, 0.02), transparent 19%),
-    radial-gradient(1200px 460px at 18% 110%, transparent 0 67%, rgba(15, 23, 42, 0.08) 67.2% 67.45%, transparent 67.7% 71%, rgba(15, 23, 42, 0.055) 71.2% 71.45%, transparent 71.7% 75%, rgba(15, 23, 42, 0.04) 75.2% 75.45%, transparent 75.7% 79%),
-    radial-gradient(1180px 480px at 70% -10%, transparent 0 71%, rgba(15, 23, 42, 0.07) 71.2% 71.45%, transparent 71.7% 75%, rgba(15, 23, 42, 0.05) 75.2% 75.45%, transparent 75.7% 79%, rgba(15, 23, 42, 0.035) 79.2% 79.45%, transparent 79.7% 83%);
+    radial-gradient(
+      1200px 460px at 18% 110%,
+      transparent 0 67%,
+      rgba(15, 23, 42, 0.08) 67.2% 67.45%,
+      transparent 67.7% 71%,
+      rgba(15, 23, 42, 0.055) 71.2% 71.45%,
+      transparent 71.7% 75%,
+      rgba(15, 23, 42, 0.04) 75.2% 75.45%,
+      transparent 75.7% 79%
+    ),
+    radial-gradient(
+      1180px 480px at 70% -10%,
+      transparent 0 71%,
+      rgba(15, 23, 42, 0.07) 71.2% 71.45%,
+      transparent 71.7% 75%,
+      rgba(15, 23, 42, 0.05) 75.2% 75.45%,
+      transparent 75.7% 79%,
+      rgba(15, 23, 42, 0.035) 79.2% 79.45%,
+      transparent 79.7% 83%
+    );
   opacity: 0.5;
 }
 
-html[data-theme="light"][data-background-style="blueprint"] .fleet-console-shell::after {
+html[data-theme="light"][data-background-style="blueprint"]
+  .fleet-console-shell::after {
   background:
     radial-gradient(circle at 50% -6%, rgba(15, 23, 42, 0.03), transparent 28%),
-    radial-gradient(circle at 82% 10%, rgba(15, 23, 42, 0.024), transparent 18%),
+    radial-gradient(
+      circle at 82% 10%,
+      rgba(15, 23, 42, 0.024),
+      transparent 18%
+    ),
     linear-gradient(180deg, rgba(15, 23, 42, 0.016), transparent 20%);
 }
 
@@ -1540,7 +1703,11 @@ html[data-theme="light"] .fleet-console-stats__meta {
   overflow: hidden;
   border-radius: 34px;
   background:
-    radial-gradient(circle at top right, rgba(37, 99, 255, 0.18), transparent 26%),
+    radial-gradient(
+      circle at top right,
+      rgba(37, 99, 255, 0.18),
+      transparent 26%
+    ),
     linear-gradient(180deg, var(--fleet-bg), var(--fleet-bg-soft));
   color: var(--fleet-copy);
   box-shadow:
@@ -1552,7 +1719,11 @@ html[data-theme="light"] .fleet-console-stats__meta {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 90% -6%, rgba(37, 99, 255, 0.32), transparent 26%),
+    radial-gradient(
+      circle at 90% -6%,
+      rgba(37, 99, 255, 0.32),
+      transparent 26%
+    ),
     linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent 24%);
   content: "";
   pointer-events: none;
@@ -1622,7 +1793,11 @@ html[data-theme="light"] .fleet-console-stats__meta {
 }
 
 .fleet-sidebar__link--active {
-  background: linear-gradient(180deg, rgba(70, 121, 255, 1), rgba(37, 99, 255, 0.94));
+  background: linear-gradient(
+    180deg,
+    rgba(70, 121, 255, 1),
+    rgba(37, 99, 255, 0.94)
+  );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 12px 28px rgba(37, 99, 255, 0.22);
@@ -1637,8 +1812,16 @@ html[data-theme="light"] .fleet-console-stats__meta {
   background:
     url("data:image/svg+xml,%3Csvg width='440' height='420' viewBox='0 0 440 420' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M-20 250c80 0 94-54 146-54 47 0 70 47 119 47 34 0 60-18 95-59' stroke='rgba(37,99,255,0.28)' stroke-width='2' fill='none'/%3E%3Cpath d='M-20 270c86 0 98-58 149-58 51 0 74 51 123 51 35 0 61-19 95-63' stroke='rgba(37,99,255,0.22)' stroke-width='2' fill='none'/%3E%3Cpath d='M-20 290c92 0 102-62 153-62 55 0 76 54 125 54 37 0 63-21 96-67' stroke='rgba(37,99,255,0.18)' stroke-width='2' fill='none'/%3E%3Cpath d='M-20 310c98 0 106-66 157-66 58 0 78 57 128 57 38 0 64-22 97-71' stroke='rgba(37,99,255,0.14)' stroke-width='2' fill='none'/%3E%3C/svg%3E")
       center/cover no-repeat,
-    radial-gradient(circle at 54% 86%, rgba(37, 99, 255, 0.28), transparent 44%),
-    radial-gradient(130% 90% at 48% 100%, rgba(36, 92, 255, 0.9) 0 38%, transparent 39%);
+    radial-gradient(
+      circle at 54% 86%,
+      rgba(37, 99, 255, 0.28),
+      transparent 44%
+    ),
+    radial-gradient(
+      130% 90% at 48% 100%,
+      rgba(36, 92, 255, 0.9) 0 38%,
+      transparent 39%
+    );
   pointer-events: none;
 }
 
@@ -1738,7 +1921,11 @@ html[data-theme="light"] .fleet-console-stats__meta {
   border-bottom-left-radius: 180px;
   background:
     linear-gradient(180deg, rgba(50, 109, 255, 0.94), rgba(34, 92, 255, 0.56)),
-    radial-gradient(circle at 30% 10%, rgba(255, 255, 255, 0.18), transparent 24%);
+    radial-gradient(
+      circle at 30% 10%,
+      rgba(255, 255, 255, 0.18),
+      transparent 24%
+    );
   filter: blur(0.2px);
   opacity: 0.84;
   pointer-events: none;
@@ -1968,7 +2155,11 @@ html[data-theme="light"] .fleet-console-stats__meta {
   flex: none;
   place-items: center;
   border-radius: 22px;
-  background: linear-gradient(180deg, rgba(94, 97, 104, 0.62), rgba(70, 73, 79, 0.74));
+  background: linear-gradient(
+    180deg,
+    rgba(94, 97, 104, 0.62),
+    rgba(70, 73, 79, 0.74)
+  );
   color: rgba(255, 255, 255, 0.7);
   font-size: 1rem;
   font-weight: 500;
@@ -1982,7 +2173,11 @@ html[data-theme="light"] .fleet-console-stats__meta {
 }
 
 .fleet-preview-box--farm {
-  background: linear-gradient(180deg, rgba(94, 97, 104, 0.32), rgba(55, 58, 63, 0.46));
+  background: linear-gradient(
+    180deg,
+    rgba(94, 97, 104, 0.32),
+    rgba(55, 58, 63, 0.46)
+  );
 }
 
 .fleet-preview-cubes {
@@ -2093,7 +2288,10 @@ html[data-theme="light"] .fleet-console-stats__meta {
   margin-top: 1.5rem;
   display: grid;
   gap: 20px;
-  grid-template-columns: minmax(260px, 1.02fr) minmax(320px, 0.92fr) minmax(240px, 0.72fr);
+  grid-template-columns: minmax(260px, 1.02fr) minmax(320px, 0.92fr) minmax(
+      240px,
+      0.72fr
+    );
 }
 
 .fleet-detail-card {
@@ -2260,7 +2458,11 @@ html[data-theme="light"] .fleet-console-stats__meta {
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    radial-gradient(circle at 74% 20%, rgba(255, 255, 255, 0.16), transparent 18%),
+    radial-gradient(
+      circle at 74% 20%,
+      rgba(255, 255, 255, 0.16),
+      transparent 18%
+    ),
     linear-gradient(180deg, #20252b, #111419);
   min-height: 238px;
 }
@@ -2269,9 +2471,22 @@ html[data-theme="light"] .fleet-console-stats__meta {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 18% 26%, rgba(255, 255, 255, 0.12), transparent 18%),
-    radial-gradient(circle at 76% 18%, rgba(255, 255, 255, 0.15), transparent 16%),
-    linear-gradient(90deg, rgba(22, 27, 31, 0.95), rgba(83, 88, 83, 0.7) 48%, rgba(191, 194, 188, 0.74));
+    radial-gradient(
+      circle at 18% 26%,
+      rgba(255, 255, 255, 0.12),
+      transparent 18%
+    ),
+    radial-gradient(
+      circle at 76% 18%,
+      rgba(255, 255, 255, 0.15),
+      transparent 16%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(22, 27, 31, 0.95),
+      rgba(83, 88, 83, 0.7) 48%,
+      rgba(191, 194, 188, 0.74)
+    );
   filter: blur(22px);
   transform: scale(1.08);
 }
@@ -2383,7 +2598,11 @@ html[data-theme="light"] .fleet-shell {
   --fleet-copy: #111827;
   --fleet-muted: #667085;
   background:
-    radial-gradient(circle at top right, rgba(37, 99, 255, 0.1), transparent 26%),
+    radial-gradient(
+      circle at top right,
+      rgba(37, 99, 255, 0.1),
+      transparent 26%
+    ),
     linear-gradient(180deg, var(--fleet-bg), var(--fleet-bg-soft));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.85),
@@ -2392,7 +2611,11 @@ html[data-theme="light"] .fleet-shell {
 
 html[data-theme="light"] .fleet-sidebar {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.84), rgba(245, 247, 251, 0.96)),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.84),
+      rgba(245, 247, 251, 0.96)
+    ),
     linear-gradient(180deg, rgba(255, 255, 255, 0.35), transparent 22%);
 }
 
@@ -2443,7 +2666,11 @@ html[data-theme="light"] .fleet-temperature-row__label {
 }
 
 html[data-theme="light"] .fleet-preview-box {
-  background: linear-gradient(180deg, rgba(199, 205, 213, 0.9), rgba(173, 180, 189, 0.94));
+  background: linear-gradient(
+    180deg,
+    rgba(199, 205, 213, 0.9),
+    rgba(173, 180, 189, 0.94)
+  );
   color: rgba(17, 24, 39, 0.7);
 }
 
@@ -2488,7 +2715,11 @@ html[data-theme="light"] .fleet-temperature-row__target {
   overflow: hidden;
   border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04),
+    rgba(255, 255, 255, 0.02)
+  );
 }
 
 .camera-stage__top {
@@ -2514,7 +2745,11 @@ html[data-theme="light"] .fleet-temperature-row__target {
   overflow: hidden;
   border-radius: 24px;
   background:
-    radial-gradient(circle at 76% 22%, rgba(255, 255, 255, 0.14), transparent 18%),
+    radial-gradient(
+      circle at 76% 22%,
+      rgba(255, 255, 255, 0.14),
+      transparent 18%
+    ),
     linear-gradient(180deg, #20252b, #111419);
 }
 
@@ -2552,9 +2787,22 @@ html[data-theme="light"] .fleet-temperature-row__target {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 18% 26%, rgba(255, 255, 255, 0.16), transparent 18%),
-    radial-gradient(circle at 75% 22%, rgba(255, 255, 255, 0.18), transparent 16%),
-    linear-gradient(90deg, rgba(22, 27, 31, 0.95), rgba(83, 88, 83, 0.72) 48%, rgba(204, 206, 198, 0.74));
+    radial-gradient(
+      circle at 18% 26%,
+      rgba(255, 255, 255, 0.16),
+      transparent 18%
+    ),
+    radial-gradient(
+      circle at 75% 22%,
+      rgba(255, 255, 255, 0.18),
+      transparent 16%
+    ),
+    linear-gradient(
+      90deg,
+      rgba(22, 27, 31, 0.95),
+      rgba(83, 88, 83, 0.72) 48%,
+      rgba(204, 206, 198, 0.74)
+    );
   filter: blur(18px);
   transform: scale(1.06);
 }
@@ -2578,8 +2826,13 @@ html[data-theme="light"] .fleet-temperature-row__target {
   width: 250px;
   place-items: center;
   border-radius: 50%;
-  background:
-    conic-gradient(from 45deg, rgba(255, 255, 255, 0.06) 0 25%, rgba(255, 255, 255, 0.03) 25% 50%, rgba(255, 255, 255, 0.06) 50% 75%, rgba(255, 255, 255, 0.03) 75% 100%);
+  background: conic-gradient(
+    from 45deg,
+    rgba(255, 255, 255, 0.06) 0 25%,
+    rgba(255, 255, 255, 0.03) 25% 50%,
+    rgba(255, 255, 255, 0.06) 50% 75%,
+    rgba(255, 255, 255, 0.03) 75% 100%
+  );
   box-shadow: inset 0 0 0 18px rgba(255, 255, 255, 0.02);
 }
 
@@ -2636,7 +2889,10 @@ html[data-theme="light"] .fleet-temperature-row__target {
     linear-gradient(90deg, var(--accent-10) 1px, transparent 1px),
     linear-gradient(var(--accent-10) 1px, transparent 1px),
     radial-gradient(circle at 50% 40%, var(--accent-24), transparent 18%);
-  background-size: 34px 34px, 34px 34px, auto;
+  background-size:
+    34px 34px,
+    34px 34px,
+    auto;
 }
 
 .mobile-nav,
@@ -2779,7 +3035,10 @@ html[data-theme="light"] .fleet-temperature-row__target {
     linear-gradient(var(--accent-10) 1px, transparent 1px),
     linear-gradient(90deg, var(--accent-10) 1px, transparent 1px),
     radial-gradient(circle at 40% 42%, var(--accent-18), transparent 18%);
-  background-size: 32px 32px, 32px 32px, auto;
+  background-size:
+    32px 32px,
+    32px 32px,
+    auto;
 }
 
 @media (max-width: 1279px) {
@@ -2915,10 +3174,28 @@ html[data-theme="light"] .fleet-temperature-row__target {
 
 .fleet-console-shell::before {
   background:
-    radial-gradient(circle at 74% 8%, rgba(255, 255, 255, 0.02), transparent 16%),
+    radial-gradient(
+      circle at 74% 8%,
+      rgba(255, 255, 255, 0.02),
+      transparent 16%
+    ),
     linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 22%),
-    radial-gradient(960px 420px at 18% 104%, transparent 0 66%, rgba(255, 255, 255, 0.04) 66.2% 66.45%, transparent 66.7% 70%, rgba(255, 255, 255, 0.024) 70.2% 70.45%, transparent 70.7% 74%),
-    radial-gradient(1100px 540px at 68% -12%, transparent 0 72%, rgba(255, 255, 255, 0.026) 72.2% 72.45%, transparent 72.7% 76%, rgba(255, 255, 255, 0.018) 76.2% 76.45%, transparent 76.7% 80%);
+    radial-gradient(
+      960px 420px at 18% 104%,
+      transparent 0 66%,
+      rgba(255, 255, 255, 0.04) 66.2% 66.45%,
+      transparent 66.7% 70%,
+      rgba(255, 255, 255, 0.024) 70.2% 70.45%,
+      transparent 70.7% 74%
+    ),
+    radial-gradient(
+      1100px 540px at 68% -12%,
+      transparent 0 72%,
+      rgba(255, 255, 255, 0.026) 72.2% 72.45%,
+      transparent 72.7% 76%,
+      rgba(255, 255, 255, 0.018) 76.2% 76.45%,
+      transparent 76.7% 80%
+    );
   opacity: 0.82;
 }
 
@@ -3039,9 +3316,34 @@ html[data-theme="light"] .fleet-temperature-row__target {
 .fleet-console-sidebar-card__sparkline {
   height: 28px;
   margin-top: 12px;
-  background:
-    linear-gradient(90deg, transparent 0 4%, var(--accent) 4% 5%, transparent 5% 13%, var(--accent) 13% 14%, transparent 14% 21%, var(--accent) 21% 22%, transparent 22% 29%, var(--accent) 29% 30%, transparent 30% 39%, var(--accent) 39% 40%, transparent 40% 48%, var(--accent) 48% 49%, transparent 49% 59%, var(--accent) 59% 60%, transparent 60% 72%, var(--accent) 72% 73%, transparent 73% 86%, var(--accent) 86% 87%, transparent 87% 100%);
-  mask: linear-gradient(180deg, transparent 0 30%, black 30% 76%, transparent 76% 100%);
+  background: linear-gradient(
+    90deg,
+    transparent 0 4%,
+    var(--accent) 4% 5%,
+    transparent 5% 13%,
+    var(--accent) 13% 14%,
+    transparent 14% 21%,
+    var(--accent) 21% 22%,
+    transparent 22% 29%,
+    var(--accent) 29% 30%,
+    transparent 30% 39%,
+    var(--accent) 39% 40%,
+    transparent 40% 48%,
+    var(--accent) 48% 49%,
+    transparent 49% 59%,
+    var(--accent) 59% 60%,
+    transparent 60% 72%,
+    var(--accent) 72% 73%,
+    transparent 73% 86%,
+    var(--accent) 86% 87%,
+    transparent 87% 100%
+  );
+  mask: linear-gradient(
+    180deg,
+    transparent 0 30%,
+    black 30% 76%,
+    transparent 76% 100%
+  );
 }
 
 .fleet-console-sidebar-card__row {
@@ -3617,7 +3919,11 @@ html[data-theme="light"] .fleet-temperature-row__target {
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 70% 18%, rgba(255, 255, 255, 0.05), transparent 22%),
+    radial-gradient(
+      circle at 70% 18%,
+      rgba(255, 255, 255, 0.05),
+      transparent 22%
+    ),
     linear-gradient(180deg, #1e2329, #15191e);
 }
 
@@ -3949,7 +4255,11 @@ html[data-theme="light"] .fleet-temperature-row__target {
   border: 1px solid rgba(255, 255, 255, 0.07);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.1), transparent 22%),
+    radial-gradient(
+      circle at 50% 18%,
+      rgba(255, 255, 255, 0.1),
+      transparent 22%
+    ),
     linear-gradient(180deg, #20252a, #111417);
 }
 
@@ -4458,8 +4768,22 @@ html[data-theme="light"] .fleet-console-focus-action {
 .fleet-console-shell::before {
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 18%),
-    radial-gradient(900px 360px at 28% 104%, transparent 0 64%, rgba(255, 255, 255, 0.052) 64.2% 64.4%, transparent 64.7% 69%, rgba(255, 255, 255, 0.036) 69.2% 69.4%, transparent 69.7% 74%),
-    radial-gradient(980px 420px at 66% -8%, transparent 0 67%, rgba(255, 255, 255, 0.044) 67.2% 67.42%, transparent 67.7% 72%, rgba(255, 255, 255, 0.028) 72.2% 72.42%, transparent 72.7% 77%);
+    radial-gradient(
+      900px 360px at 28% 104%,
+      transparent 0 64%,
+      rgba(255, 255, 255, 0.052) 64.2% 64.4%,
+      transparent 64.7% 69%,
+      rgba(255, 255, 255, 0.036) 69.2% 69.4%,
+      transparent 69.7% 74%
+    ),
+    radial-gradient(
+      980px 420px at 66% -8%,
+      transparent 0 67%,
+      rgba(255, 255, 255, 0.044) 67.2% 67.42%,
+      transparent 67.7% 72%,
+      rgba(255, 255, 255, 0.028) 72.2% 72.42%,
+      transparent 72.7% 77%
+    );
   opacity: 0.7;
 }
 
@@ -4507,7 +4831,11 @@ html[data-theme="light"] .fleet-console-focus-action {
 }
 
 .fleet-console-sidebar__link--active {
-  background: linear-gradient(90deg, rgba(126, 211, 33, 0.24), rgba(126, 211, 33, 0.08));
+  background: linear-gradient(
+    90deg,
+    rgba(126, 211, 33, 0.24),
+    rgba(126, 211, 33, 0.08)
+  );
   box-shadow:
     inset 4px 0 0 var(--accent),
     inset 0 0 0 1px rgba(126, 211, 33, 0.16);
@@ -4776,7 +5104,11 @@ html[data-theme="light"] .fleet-console-focus-action {
   margin-top: 10px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 22%),
-    radial-gradient(circle at 50% 58%, rgba(126, 211, 33, 0.12), transparent 24%),
+    radial-gradient(
+      circle at 50% 58%,
+      rgba(126, 211, 33, 0.12),
+      transparent 24%
+    ),
     linear-gradient(180deg, #202429, #0f1215);
 }
 
@@ -4784,8 +5116,22 @@ html[data-theme="light"] .fleet-console-focus-action {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg, transparent 0 18%, rgba(255, 255, 255, 0.08) 18.4% 19.2%, transparent 19.6% 80%, rgba(255, 255, 255, 0.08) 80.4% 81.2%, transparent 81.6%),
-    linear-gradient(180deg, transparent 0 17%, rgba(255, 255, 255, 0.08) 17.4% 18.2%, transparent 18.6% 72%, rgba(255, 255, 255, 0.06) 72.4% 73.2%, transparent 73.6%);
+    linear-gradient(
+      90deg,
+      transparent 0 18%,
+      rgba(255, 255, 255, 0.08) 18.4% 19.2%,
+      transparent 19.6% 80%,
+      rgba(255, 255, 255, 0.08) 80.4% 81.2%,
+      transparent 81.6%
+    ),
+    linear-gradient(
+      180deg,
+      transparent 0 17%,
+      rgba(255, 255, 255, 0.08) 17.4% 18.2%,
+      transparent 18.6% 72%,
+      rgba(255, 255, 255, 0.06) 72.4% 73.2%,
+      transparent 73.6%
+    );
   content: "";
   opacity: 0.9;
 }
@@ -5715,9 +6061,8 @@ html[data-theme="light"] .fleet-console-shell {
   .fleet-console-sidebar-card__sparkline {
     height: 22px;
     margin-top: 8px;
-    background:
-      url("data:image/svg+xml,%3Csvg width='184' height='24' viewBox='0 0 184 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 15 8 11 16 17 24 9 32 15 40 12 48 14 56 10 64 13 72 12 80 9 88 16 96 12 104 17 112 8 120 15 128 13 136 18 144 4 152 17 160 13 168 12 176 11 184 10' fill='none' stroke='%237ed321' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
-        center/100% 100% no-repeat;
+    background: url("data:image/svg+xml,%3Csvg width='184' height='24' viewBox='0 0 184 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 15 8 11 16 17 24 9 32 15 40 12 48 14 56 10 64 13 72 12 80 9 88 16 96 12 104 17 112 8 120 15 128 13 136 18 144 4 152 17 160 13 168 12 176 11 184 10' fill='none' stroke='%237ed321' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+      center/100% 100% no-repeat;
     mask: none;
   }
 }
@@ -5751,13 +6096,8 @@ html[data-theme="light"] .fleet-console-shell {
   min-width: 0;
   max-width: calc(100% - 39px);
   font-family:
-    "Segoe UI Variable",
-    "Segoe UI",
-    "Helvetica Neue",
-    "Aptos Display",
-    "SF Pro Display",
-    system-ui,
-    sans-serif;
+    "Segoe UI Variable", "Segoe UI", "Helvetica Neue", "Aptos Display",
+    "SF Pro Display", system-ui, sans-serif;
   font-size: 1.14rem;
   font-weight: 650;
   letter-spacing: -0.058em;
@@ -5774,13 +6114,8 @@ html[data-theme="light"] .fleet-console-shell {
 
 .brand-lockup__wordmark svg text {
   font-family:
-    "Segoe UI Variable",
-    "Segoe UI",
-    "Helvetica Neue",
-    "Aptos Display",
-    "SF Pro Display",
-    system-ui,
-    sans-serif !important;
+    "Segoe UI Variable", "Segoe UI", "Helvetica Neue", "Aptos Display",
+    "SF Pro Display", system-ui, sans-serif !important;
   font-weight: 700 !important;
 }
 
@@ -5796,7 +6131,9 @@ html[data-theme="light"] .fleet-console-shell {
   .fleet-console-shell {
     height: 100dvh;
     min-height: 0;
-    grid-template-columns: minmax(214px, 14.84375vw) minmax(0, 54.9479167vw) minmax(424px, 30.2083333vw);
+    grid-template-columns:
+      minmax(214px, 14.84375vw) minmax(0, 54.9479167vw)
+      minmax(424px, 30.2083333vw);
     overflow: hidden;
   }
 
@@ -6163,8 +6500,16 @@ html[data-theme="light"] .fleet-console-shell {
 .auth-graphic__lines {
   background:
     radial-gradient(circle at 24% 78%, var(--accent-24), transparent 16%),
-    repeating-radial-gradient(circle at 2% 104%, transparent 0 32px, var(--accent-18) 33px 34px),
-    repeating-radial-gradient(circle at 70% 0%, transparent 0 44px, var(--accent-10) 45px 46px);
+    repeating-radial-gradient(
+      circle at 2% 104%,
+      transparent 0 32px,
+      var(--accent-18) 33px 34px
+    ),
+    repeating-radial-gradient(
+      circle at 70% 0%,
+      transparent 0 44px,
+      var(--accent-10) 45px 46px
+    );
 }
 
 .motion-pad__home,
@@ -6254,10 +6599,16 @@ html[data-theme="light"] .fleet-console-shell {
   }
 
   .fleet-console-sidebar__spacer + .fleet-console-sidebar-card,
-  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card ~ .fleet-console-sidebar-card {
+  .fleet-console-sidebar__spacer
+    + .fleet-console-sidebar-card
+    ~ .fleet-console-sidebar-card {
     width: calc(100% - 28px);
     margin: 0 14px;
-    border-color: color-mix(in oklab, var(--accent) 18%, rgba(255, 255, 255, 0.12));
+    border-color: color-mix(
+      in oklab,
+      var(--accent) 18%,
+      rgba(255, 255, 255, 0.12)
+    );
     background:
       linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 48%),
       rgba(28, 32, 36, 0.78);
@@ -6268,13 +6619,19 @@ html[data-theme="light"] .fleet-console-shell {
     border-bottom: 0;
   }
 
-  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card ~ .fleet-console-sidebar-card {
-    border-top: 1px solid color-mix(in oklab, var(--accent) 18%, rgba(255, 255, 255, 0.1));
+  .fleet-console-sidebar__spacer
+    + .fleet-console-sidebar-card
+    ~ .fleet-console-sidebar-card {
+    border-top: 1px solid
+      color-mix(in oklab, var(--accent) 18%, rgba(255, 255, 255, 0.1));
     border-bottom: 0;
   }
 
-  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card ~ .fleet-console-sidebar-card:last-child {
-    border-bottom: 1px solid color-mix(in oklab, var(--accent) 18%, rgba(255, 255, 255, 0.12));
+  .fleet-console-sidebar__spacer
+    + .fleet-console-sidebar-card
+    ~ .fleet-console-sidebar-card:last-child {
+    border-bottom: 1px solid
+      color-mix(in oklab, var(--accent) 18%, rgba(255, 255, 255, 0.12));
   }
 }
 
@@ -6295,7 +6652,9 @@ html[data-theme="light"] .fleet-console-shell {
   }
 
   .fleet-console-sidebar__spacer + .fleet-console-sidebar-card,
-  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card ~ .fleet-console-sidebar-card {
+  .fleet-console-sidebar__spacer
+    + .fleet-console-sidebar-card
+    ~ .fleet-console-sidebar-card {
     padding-block: 8px;
   }
 }
@@ -6336,4 +6695,233 @@ html[data-theme="light"] .fleet-console-shell {
 .app-shell-console__body .background-card--active {
   border-color: var(--accent) !important;
   box-shadow: inset 0 0 0 1px var(--accent-24) !important;
+}
+
+/* v0.0.21 darker full-bleed utility rail and Bambu connection dialog. */
+@media (min-width: 1241px) {
+  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card,
+  .fleet-console-sidebar__spacer
+    + .fleet-console-sidebar-card
+    ~ .fleet-console-sidebar-card {
+    width: 100%;
+    margin: 0;
+    border-inline: 0;
+    border-color: color-mix(
+      in oklab,
+      var(--accent) 24%,
+      rgba(255, 255, 255, 0.11)
+    );
+    background:
+      linear-gradient(90deg, var(--accent-06), transparent 42%),
+      rgba(13, 15, 18, 0.94);
+    padding-inline: clamp(18px, 2vw, 30px);
+  }
+
+  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card {
+    border-top: 1px solid
+      color-mix(in oklab, var(--accent) 24%, rgba(255, 255, 255, 0.11));
+  }
+
+  .fleet-console-sidebar__spacer
+    + .fleet-console-sidebar-card
+    ~ .fleet-console-sidebar-card {
+    border-top: 1px solid
+      color-mix(in oklab, var(--accent) 24%, rgba(255, 255, 255, 0.11));
+  }
+}
+
+.fleet-console-modal-backdrop {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 50% 12%, var(--accent-14), transparent 26%),
+    rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(14px);
+}
+
+.fleet-console-modal {
+  width: min(720px, 100%);
+  max-height: min(820px, calc(100dvh - 48px));
+  overflow: auto;
+  border: 1px solid var(--fleet-console-border);
+  border-radius: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 36%),
+    rgba(15, 18, 22, 0.98);
+  box-shadow: 0 28px 96px rgba(0, 0, 0, 0.46);
+}
+
+.fleet-console-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border-bottom: 1px solid var(--fleet-console-border);
+  padding: 24px;
+}
+
+.fleet-console-modal__header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-weight: 700;
+  letter-spacing: -0.07em;
+  line-height: 0.95;
+}
+
+.fleet-console-modal__kicker {
+  margin-bottom: 10px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.fleet-console-modal__copy {
+  margin: 0;
+  border-bottom: 1px solid var(--fleet-console-border);
+  padding: 18px 24px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.7;
+}
+
+.fleet-console-printer-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: 24px;
+}
+
+.fleet-console-printer-form label {
+  display: grid;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.fleet-console-printer-form input,
+.fleet-console-printer-form select {
+  min-height: 48px;
+  border: 1px solid var(--fleet-console-border);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 1rem;
+  letter-spacing: normal;
+  padding: 0 14px;
+  text-transform: none;
+}
+
+.fleet-console-printer-form input:focus,
+.fleet-console-printer-form select:focus {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-24);
+  outline: none;
+}
+
+.fleet-console-printer-form__wide,
+.fleet-console-connection-result,
+.fleet-console-form-error,
+.fleet-console-modal__actions {
+  grid-column: 1 / -1;
+}
+
+.fleet-console-connection-result {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--fleet-console-border);
+  background: rgba(255, 255, 255, 0.035);
+  padding: 16px;
+}
+
+.fleet-console-connection-result--ok {
+  border-color: var(--accent-32);
+  background: var(--accent-06);
+}
+
+.fleet-console-connection-result--warn {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.fleet-console-connection-result__headline {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.fleet-console-connection-result__check {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  border-top: 1px solid var(--fleet-console-border);
+  padding-top: 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.fleet-console-connection-result__check strong {
+  color: var(--accent);
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.fleet-console-connection-result__check small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.fleet-console-form-error {
+  border-left: 4px solid #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  color: #fecaca;
+  padding: 12px 14px;
+}
+
+.fleet-console-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+html[data-theme="light"] .fleet-console-modal {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, 0.025), transparent 36%),
+    rgba(255, 255, 255, 0.98);
+}
+
+html[data-theme="light"] .fleet-console-printer-form input,
+html[data-theme="light"] .fleet-console-printer-form select {
+  background: rgba(10, 14, 18, 0.035);
+  color: #111827;
+}
+
+@media (max-width: 720px) {
+  .fleet-console-modal-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .fleet-console-modal {
+    max-height: 92dvh;
+    width: 100%;
+  }
+
+  .fleet-console-printer-form {
+    grid-template-columns: 1fr;
+  }
+
+  .fleet-console-modal__actions {
+    flex-direction: column;
+  }
 }

@@ -19,6 +19,7 @@ It is being built for people who want a clean local-first printer console with i
 
 - **Fleet dashboard** with printer cards, farm cards, live-style status data, and a detailed printer panel.
 - **Fullscreen printer workspace** with staged camera, movement, temperature, fan, lamp, extruder, filament, and print-action controls.
+- **Bambu LAN printer setup** with local connection testing, SQLite persistence, and redacted access-code handling.
 - **Camera source management** for future Frigate, direct RTSP, Bambu native, and farm overview feeds.
 - **Local first-run setup** that creates the first admin account before the app opens.
 - **Invite-only users** after bootstrap, with `admin`, `operator`, and `viewer` roles.
@@ -30,9 +31,9 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.20` interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, connected sidebar utility cards, BambuView branding, and selectable background styles.
+The `0.0.21` interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, and selectable background styles.
 
-The printer, farm, camera, and prepare/slice data are still mock-backed while the product shell, auth model, and deployment path settle.
+The first Bambu LAN connection path is now in place. Saved printers appear in Fleet and stage Bambu-native camera records, while live telemetry parsing and real camera playback are still upcoming work.
 
 ## Getting Started
 
@@ -117,6 +118,9 @@ Core routes currently include:
 - `POST /api/auth/logout`
 - `GET /api/auth/session`
 - `GET /api/fleet/overview`
+- `GET /api/printers/connections`
+- `POST /api/printers/bambu/test`
+- `POST /api/printers/bambu`
 - `GET /api/printers/:id`
 - `GET /api/cameras`
 - `GET /api/settings/appearance`

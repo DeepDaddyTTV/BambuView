@@ -24,7 +24,7 @@ describe("auth and settings flows", () => {
   it("allows bootstrap only once", async () => {
     const app = await buildApp({
       appOrigin: "http://localhost:4173",
-      databaseFile: createTestDbPath()
+      databaseFile: createTestDbPath(),
     });
 
     const first = await app.inject({
@@ -33,8 +33,8 @@ describe("auth and settings flows", () => {
       payload: {
         email: "admin@example.com",
         name: "Admin User",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     expect(first.statusCode).toBe(200);
@@ -46,8 +46,8 @@ describe("auth and settings flows", () => {
       payload: {
         email: "other@example.com",
         name: "Other User",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     expect(second.statusCode).toBe(409);
@@ -57,7 +57,7 @@ describe("auth and settings flows", () => {
   it("supports invite-only registration and rejects invite reuse", async () => {
     const app = await buildApp({
       appOrigin: "http://localhost:4173",
-      databaseFile: createTestDbPath()
+      databaseFile: createTestDbPath(),
     });
 
     const bootstrap = await app.inject({
@@ -66,20 +66,20 @@ describe("auth and settings flows", () => {
       payload: {
         email: "admin@example.com",
         name: "Admin User",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     const invite = await app.inject({
       method: "POST",
       url: "/api/users/invites",
       headers: {
-        cookie: bootstrap.headers["set-cookie"]
+        cookie: bootstrap.headers["set-cookie"],
       },
       payload: {
         email: "operator@example.com",
-        role: "operator"
-      }
+        role: "operator",
+      },
     });
 
     expect(invite.statusCode).toBe(201);
@@ -92,8 +92,8 @@ describe("auth and settings flows", () => {
         inviteId: invitePayload.invite.id,
         inviteToken: invitePayload.inviteToken,
         name: "Operator User",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     expect(register.statusCode).toBe(200);
@@ -106,8 +106,8 @@ describe("auth and settings flows", () => {
         inviteId: invitePayload.invite.id,
         inviteToken: invitePayload.inviteToken,
         name: "Operator User",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     expect(reuse.statusCode).toBe(409);
@@ -117,7 +117,7 @@ describe("auth and settings flows", () => {
   it("creates a session on login and clears it on logout", async () => {
     const app = await buildApp({
       appOrigin: "http://localhost:4173",
-      databaseFile: createTestDbPath()
+      databaseFile: createTestDbPath(),
     });
 
     await app.inject({
@@ -126,8 +126,8 @@ describe("auth and settings flows", () => {
       payload: {
         email: "admin@example.com",
         name: "Admin User",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     const login = await app.inject({
@@ -135,8 +135,8 @@ describe("auth and settings flows", () => {
       url: "/api/auth/login",
       payload: {
         email: "admin@example.com",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     expect(login.statusCode).toBe(200);
@@ -147,8 +147,8 @@ describe("auth and settings flows", () => {
       method: "GET",
       url: "/api/auth/session",
       headers: {
-        cookie
-      }
+        cookie,
+      },
     });
 
     expect(session.json().authenticated).toBe(true);
@@ -157,15 +157,15 @@ describe("auth and settings flows", () => {
       method: "POST",
       url: "/api/auth/logout",
       headers: {
-        cookie
-      }
+        cookie,
+      },
     });
 
     expect(logout.statusCode).toBe(200);
 
     const afterLogout = await app.inject({
       method: "GET",
-      url: "/api/auth/session"
+      url: "/api/auth/session",
     });
 
     expect(afterLogout.json().authenticated).toBe(false);
@@ -176,7 +176,7 @@ describe("auth and settings flows", () => {
     const insecureApp = await buildApp({
       appOrigin: "http://localhost:4173",
       databaseFile: createTestDbPath(),
-      secureCookies: false
+      secureCookies: false,
     });
 
     const insecureBootstrap = await insecureApp.inject({
@@ -185,8 +185,8 @@ describe("auth and settings flows", () => {
       payload: {
         email: "admin@example.com",
         name: "Admin User",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     expect(insecureBootstrap.statusCode).toBe(200);
@@ -196,7 +196,7 @@ describe("auth and settings flows", () => {
     const secureApp = await buildApp({
       appOrigin: "https://bambuview.example.com",
       databaseFile: createTestDbPath(),
-      secureCookies: true
+      secureCookies: true,
     });
 
     const secureBootstrap = await secureApp.inject({
@@ -205,8 +205,8 @@ describe("auth and settings flows", () => {
       payload: {
         email: "admin@example.com",
         name: "Admin User",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     expect(secureBootstrap.statusCode).toBe(200);
@@ -217,7 +217,7 @@ describe("auth and settings flows", () => {
   it("persists appearance settings", async () => {
     const app = await buildApp({
       appOrigin: "http://localhost:4173",
-      databaseFile: createTestDbPath()
+      databaseFile: createTestDbPath(),
     });
 
     const bootstrap = await app.inject({
@@ -226,8 +226,8 @@ describe("auth and settings flows", () => {
       payload: {
         email: "admin@example.com",
         name: "Admin User",
-        password: "supersecure"
-      }
+        password: "supersecure",
+      },
     });
 
     const cookie = bootstrap.headers["set-cookie"];
@@ -236,7 +236,7 @@ describe("auth and settings flows", () => {
       method: "PUT",
       url: "/api/settings/appearance",
       headers: {
-        cookie
+        cookie,
       },
       payload: {
         mode: "light",
@@ -244,8 +244,8 @@ describe("auth and settings flows", () => {
         darkBackground: "#101317",
         lightHighlight: "#7ed321",
         lightBackground: "#f7f8fa",
-        backgroundStyle: "blueprint"
-      }
+        backgroundStyle: "blueprint",
+      },
     });
 
     expect(save.statusCode).toBe(200);
@@ -254,12 +254,94 @@ describe("auth and settings flows", () => {
       method: "GET",
       url: "/api/settings/appearance",
       headers: {
-        cookie
-      }
+        cookie,
+      },
     });
 
     expect(fetch.json().appearance.backgroundStyle).toBe("blueprint");
     expect(fetch.json().appearance.mode).toBe("light");
+    await app.close();
+  });
+
+  it("stores Bambu LAN printer connections without returning the access code", async () => {
+    const app = await buildApp({
+      appOrigin: "http://localhost:4173",
+      databaseFile: createTestDbPath(),
+    });
+
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap",
+      payload: {
+        email: "admin@example.com",
+        name: "Admin User",
+        password: "supersecure",
+      },
+    });
+    const cookie = bootstrap.headers["set-cookie"];
+
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/printers/bambu",
+      headers: {
+        cookie,
+      },
+      payload: {
+        accessCode: "test-access-code",
+        host: "127.0.0.1",
+        model: "X1 Carbon",
+        name: "Office X1 Carbon",
+        serial: "00M09A000000001",
+      },
+    });
+
+    expect(create.statusCode).toBe(201);
+    const createdPayload = create.json();
+    expect(createdPayload.printer.name).toBe("Office X1 Carbon");
+    expect(createdPayload.printer.accessCodeSet).toBe(true);
+    expect(JSON.stringify(createdPayload)).not.toContain("test-access-code");
+
+    const connections = await app.inject({
+      method: "GET",
+      url: "/api/printers/connections",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(connections.statusCode).toBe(200);
+    expect(connections.json().printers).toHaveLength(1);
+    expect(JSON.stringify(connections.json())).not.toContain(
+      "test-access-code",
+    );
+
+    const fleet = await app.inject({
+      method: "GET",
+      url: "/api/fleet/overview",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(fleet.statusCode).toBe(200);
+    expect(fleet.json().printers[0].name).toBe("Office X1 Carbon");
+
+    const duplicate = await app.inject({
+      method: "POST",
+      url: "/api/printers/bambu",
+      headers: {
+        cookie,
+      },
+      payload: {
+        accessCode: "test-access-code",
+        host: "127.0.0.1",
+        model: "X1 Carbon",
+        name: "Office X1 Carbon",
+        serial: "00M09A000000001",
+      },
+    });
+
+    expect(duplicate.statusCode).toBe(409);
     await app.close();
   });
 });

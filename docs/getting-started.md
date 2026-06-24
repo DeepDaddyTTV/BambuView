@@ -88,8 +88,18 @@ After the first admin exists, new accounts can only be created from invites.
 
 Your appearance settings are saved to your local account.
 
-## What to expect in `0.0.20`
+## Add your first Bambu printer
+
+1. Open `Fleet`.
+2. Select `Add Printer or Farm`.
+3. Enter the printer name, Bambu model, hostname or IP address, serial number, and LAN access code.
+4. Use `Test Connection` to confirm the local control channel is reachable.
+5. Save the printer.
+
+The access code is stored only in the local SQLite database and is not returned to the browser after the printer is saved.
+
+## What to expect in `0.0.21`
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 
-The printer, farm, camera, and prepare/slice data are still mock-backed in this first release so the product shell, roles, and Docker Compose path can settle before live integrations are added.
+Saved Bambu printers now persist locally and appear in Fleet. Full live printer telemetry, printer controls, camera playback, and prepare/slice workflows are still staged for upcoming releases.
