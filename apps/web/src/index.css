@@ -4430,7 +4430,7 @@ html[data-theme="light"] .fleet-console-focus-action {
   }
 }
 
-/* v0.0.16 fidelity layer: keep the approved graphite shell crisp and dense. */
+/* v0.0.17 fidelity layer: keep the approved graphite shell crisp and dense. */
 .fleet-console-shell {
   --fleet-console-bg: #14171a;
   --fleet-console-surface: rgba(24, 27, 31, 0.74);
@@ -4887,7 +4887,7 @@ html[data-theme="light"] .fleet-console-focus-action {
   }
 }
 
-/* v0.0.16 native mockup fidelity pass. */
+/* v0.0.17 native mockup fidelity pass. */
 .fleet-console-shell {
   grid-template-columns: 228px minmax(0, 844px) 464px;
 }
@@ -5367,7 +5367,7 @@ html[data-theme="light"] .fleet-console-shell {
   }
 }
 
-/* v0.0.16 final fidelity lock: preserve the accepted mockup geometry at desktop size. */
+/* v0.0.17 final fidelity lock: preserve the accepted mockup geometry at desktop size. */
 @media (min-width: 1241px) {
   .fleet-console-shell {
     grid-template-columns: 228px minmax(0, 844px) 464px;
@@ -5706,5 +5706,165 @@ html[data-theme="light"] .fleet-console-shell {
       url("data:image/svg+xml,%3Csvg width='184' height='24' viewBox='0 0 184 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 15 8 11 16 17 24 9 32 15 40 12 48 14 56 10 64 13 72 12 80 9 88 16 96 12 104 17 112 8 120 15 128 13 136 18 144 4 152 17 160 13 168 12 176 11 184 10' fill='none' stroke='%237ed321' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
         center/100% 100% no-repeat;
     mask: none;
+  }
+}
+
+/* v0.0.17 shell fidelity: stable logo text, responsive desktop scale, and independent column scroll. */
+.brand-lockup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.brand-lockup__mark {
+  display: inline-flex;
+  flex: 0 0 31px;
+  width: 31px;
+  height: 27px;
+  align-items: center;
+}
+
+.brand-lockup__mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.brand-lockup__wordmark {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  font-family:
+    "Segoe UI Variable",
+    "Segoe UI",
+    "Helvetica Neue",
+    "Aptos Display",
+    "SF Pro Display",
+    system-ui,
+    sans-serif;
+  font-size: 1.14rem;
+  font-weight: 650;
+  letter-spacing: -0.058em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.brand-lockup__wordmark-main {
+  color: var(--brand-logo-ink);
+}
+
+.brand-lockup__wordmark-accent {
+  color: var(--brand-logo-green);
+}
+
+@media (min-width: 1241px) {
+  .fleet-console-shell {
+    height: 100dvh;
+    min-height: 0;
+    grid-template-columns: minmax(214px, 14.84375vw) minmax(0, 54.9479167vw) minmax(424px, 30.2083333vw);
+    overflow: hidden;
+  }
+
+  .fleet-console-shell--detail-closed {
+    grid-template-columns: minmax(214px, 14.84375vw) minmax(0, 1fr);
+  }
+
+  .fleet-console-sidebar,
+  .fleet-console-content,
+  .fleet-console-detail {
+    height: 100dvh;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+
+  .fleet-console-sidebar {
+    scrollbar-color: rgba(126, 211, 33, 0.35) transparent;
+  }
+
+  .fleet-console-content,
+  .fleet-console-detail {
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  }
+
+  .fleet-console-sidebar__brand-logo {
+    width: 162px;
+    height: 32px;
+  }
+
+  .fleet-console-detail {
+    padding: 18px 20px 14px 24px;
+  }
+
+  .fleet-console-detail__tabs {
+    padding: 13px 0 10px;
+  }
+
+  .fleet-console-detail__section {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+
+  .fleet-console-detail__section--status {
+    margin-top: 5px;
+    padding-top: 0;
+  }
+
+  .fleet-console-status__state {
+    margin-top: 11px;
+  }
+
+  .fleet-console-status__rows {
+    margin-top: 10px;
+  }
+
+  .fleet-console-temperature-grid__item {
+    min-height: 70px;
+    padding: 0 8px;
+  }
+
+  .fleet-console-filament-card {
+    min-height: 108px;
+    padding: 9px;
+  }
+
+  .fleet-console-filament-card__body {
+    margin-top: 7px;
+  }
+
+  .fleet-console-filament-card__swatch {
+    width: 24px;
+    height: 24px;
+  }
+
+  .fleet-console-camera-stage {
+    height: 210px;
+    min-height: 210px;
+    margin-top: 8px;
+  }
+
+  .fleet-console-controls {
+    margin-top: 8px;
+    padding-bottom: 10px;
+  }
+}
+
+@media (max-width: 1240px) {
+  .fleet-console-shell,
+  .fleet-console-shell--detail-closed {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .fleet-console-sidebar,
+  .fleet-console-content,
+  .fleet-console-detail {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
   }
 }

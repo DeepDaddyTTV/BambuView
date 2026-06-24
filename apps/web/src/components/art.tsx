@@ -8,25 +8,23 @@ import benchyPreview from "../assets/mockup/benchy.png";
 import bracketPreview from "../assets/mockup/bracket.png";
 import dinoPreview from "../assets/mockup/dino.png";
 import housingPreview from "../assets/mockup/housing.png";
-import logoFullSvgRaw from "../../../../img/BambuView_Full_Logo.svg?raw";
 import logoMarkSvgRaw from "../../../../img/BambuView_Logo_Only.svg?raw";
 
 function themeLogoSvg(svg: string) {
   return svg
     .replace(/<\?xml[^>]*>\s*/i, "")
-    .replace(/fill:\s*#(?:000|000000|101317);/gi, "fill: var(--brand-logo-contrast);")
+    .replace(/fill:\s*#(?:000|000000|101317);/gi, "fill: var(--brand-logo-ink);")
     .replace(/fill:\s*#13bf00;/gi, "fill: var(--brand-logo-green);")
     .replace(/fill:\s*#(?:fff|ffffff);/gi, "fill: var(--brand-logo-ink);")
-    .replace(/fill=\"#(?:000|000000|101317)\"/gi, 'fill="var(--brand-logo-contrast)"')
+    .replace(/fill=\"#(?:000|000000|101317)\"/gi, 'fill="var(--brand-logo-ink)"')
     .replace(/fill=\"#13bf00\"/gi, 'fill="var(--brand-logo-green)"')
     .replace(/fill=\"#(?:fff|ffffff)\"/gi, 'fill="var(--brand-logo-ink)"')
     .replace(/<path d="M54\.03,[^>]+\/>/i, (match) =>
-      match.replace("<path ", '<path fill="var(--brand-logo-contrast)" ')
+      match.replace("<path ", '<path fill="var(--brand-logo-ink)" ')
     )
     .trim();
 }
 
-const themedLogoFull = themeLogoSvg(logoFullSvgRaw);
 const themedLogoMark = themeLogoSvg(logoMarkSvgRaw);
 
 function InlineLogo({
@@ -47,7 +45,26 @@ function InlineLogo({
 }
 
 export function BrandLogo({ className }: { className?: string }) {
-  return <InlineLogo className={clsx("brand-lockup", className)} markup={themedLogoFull} />;
+  return (
+    <span
+      aria-label="BambuView"
+      className={clsx("brand-lockup", className)}
+      role="img"
+    >
+      <span
+        aria-hidden="true"
+        className="brand-lockup__mark"
+        dangerouslySetInnerHTML={{ __html: themedLogoMark }}
+      />
+      <span
+        aria-hidden="true"
+        className="brand-lockup__wordmark"
+      >
+        <span className="brand-lockup__wordmark-main">Bambu</span>
+        <span className="brand-lockup__wordmark-accent">View</span>
+      </span>
+    </span>
+  );
 }
 
 export function LogoMark({ className }: { className?: string }) {
