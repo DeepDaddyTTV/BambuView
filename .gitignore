@@ -7,10 +7,10 @@ coverage
 *.tsbuildinfo
 apps/api/data
 **/apps/api/data
+data
 apps/web/playwright-report
 apps/web/test-results
 apps/web/.vite
 .env
 .env.*
 !.env.example
-!.env.portainer.example

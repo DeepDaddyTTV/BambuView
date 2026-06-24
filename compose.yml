@@ -1,0 +1,14 @@
+services:
+  bambuview:
+    image: deepdaddyttv/bambuview:latest
+    container_name: bambuview
+    environment:
+      TZ: UTC
+      APP_ORIGIN: http://localhost:4173
+      COOKIE_SECURE: "false"
+      DATABASE_FILE: /data/bambuview.db
+    ports:
+      - "4173:4173"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

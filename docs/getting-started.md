@@ -4,31 +4,47 @@
 
 Before you begin, make sure you have:
 
-- Docker or a recent Node.js + pnpm setup
-- A place to store the SQLite database file
-- A plan for how users will reach the app, such as a reverse proxy or tunnel
+- Docker or Docker Desktop
+- A folder for BambuView's `/data` database
+- A browser that can reach the app
+- A plan for HTTPS if you expose it outside your home network
 
 ## Start BambuView
 
-### Option 1: Run with Docker
+### Docker Compose
 
-1. Build the image:
+1. Create a `compose.yml` file:
 
-   ```bash
-   docker build -t bambuview:local .
+   ```yaml
+   services:
+     bambuview:
+       image: deepdaddyttv/bambuview:latest
+       container_name: bambuview
+       environment:
+         TZ: UTC
+         APP_ORIGIN: http://localhost:4173
+         COOKIE_SECURE: "false"
+         DATABASE_FILE: /data/bambuview.db
+       ports:
+         - "4173:4173"
+       volumes:
+         - ./data:/data
+       restart: unless-stopped
    ```
 
-2. Start the container:
+2. Start BambuView:
 
    ```bash
-   docker run --rm \
-     -e APP_ORIGIN=http://localhost:4173 \
-     -e DATABASE_FILE=/data/bambuview.db \
-     -v bambuview_data:/data \
-     bambuview:local
+   docker compose up -d
    ```
 
-### Option 2: Run natively
+3. Open the app:
+
+   ```text
+   http://localhost:4173
+   ```
+
+### Local development
 
 1. Install dependencies:
 
@@ -72,10 +88,8 @@ After the first admin exists, new accounts can only be created from invites.
 
 Your appearance settings are saved to your local account.
 
-## What to expect in `0.0.19`
+## What to expect in `0.0.20`
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 
-The printer, farm, camera, and prepare/slice data are still mock-backed in this first release so the product shell, roles, and deployment flow can settle before live integrations are added.
-
-For finished revisions, the recommended test target is the deployed container, not a localhost build.
+The printer, farm, camera, and prepare/slice data are still mock-backed in this first release so the product shell, roles, and Docker Compose path can settle before live integrations are added.

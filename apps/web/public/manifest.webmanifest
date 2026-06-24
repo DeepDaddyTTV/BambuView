@@ -1,0 +1,19 @@
+{
+  "name": "BambuView",
+  "short_name": "BambuView",
+  "description": "A centralized printer and camera dashboard for Bambu Lab fleets.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#101317",
+  "theme_color": "#101317",
+  "lang": "en",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

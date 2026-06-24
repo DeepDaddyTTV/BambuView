@@ -146,24 +146,24 @@ export const DEFAULT_APPEARANCE: AppearanceSettings = {
   darkBackground: "#1a1d20",
   lightHighlight: "#7ed321",
   lightBackground: "#ffffff",
-  backgroundStyle: "blueprint"
+  backgroundStyle: "blueprint",
 };
 
 export const HIGHLIGHT_SWATCHES = [
   "#7ed321",
   "#8b5cf6",
   "#22c7d8",
-  "#ff5aa9"
+  "#ff5aa9",
 ] as const;
 
 export const DARK_BACKGROUND_SWATCHES = [
   "#1a1d20",
   "#15181b",
-  "#202428"
+  "#202428",
 ] as const;
 
 export const LIGHT_BACKGROUND_SWATCHES = [
   "#ffffff",
   "#f7f8fa",
-  "#eef1f5"
+  "#eef1f5",
 ] as const;

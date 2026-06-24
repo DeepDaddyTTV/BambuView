@@ -4,6 +4,7 @@ node_modules
 coverage
 dist
 apps/api/data
+data
 apps/api/dist
 apps/web/dist
 packages/contracts/dist

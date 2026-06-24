@@ -7,14 +7,12 @@ on:
 
 permissions:
   contents: write
-  packages: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: deepdaddyttv/bambuview
-      GHCR_IMAGE: ghcr.io/deepdaddyttv/bambuview
 
     steps:
       - name: Check out repository
@@ -56,13 +54,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Log in to Docker Hub
         uses: docker/login-action@v4
         with:
@@ -73,9 +64,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.GHCR_IMAGE }}
-            ${{ env.IMAGE_NAME }}
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ steps.version.outputs.value }}
             type=raw,value=latest

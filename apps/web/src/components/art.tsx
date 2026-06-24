@@ -72,7 +72,7 @@ export function LogoMark({ className }: { className?: string }) {
 }
 
 function resolvePreviewColor(primaryColor?: string) {
-  return primaryColor ?? "#7ed321";
+  return primaryColor ?? "var(--accent)";
 }
 
 const mockupPreviewByKind: Partial<Record<PrinterSummary["previewKind"], string>> = {

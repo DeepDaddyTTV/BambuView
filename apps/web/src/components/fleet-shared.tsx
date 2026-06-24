@@ -27,9 +27,9 @@ import type {
 import { appearanceStyleClass } from "../app/appearance";
 import { PrinterPreviewArt } from "./art";
 
-const PRINTING_GREEN = "#7ed321";
-const PRINTING_GREEN_CLASS = "text-[#7ed321]";
-const PRINTING_GREEN_BG_CLASS = "bg-[#7ed321]";
+const PRINTING_GREEN = "var(--accent)";
+const PRINTING_GREEN_CLASS = "text-[color:var(--accent)]";
+const PRINTING_GREEN_BG_CLASS = "bg-[color:var(--accent)]";
 
 function statusTone(status: PrinterSummary["status"]) {
   if (status === "printing") return PRINTING_GREEN_CLASS;
@@ -679,7 +679,7 @@ export function PrinterDetailPanel({
           <div className="mt-3 flex flex-wrap gap-6 text-sm text-zinc-400">
             {["Overview", "Jobs", "History", "Maintenance", "Config"].map((tab, index) => (
               <span
-                className={index === 0 ? "border-b border-[#7ed321] pb-2 text-white" : ""}
+                className={index === 0 ? "border-b border-[color:var(--accent)] pb-2 text-white" : ""}
                 key={tab}
               >
                 {tab}

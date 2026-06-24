@@ -15,7 +15,7 @@
   --panel-light: rgba(255, 255, 255, 0.96);
   --light-accent: #7ed321;
   --light-surface-bg: #ffffff;
-  --brand-logo-green: #13bf00;
+  --brand-logo-green: var(--accent);
   --brand-logo-ink: #ffffff;
   --brand-logo-contrast: #101317;
   --texture-line: rgba(255, 255, 255, 0.035);
@@ -73,35 +73,44 @@ html[data-theme="light"] body {
 .app-background--topo::after,
 html[data-background-style="topo"] .fleet-console-shell::after {
   background:
-    radial-gradient(circle at 86% 10%, var(--accent-14), transparent 18%),
-    radial-gradient(circle at 18% 88%, var(--accent-10), transparent 16%),
-    repeating-radial-gradient(circle at 112% -6%, transparent 0 40px, var(--accent-06) 40px 42px),
-    repeating-radial-gradient(circle at -10% 108%, transparent 0 58px, var(--accent-06) 58px 60px);
+    repeating-radial-gradient(ellipse at 13% 88%, transparent 0 33px, var(--accent-10) 34px 36px, transparent 37px 53px),
+    repeating-radial-gradient(ellipse at 86% 3%, transparent 0 42px, var(--texture-line-strong) 43px 45px, transparent 46px 64px),
+    repeating-radial-gradient(ellipse at 54% 48%, transparent 0 76px, var(--texture-line) 77px 78px, transparent 79px 102px),
+    radial-gradient(circle at 18% 88%, var(--accent-10), transparent 20%);
+  opacity: 0.9;
 }
 
 .app-background--two-tone::after,
 html[data-background-style="two-tone"] .fleet-console-shell::after {
   background:
-    radial-gradient(circle at 86% 8%, var(--accent-18), transparent 24%),
-    linear-gradient(145deg, transparent 0 56%, var(--accent-10) 56% 63%, transparent 63%),
-    linear-gradient(145deg, transparent 0 62%, var(--accent-06) 62% 68%, transparent 68%);
+    radial-gradient(760px 260px at 14% 106%, color-mix(in oklab, var(--accent) 26%, transparent), transparent 68%),
+    radial-gradient(900px 260px at 86% -8%, color-mix(in oklab, var(--accent) 19%, transparent), transparent 72%),
+    linear-gradient(150deg, transparent 0 47%, color-mix(in oklab, var(--accent) 34%, transparent) 47% 52%, transparent 52% 61%, color-mix(in oklab, var(--accent) 17%, transparent) 61% 65%, transparent 65%),
+    linear-gradient(150deg, transparent 0 55%, rgba(255, 255, 255, 0.05) 55% 56%, transparent 56%);
+  opacity: 0.88;
 }
 
 .app-background--blueprint::after,
 html[data-background-style="blueprint"] .fleet-console-shell::after {
   background:
-    radial-gradient(circle at 50% -6%, rgba(255, 255, 255, 0.024), transparent 28%),
-    radial-gradient(circle at 82% 10%, rgba(255, 255, 255, 0.016), transparent 18%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.012), transparent 20%);
-  opacity: 1;
+    radial-gradient(circle at 76% 18%, transparent 0 72px, var(--accent-18) 73px 75px, transparent 76px 116px, var(--accent-10) 117px 118px, transparent 119px),
+    linear-gradient(var(--accent-10) 1px, transparent 1px),
+    linear-gradient(90deg, var(--accent-10) 1px, transparent 1px),
+    linear-gradient(var(--texture-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--texture-line) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.014), transparent 20%);
+  background-size: auto, 48px 48px, 48px 48px, 12px 12px, 12px 12px, auto;
+  opacity: 0.86;
 }
 
 .app-background--sweep::after,
 html[data-background-style="sweep"] .fleet-console-shell::after {
   background:
-    radial-gradient(circle at 14% 88%, var(--accent-14), transparent 18%),
-    linear-gradient(150deg, transparent 0 66%, var(--accent-10) 66% 72%, transparent 72%),
-    repeating-radial-gradient(circle at -8% 108%, transparent 0 54px, var(--accent-06) 54px 56px);
+    radial-gradient(720px 360px at -8% 112%, var(--accent-24), transparent 68%),
+    radial-gradient(680px 320px at 105% -4%, var(--accent-18), transparent 66%),
+    linear-gradient(142deg, transparent 0 42%, var(--accent-18) 42% 47%, transparent 47% 54%, var(--accent-10) 54% 58%, transparent 58%),
+    linear-gradient(322deg, transparent 0 63%, rgba(255, 255, 255, 0.052) 63% 64%, transparent 64% 70%, var(--accent-06) 70% 73%, transparent 73%);
+  opacity: 0.9;
 }
 
 .app-background--plain::after,
@@ -258,8 +267,8 @@ html[data-theme="light"] .section-title {
   --fleet-console-border: rgba(255, 255, 255, 0.08);
   --fleet-console-text: #f5f7fa;
   --fleet-console-muted: #8f98a3;
-  --fleet-console-green: #7ed321;
-  --fleet-console-green-soft: rgba(126, 211, 33, 0.16);
+  --fleet-console-green: var(--accent);
+  --fleet-console-green-soft: var(--accent-18);
   --fleet-console-blue: #5a94ff;
   --fleet-console-amber: #f4b147;
   --fleet-console-red: #ff6f5e;
@@ -2588,7 +2597,7 @@ html[data-theme="light"] .fleet-temperature-row__target {
   width: 78px;
   place-items: center;
   background: var(--accent-soft) !important;
-  border-color: rgba(126, 211, 33, 0.4) !important;
+  border-color: var(--accent-32) !important;
 }
 
 .motion-pad__north,
@@ -2624,9 +2633,9 @@ html[data-theme="light"] .fleet-temperature-row__target {
 .camera-grid {
   height: 100%;
   background:
-    linear-gradient(90deg, rgba(126, 211, 33, 0.08) 1px, transparent 1px),
-    linear-gradient(rgba(126, 211, 33, 0.08) 1px, transparent 1px),
-    radial-gradient(circle at 50% 40%, rgba(126, 211, 33, 0.22), transparent 18%);
+    linear-gradient(90deg, var(--accent-10) 1px, transparent 1px),
+    linear-gradient(var(--accent-10) 1px, transparent 1px),
+    radial-gradient(circle at 50% 40%, var(--accent-24), transparent 18%);
   background-size: 34px 34px, 34px 34px, auto;
 }
 
@@ -2671,7 +2680,7 @@ html[data-theme="light"] .fleet-temperature-row__target {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 24% 78%, rgba(126, 211, 33, 0.24), transparent 16%),
+    radial-gradient(circle at 24% 78%, var(--accent-24), transparent 16%),
     url("data:image/svg+xml,%3Csvg width='700' height='900' viewBox='0 0 700 900' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M-50 780c150-130 280-150 390-68 83 62 154 74 240 42M-72 730c148-128 278-147 390-66 85 62 158 75 246 44M-94 680c145-126 275-145 390-64 88 62 162 76 250 48M420-20c-90 116-104 244-42 352 58 101 76 196 56 296M484-20c-94 124-106 254-40 363 62 102 84 198 66 298' stroke='rgba(126,211,33,0.18)' stroke-width='2' fill='none'/%3E%3C/svg%3E");
   background-size: cover;
   opacity: 0.86;
@@ -2703,8 +2712,8 @@ html[data-theme="light"] .fleet-temperature-row__target {
 }
 
 .status-pill--online {
-  background: rgba(126, 211, 33, 0.16);
-  color: #c9f48c;
+  background: var(--accent-18);
+  color: var(--accent);
 }
 
 .status-pill--degraded {
@@ -2738,8 +2747,8 @@ html[data-theme="light"] .fleet-temperature-row__target {
 }
 
 .background-card--active {
-  border-color: rgba(126, 211, 33, 0.8);
-  box-shadow: inset 0 0 0 1px rgba(126, 211, 33, 0.3);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-32);
 }
 
 .background-card__preview {
@@ -2767,9 +2776,9 @@ html[data-theme="light"] .fleet-temperature-row__target {
 
 .prepare-wireframe__canvas {
   background:
-    linear-gradient(rgba(126, 211, 33, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(126, 211, 33, 0.08) 1px, transparent 1px),
-    radial-gradient(circle at 40% 42%, rgba(126, 211, 33, 0.16), transparent 18%);
+    linear-gradient(var(--accent-10) 1px, transparent 1px),
+    linear-gradient(90deg, var(--accent-10) 1px, transparent 1px),
+    radial-gradient(circle at 40% 42%, var(--accent-18), transparent 18%);
   background-size: 32px 32px, 32px 32px, auto;
 }
 
@@ -2881,7 +2890,7 @@ html[data-theme="light"] .fleet-temperature-row__target {
   --fleet-console-border-strong: rgba(255, 255, 255, 0.12);
   --fleet-console-text: #f4f6f8;
   --fleet-console-muted: #98a1ab;
-  --fleet-console-green: #7ed321;
+  --fleet-console-green: var(--accent);
   --fleet-console-blue: #5a94ff;
   --fleet-console-amber: #ffb43b;
   --fleet-console-red: #ff6d5f;
@@ -2987,11 +2996,11 @@ html[data-theme="light"] .fleet-temperature-row__target {
 }
 
 .fleet-console-sidebar__link--active {
-  border-color: rgba(126, 211, 33, 0.18);
-  background: linear-gradient(90deg, rgba(126, 211, 33, 0.2), rgba(126, 211, 33, 0.08));
+  border-color: var(--accent-24);
+  background: linear-gradient(90deg, var(--accent-24), var(--accent-10));
   box-shadow:
     inset 4px 0 0 var(--accent),
-    inset 0 0 0 1px rgba(126, 211, 33, 0.1);
+    inset 0 0 0 1px var(--accent-10);
   color: #ffffff;
 }
 
@@ -3054,7 +3063,11 @@ html[data-theme="light"] .fleet-temperature-row__target {
   width: 44px;
   place-items: center;
   border-radius: 999px;
-  background: linear-gradient(180deg, #8ad83e, #5cbc28);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--accent) 92%, white 8%),
+    color-mix(in oklab, var(--accent) 82%, black 18%)
+  );
   font-size: 1.1rem;
   font-weight: 700;
   color: #ffffff;
@@ -3174,9 +3187,9 @@ html[data-theme="light"] .fleet-temperature-row__target {
 }
 
 .fleet-console-segmented__button--active {
-  background: rgba(126, 211, 33, 0.2);
+  background: var(--accent-24);
   color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(126, 211, 33, 0.16);
+  box-shadow: inset 0 0 0 1px var(--accent-18);
 }
 
 .fleet-console-search {
@@ -3217,7 +3230,7 @@ html[data-theme="light"] .fleet-temperature-row__target {
 }
 
 .fleet-console-view-toggle__button--active {
-  background: rgba(126, 211, 33, 0.16);
+  background: var(--accent-18);
   color: var(--accent);
 }
 
@@ -3314,8 +3327,8 @@ html[data-theme="light"] .fleet-temperature-row__target {
 }
 
 .fleet-console-card--selected {
-  border-color: rgba(126, 211, 33, 0.42);
-  box-shadow: inset 0 0 0 1px rgba(126, 211, 33, 0.18);
+  border-color: var(--accent-32);
+  box-shadow: inset 0 0 0 1px var(--accent-18);
 }
 
 .fleet-console-card__header,
@@ -4430,7 +4443,7 @@ html[data-theme="light"] .fleet-console-focus-action {
   }
 }
 
-/* v0.0.19 fidelity layer: keep the approved graphite shell crisp and dense. */
+/* v0.0.20 fidelity layer: keep the approved graphite shell crisp and dense. */
 .fleet-console-shell {
   --fleet-console-bg: #14171a;
   --fleet-console-surface: rgba(24, 27, 31, 0.74);
@@ -4887,7 +4900,7 @@ html[data-theme="light"] .fleet-console-focus-action {
   }
 }
 
-/* v0.0.19 native mockup fidelity pass. */
+/* v0.0.20 native mockup fidelity pass. */
 .fleet-console-shell {
   grid-template-columns: 228px minmax(0, 844px) 464px;
 }
@@ -5367,7 +5380,7 @@ html[data-theme="light"] .fleet-console-shell {
   }
 }
 
-/* v0.0.19 final fidelity lock: preserve the accepted mockup geometry at desktop size. */
+/* v0.0.20 final fidelity lock: preserve the accepted mockup geometry at desktop size. */
 @media (min-width: 1241px) {
   .fleet-console-shell {
     grid-template-columns: 228px minmax(0, 844px) 464px;
@@ -5709,7 +5722,7 @@ html[data-theme="light"] .fleet-console-shell {
   }
 }
 
-/* v0.0.19 shell fidelity: stable logo text, responsive desktop scale, and independent column scroll. */
+/* v0.0.20 shell fidelity: stable logo text, responsive desktop scale, and independent column scroll. */
 .brand-lockup {
   display: inline-flex;
   align-items: center;
@@ -5890,7 +5903,7 @@ html[data-theme="light"] .fleet-console-shell {
   }
 }
 
-/* v0.0.19 shell polish: unboxed stacked brand, closed detail default, and fitted left rail. */
+/* v0.0.20 shell polish: unboxed stacked brand, closed detail default, and fitted left rail. */
 @media (min-width: 1241px) {
   .fleet-console-sidebar {
     gap: clamp(6px, 1.05dvh, 12px);
@@ -6001,7 +6014,7 @@ html[data-theme="light"] .fleet-console-shell {
   }
 }
 
-/* v0.0.19 straight-edge sidebar pass: centered official logo, centered rail stack, square UI chrome. */
+/* v0.0.20 straight-edge sidebar pass: centered official logo, centered rail stack, square UI chrome. */
 .fleet-console-shell .fleet-console-sidebar__brand,
 .fleet-console-shell .fleet-console-sidebar__link,
 .fleet-console-shell .fleet-console-sidebar-card,
@@ -6134,4 +6147,193 @@ html[data-theme="light"] .fleet-console-shell {
   .fleet-console-sidebar-card__sparkline {
     height: 16px;
   }
+}
+
+/* v0.0.20 highlight fidelity: full-bleed active rail, connected utility stack, and accent-linked brand. */
+.fleet-console-shell {
+  --fleet-console-green: var(--accent);
+  --fleet-console-green-soft: var(--accent-18);
+}
+
+.brand-lockup__wordmark-accent {
+  color: var(--accent);
+  margin-left: 0.035em;
+}
+
+.auth-graphic__lines {
+  background:
+    radial-gradient(circle at 24% 78%, var(--accent-24), transparent 16%),
+    repeating-radial-gradient(circle at 2% 104%, transparent 0 32px, var(--accent-18) 33px 34px),
+    repeating-radial-gradient(circle at 70% 0%, transparent 0 44px, var(--accent-10) 45px 46px);
+}
+
+.motion-pad__home,
+.fleet-console-controls__button--primary,
+.fleet-console-focus-toggle--active,
+.fleet-console-focus-lamp--active,
+.fleet-console-focus-extruder-core,
+.fleet-console-focus-slot--active,
+.fleet-console-focus-action--primary,
+.fleet-console-camera-tabs__button--active,
+.fleet-console-segmented__button--active,
+.fleet-console-view-toggle__button--active {
+  border-color: var(--accent-32) !important;
+  background: var(--accent-14) !important;
+}
+
+.fleet-console-card--selected,
+.background-card--active {
+  border-color: var(--accent) !important;
+  box-shadow: inset 0 0 0 1px var(--accent-24) !important;
+}
+
+.fleet-console-sidebar {
+  scrollbar-color: var(--accent-32) transparent;
+}
+
+.fleet-console-user__avatar {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--accent) 92%, white 8%),
+    color-mix(in oklab, var(--accent) 82%, black 18%)
+  );
+}
+
+@media (min-width: 1241px) {
+  .fleet-console-sidebar {
+    gap: 0;
+    padding: clamp(10px, 1.45dvh, 16px) 0 clamp(10px, 1.35dvh, 14px);
+  }
+
+  .fleet-console-sidebar__brand {
+    width: calc(100% - 28px);
+    margin: 0 14px clamp(6px, 0.85dvh, 10px);
+  }
+
+  .fleet-console-sidebar__brand-logo {
+    width: min(218px, 100%);
+    gap: 12px;
+  }
+
+  .fleet-console-sidebar__brand-logo .brand-lockup__mark {
+    width: 92px;
+    height: 80px;
+  }
+
+  .fleet-console-sidebar__brand-logo .brand-lockup__wordmark {
+    font-size: 2.3rem;
+    letter-spacing: -0.035em;
+  }
+
+  .fleet-console-sidebar__nav {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: clamp(7px, 1dvh, 11px);
+    margin: 0;
+  }
+
+  .fleet-console-sidebar__link {
+    width: 100%;
+    min-height: clamp(48px, 6.15dvh, 58px);
+    border-inline: 0;
+    padding: 0 18px 0 28px;
+  }
+
+  .fleet-console-sidebar__link--active {
+    border-color: var(--accent-24);
+    background: linear-gradient(90deg, var(--accent-24), var(--accent-10));
+    box-shadow:
+      inset 5px 0 0 var(--accent),
+      inset 0 0 0 1px var(--accent-24);
+  }
+
+  .fleet-console-sidebar__spacer {
+    flex: 1 1 clamp(10px, 4dvh, 70px);
+    min-height: 10px;
+  }
+
+  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card,
+  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card ~ .fleet-console-sidebar-card {
+    width: calc(100% - 28px);
+    margin: 0 14px;
+    border-color: color-mix(in oklab, var(--accent) 18%, rgba(255, 255, 255, 0.12));
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.018), transparent 48%),
+      rgba(28, 32, 36, 0.78);
+    box-shadow: none;
+  }
+
+  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card {
+    border-bottom: 0;
+  }
+
+  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card ~ .fleet-console-sidebar-card {
+    border-top: 1px solid color-mix(in oklab, var(--accent) 18%, rgba(255, 255, 255, 0.1));
+    border-bottom: 0;
+  }
+
+  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card ~ .fleet-console-sidebar-card:last-child {
+    border-bottom: 1px solid color-mix(in oklab, var(--accent) 18%, rgba(255, 255, 255, 0.12));
+  }
+}
+
+@media (min-width: 1241px) and (max-height: 820px) {
+  .fleet-console-sidebar__brand-logo {
+    width: min(204px, 100%);
+    gap: 10px;
+  }
+
+  .fleet-console-sidebar__brand-logo .brand-lockup__mark {
+    width: 80px;
+    height: 70px;
+  }
+
+  .fleet-console-sidebar__brand-logo .brand-lockup__wordmark {
+    font-size: 2.12rem;
+    letter-spacing: -0.035em;
+  }
+
+  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card,
+  .fleet-console-sidebar__spacer + .fleet-console-sidebar-card ~ .fleet-console-sidebar-card {
+    padding-block: 8px;
+  }
+}
+
+/* v0.0.20 shared page chrome: non-Fleet routes inherit the square graphite console language. */
+.app-shell-console__body .panel,
+.app-shell-console__body .input-field,
+.app-shell-console__body .color-swatch,
+.app-shell-console__body .background-card,
+.app-shell-console__body .background-card__preview,
+.app-shell-console__body .camera-stage,
+.app-shell-console__body .camera-stage__viewport,
+.app-shell-console__body .prepare-wireframe__rail,
+.app-shell-console__body .prepare-wireframe__canvas,
+.app-shell-console__body .prepare-wireframe__inspector,
+.app-shell-console__body .status-pill,
+.app-shell-console__body .live-fleet-preview,
+.app-shell-console__body button,
+.app-shell-console__body input,
+.app-shell-console__body select,
+.app-shell-console__body [class*="rounded-"],
+.app-shell-console__body [class~="rounded-full"] {
+  border-radius: 0 !important;
+}
+
+.app-shell-console__body .panel,
+.app-shell-console__body .background-card,
+.app-shell-console__body .camera-stage,
+.app-shell-console__body .prepare-wireframe__rail,
+.app-shell-console__body .prepare-wireframe__canvas,
+.app-shell-console__body .prepare-wireframe__inspector,
+.app-shell-console__body table,
+.app-shell-console__body .input-field {
+  border-color: var(--fleet-console-border);
+}
+
+.app-shell-console__body .color-swatch--active,
+.app-shell-console__body .background-card--active {
+  border-color: var(--accent) !important;
+  box-shadow: inset 0 0 0 1px var(--accent-24) !important;
 }
