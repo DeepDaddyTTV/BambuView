@@ -31,9 +31,9 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.21` interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, and selectable background styles.
+The `0.0.22` interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
 
-The first Bambu LAN connection path is now in place. Saved printers appear in Fleet and stage Bambu-native camera records, while live telemetry parsing and real camera playback are still upcoming work.
+The first Bambu LAN connection path is now in place. Fleet can temporarily switch between `Live` data and `Placeholder` data for testing, saved printers stage Bambu-native camera records, and full live telemetry parsing and real camera playback are still upcoming work.
 
 ## Getting Started
 
@@ -117,7 +117,8 @@ Core routes currently include:
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/session`
-- `GET /api/fleet/overview`
+- `GET /api/fleet/overview?mode=live`
+- `GET /api/fleet/overview?mode=placeholder`
 - `GET /api/printers/connections`
 - `POST /api/printers/bambu/test`
 - `POST /api/printers/bambu`

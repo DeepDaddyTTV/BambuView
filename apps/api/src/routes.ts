@@ -97,6 +97,10 @@ const bambuPrinterSchema = z.object({
   serial: z.string().trim().min(4).max(80),
 });
 
+const fleetModeSchema = z.object({
+  mode: z.enum(["live", "placeholder"]).default("placeholder"),
+});
+
 interface RouteDependencies {
   cameraProvider: CameraProvider;
   config: AppConfig;
@@ -510,7 +514,9 @@ export async function registerRoutes(
       return session;
     }
 
-    return dependencies.printerProvider.getFleetOverview();
+    const query = fleetModeSchema.parse(request.query);
+
+    return dependencies.printerProvider.getFleetOverview(query.mode);
   });
 
   app.get("/api/printers/:id", async (request, reply) => {
@@ -520,8 +526,10 @@ export async function registerRoutes(
     }
 
     const params = z.object({ id: z.string().min(1) }).parse(request.params);
+    const query = fleetModeSchema.parse(request.query);
     const printer = await dependencies.printerProvider.getPrinterDetail(
       params.id,
+      query.mode,
     );
     if (!printer) {
       return reply.code(404).send({ message: "Printer not found." });

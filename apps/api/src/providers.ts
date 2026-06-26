@@ -1,6 +1,7 @@
 import type {
   CameraOverview,
   CameraSource,
+  FleetDataMode,
   FleetOverview,
   PrepareStatus,
   PrinterConnectionRecord,
@@ -10,8 +11,11 @@ import type {
 import { listPrinterConnections, type AppDatabase } from "./db.js";
 
 export interface PrinterProvider {
-  getFleetOverview(): Promise<FleetOverview>;
-  getPrinterDetail(printerId: string): Promise<PrinterDetail | null>;
+  getFleetOverview(mode?: FleetDataMode): Promise<FleetOverview>;
+  getPrinterDetail(
+    printerId: string,
+    mode?: FleetDataMode,
+  ): Promise<PrinterDetail | null>;
 }
 
 export interface CameraProvider {
@@ -595,33 +599,48 @@ class DatabaseBackedPrinterProvider implements PrinterProvider {
     return connections.map(detailForConnection);
   }
 
-  async getFleetOverview(): Promise<FleetOverview> {
+  async getFleetOverview(
+    mode: FleetDataMode = "placeholder",
+  ): Promise<FleetOverview> {
     const storedPrinters = await this.getStoredPrinterDetails();
-    const allPrinters = [...storedPrinters, ...printers];
-    const selectedPrinter = storedPrinters[0] ?? printers[0];
+    const allPrinters =
+      mode === "live" ? storedPrinters : [...storedPrinters, ...printers];
+    const selectedPrinter = allPrinters[0] ?? null;
+    const farmGroups = allPrinters.filter(
+      (printer) => printer.previewKind === "farm",
+    ).length;
 
     return {
       stats: {
-        printers: 7 + storedPrinters.length,
+        printers: allPrinters.filter(
+          (printer) => printer.previewKind !== "farm",
+        ).length,
         activePrints: allPrinters.filter(
           (printer) => printer.status === "printing",
         ).length,
-        completedToday: 23,
-        farmGroups: 1,
+        completedToday: mode === "live" ? 0 : 23,
+        farmGroups,
       },
       printers: allPrinters,
-      selectedPrinterId: selectedPrinter.id,
+      selectedPrinterId: selectedPrinter?.id ?? null,
       selectedPrinter,
     };
   }
 
-  async getPrinterDetail(printerId: string): Promise<PrinterDetail | null> {
+  async getPrinterDetail(
+    printerId: string,
+    mode: FleetDataMode = "placeholder",
+  ): Promise<PrinterDetail | null> {
     const stored = (await this.getStoredPrinterDetails()).find(
       (printer) => printer.id === printerId,
     );
 
     if (stored) {
       return stored;
+    }
+
+    if (mode === "live") {
+      return null;
     }
 
     return printerById.get(printerId) ?? null;

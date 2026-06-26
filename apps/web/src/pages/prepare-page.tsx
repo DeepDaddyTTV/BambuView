@@ -8,7 +8,7 @@ import { apiFetch } from "../lib/api";
 export function PreparePage() {
   const statusQuery = useQuery({
     queryKey: ["prepare-status"],
-    queryFn: () => apiFetch<PrepareStatus>("/api/prepare/status")
+    queryFn: () => apiFetch<PrepareStatus>("/api/prepare/status"),
   });
 
   if (statusQuery.isLoading || !statusQuery.data) {
@@ -20,9 +20,13 @@ export function PreparePage() {
       <section className="panel">
         <div className="flex items-center gap-3 text-[color:var(--accent)]">
           <Rocket className="h-5 w-5" />
-          <span className="font-medium">Prepare & Slice is staged in `0.0.20`.</span>
+          <span className="font-medium">
+            Prepare & Slice is staged in `0.0.22`.
+          </span>
         </div>
-        <h2 className="mt-6 text-4xl font-semibold text-white">{statusQuery.data.headline}</h2>
+        <h2 className="mt-6 text-4xl font-semibold text-white">
+          {statusQuery.data.headline}
+        </h2>
         <p className="mt-5 max-w-3xl text-base leading-8 text-zinc-400">
           {statusQuery.data.description}
         </p>
@@ -45,7 +49,9 @@ export function PreparePage() {
           <div className="prepare-wireframe__inspector" />
         </div>
         <p className="mt-5 text-sm leading-7 text-zinc-400">
-          This route already preserves the place in the shell for the future Orca/Prusa-derived editor so the rest of the product can ship without relayout later.
+          This route already preserves the place in the shell for the future
+          Orca/Prusa-derived editor so the rest of the product can ship without
+          relayout later.
         </p>
       </section>
     </div>

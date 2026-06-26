@@ -12,16 +12,16 @@ import {
   Square,
   Thermometer,
   Video,
-  X
+  X,
 } from "lucide-react";
-import { startTransition, useDeferredValue, useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 import type {
   AppearanceSettings,
   FleetOverview,
   PrinterCameraFeed,
   PrinterDetail,
-  PrinterSummary
+  PrinterSummary,
 } from "@bambuview/contracts";
 
 import { appearanceStyleClass } from "../app/appearance";
@@ -45,7 +45,9 @@ function progressTone(status: PrinterSummary["status"]) {
 }
 
 function previewColor(printer: Pick<PrinterSummary, "slots">) {
-  return printer.slots.find((slot) => slot.active)?.color ?? printer.slots[0]?.color;
+  return (
+    printer.slots.find((slot) => slot.active)?.color ?? printer.slots[0]?.color
+  );
 }
 
 export function StatsBar({ overview }: { overview: FleetOverview }) {
@@ -53,22 +55,22 @@ export function StatsBar({ overview }: { overview: FleetOverview }) {
     ["PRINTERS", overview.stats.printers, "Online"],
     ["ACTIVE PRINTS", overview.stats.activePrints, "Printing"],
     ["COMPLETED", overview.stats.completedToday, "Today"],
-    ["FARM GROUPS", overview.stats.farmGroups, "Online"]
+    ["FARM GROUPS", overview.stats.farmGroups, "Online"],
   ] as const;
 
   return (
     <div className="grid grid-cols-2 gap-px overflow-hidden rounded-[28px] border border-white/8 bg-white/6 xl:grid-cols-4">
       {items.map(([label, value, sublabel]) => (
-        <div
-          className="bg-[color:var(--panel)] px-5 py-5 sm:px-7"
-          key={label}
-        >
+        <div className="bg-[color:var(--panel)] px-5 py-5 sm:px-7" key={label}>
           <div className="text-[11px] font-semibold tracking-[0.24em] text-zinc-500">
             {label}
           </div>
           <div className="mt-3 text-4xl font-semibold text-white">{value}</div>
           <div className="mt-2 flex items-center gap-2 text-sm text-zinc-300">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PRINTING_GREEN }} />
+            <span
+              className="h-2.5 w-2.5 rounded-full"
+              style={{ backgroundColor: PRINTING_GREEN }}
+            />
             {sublabel}
           </div>
         </div>
@@ -80,7 +82,7 @@ export function StatsBar({ overview }: { overview: FleetOverview }) {
 export function PrinterCard({
   isSelected,
   onClick,
-  printer
+  printer,
 }: {
   isSelected: boolean;
   onClick: () => void;
@@ -116,7 +118,9 @@ export function PrinterCard({
               </div>
             </div>
             <div className="text-right text-zinc-400">
-              <div className={`text-5xl font-semibold ${statusTone(printer.status)}`}>
+              <div
+                className={`text-5xl font-semibold ${statusTone(printer.status)}`}
+              >
                 {printer.progress}%
               </div>
               <div className="mt-1 text-sm">{printer.elapsed}</div>
@@ -149,7 +153,10 @@ export function PrinterCard({
                   <span>{slot.label}</span>
                   <span
                     className="h-5 w-5 rounded-md border border-white/10"
-                    style={{ backgroundColor: slot.color, opacity: slot.active ? 1 : 0.72 }}
+                    style={{
+                      backgroundColor: slot.color,
+                      opacity: slot.active ? 1 : 0.72,
+                    }}
                   />
                 </div>
               ))}
@@ -168,7 +175,7 @@ export function PrinterCard({
 function CameraFeedTabs({
   feeds,
   onSelect,
-  selectedFeedId
+  selectedFeedId,
 }: {
   feeds: PrinterCameraFeed[];
   onSelect: (feedId: string) => void;
@@ -196,7 +203,7 @@ function CameraFeedTabs({
 
 function CameraFeedFrame({
   printer,
-  selectedFeedId
+  selectedFeedId,
 }: {
   printer: PrinterDetail;
   selectedFeedId: string;
@@ -207,10 +214,15 @@ function CameraFeedFrame({
         <div className="camera-stage__top">
           <div className="text-sm text-zinc-300">{printer.cameraLabel}</div>
           <div className="camera-stage__meta">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PRINTING_GREEN }} />
+            <span
+              className="h-2 w-2 rounded-full"
+              style={{ backgroundColor: PRINTING_GREEN }}
+            />
             Live
             <span>&bull;</span>
-            {selectedFeedId.replace(`${printer.shortCode.toLowerCase()}-`, "").replaceAll("-", " ")}
+            {selectedFeedId
+              .replace(`${printer.shortCode.toLowerCase()}-`, "")
+              .replaceAll("-", " ")}
           </div>
         </div>
         <div className="camera-stage__viewport">
@@ -241,7 +253,7 @@ function FullscreenControlDeck({
   lampEnabled,
   printer,
   selectedSlot,
-  autoRefillEnabled
+  autoRefillEnabled,
 }: {
   autoRefillEnabled: boolean;
   controlTab: "printer-parts" | "print-options" | "calibration";
@@ -252,7 +264,9 @@ function FullscreenControlDeck({
   printer: PrinterDetail;
   selectedSlot: string;
   setAutoRefillEnabled: (next: boolean) => void;
-  setControlTab: (next: "printer-parts" | "print-options" | "calibration") => void;
+  setControlTab: (
+    next: "printer-parts" | "print-options" | "calibration",
+  ) => void;
   setFanPower: (next: number) => void;
   setLampEnabled: (next: boolean) => void;
   setSelectedSlot: (next: string) => void;
@@ -265,7 +279,7 @@ function FullscreenControlDeck({
           {[
             ["printer-parts", "Printer Parts"],
             ["print-options", "Print Options"],
-            ["calibration", "Calibration"]
+            ["calibration", "Calibration"],
           ].map(([tabKey, label]) => (
             <button
               className={`rounded-xl px-4 py-2 text-sm transition ${
@@ -296,7 +310,9 @@ function FullscreenControlDeck({
                 </div>
                 <div className="mt-2 text-2xl font-semibold text-white">
                   {temperature.current}
-                  <span className="ml-2 text-base font-normal text-zinc-500">/ {temperature.target}</span>
+                  <span className="ml-2 text-base font-normal text-zinc-500">
+                    / {temperature.target}
+                  </span>
                 </div>
               </div>
             ))}
@@ -306,7 +322,9 @@ function FullscreenControlDeck({
                 Fan
               </div>
               <div className="mt-3 flex items-center justify-between gap-3">
-                <span className="text-2xl font-semibold text-white">{fanPower}%</span>
+                <span className="text-2xl font-semibold text-white">
+                  {fanPower}%
+                </span>
                 <input
                   className="accent-[var(--accent)]"
                   max="100"
@@ -331,22 +349,44 @@ function FullscreenControlDeck({
             </div>
           </div>
           <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-            <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">Motion</div>
+            <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+              Motion
+            </div>
             <div className="mt-5 grid place-items-center">
               <div className="motion-pad">
-                <button className="motion-pad__home" onClick={() => onMovement("Home")} type="button">
+                <button
+                  className="motion-pad__home"
+                  onClick={() => onMovement("Home")}
+                  type="button"
+                >
                   Home
                 </button>
-                <button className="motion-pad__north" onClick={() => onMovement("Y +10")} type="button">
+                <button
+                  className="motion-pad__north"
+                  onClick={() => onMovement("Y +10")}
+                  type="button"
+                >
                   Y+
                 </button>
-                <button className="motion-pad__south" onClick={() => onMovement("Y -10")} type="button">
+                <button
+                  className="motion-pad__south"
+                  onClick={() => onMovement("Y -10")}
+                  type="button"
+                >
                   Y-
                 </button>
-                <button className="motion-pad__west" onClick={() => onMovement("X -10")} type="button">
+                <button
+                  className="motion-pad__west"
+                  onClick={() => onMovement("X -10")}
+                  type="button"
+                >
                   X-
                 </button>
-                <button className="motion-pad__east" onClick={() => onMovement("X +10")} type="button">
+                <button
+                  className="motion-pad__east"
+                  onClick={() => onMovement("X +10")}
+                  type="button"
+                >
                   X+
                 </button>
               </div>
@@ -356,7 +396,7 @@ function FullscreenControlDeck({
                 { icon: <ArrowUp className="h-4 w-4" />, label: "Z +10" },
                 { icon: <ArrowUp className="h-4 w-4" />, label: "Z +1" },
                 { icon: <ArrowDown className="h-4 w-4" />, label: "Bed -1" },
-                { icon: <ArrowDown className="h-4 w-4" />, label: "Bed -10" }
+                { icon: <ArrowDown className="h-4 w-4" />, label: "Bed -10" },
               ].map(({ icon, label }) => (
                 <button
                   className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-xs text-zinc-200"
@@ -369,10 +409,14 @@ function FullscreenControlDeck({
                 </button>
               ))}
             </div>
-            <div className="mt-4 text-sm text-zinc-500">Last command: {movementLabel}</div>
+            <div className="mt-4 text-sm text-zinc-500">
+              Last command: {movementLabel}
+            </div>
           </div>
           <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-            <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">Extruder</div>
+            <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+              Extruder
+            </div>
             <div className="mt-4 flex h-full flex-col items-center justify-between">
               <button className="icon-button h-14 w-14" type="button">
                 <ArrowUp className="h-5 w-5" />
@@ -424,22 +468,40 @@ function FullscreenControlDeck({
                       style={{ backgroundColor: slot.color }}
                     />
                   </div>
-                  <div className="mt-6 text-2xl font-semibold text-white">{slot.material}</div>
-                  <div className="mt-2 text-sm text-zinc-300">{selectedSlot === slot.slot ? "Loaded" : "Ready"}</div>
+                  <div className="mt-6 text-2xl font-semibold text-white">
+                    {slot.material}
+                  </div>
+                  <div className="mt-2 text-sm text-zinc-300">
+                    {selectedSlot === slot.slot ? "Loaded" : "Ready"}
+                  </div>
                 </button>
               ))}
             </div>
             <div className="rounded-[22px] border border-white/8 bg-white/[0.02] p-4">
-              <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">Selected filament</div>
-              <div className="mt-4 text-3xl font-semibold text-white">{selectedSlot}</div>
+              <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                Selected filament
+              </div>
+              <div className="mt-4 text-3xl font-semibold text-white">
+                {selectedSlot}
+              </div>
               <div className="mt-2 text-sm text-zinc-400">
-                {printer.slots.find((slot) => slot.slot === selectedSlot)?.material} spool routed to the extruder path.
+                {
+                  printer.slots.find((slot) => slot.slot === selectedSlot)
+                    ?.material
+                }{" "}
+                spool routed to the extruder path.
               </div>
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <button className="rounded-full border border-white/10 px-4 py-3 text-white" type="button">
+                <button
+                  className="rounded-full border border-white/10 px-4 py-3 text-white"
+                  type="button"
+                >
                   Unload
                 </button>
-                <button className="rounded-full bg-[color:var(--accent)] px-4 py-3 font-medium text-zinc-950" type="button">
+                <button
+                  className="rounded-full bg-[color:var(--accent)] px-4 py-3 font-medium text-zinc-950"
+                  type="button"
+                >
                   Load
                 </button>
               </div>
@@ -474,7 +536,7 @@ function FullscreenPrinterWorkspace({
   setFanPower,
   setLampEnabled,
   setSelectedFeedId,
-  setSelectedSlot
+  setSelectedSlot,
 }: {
   autoRefillEnabled: boolean;
   controlTab: "printer-parts" | "print-options" | "calibration";
@@ -487,7 +549,9 @@ function FullscreenPrinterWorkspace({
   selectedFeedId: string;
   selectedSlot: string;
   setAutoRefillEnabled: (next: boolean) => void;
-  setControlTab: (next: "printer-parts" | "print-options" | "calibration") => void;
+  setControlTab: (
+    next: "printer-parts" | "print-options" | "calibration",
+  ) => void;
   setFanPower: (next: number) => void;
   setLampEnabled: (next: boolean) => void;
   setSelectedFeedId: (next: string) => void;
@@ -497,8 +561,12 @@ function FullscreenPrinterWorkspace({
     <aside className="detail-panel detail-panel--focus">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">Fullscreen printer workspace</div>
-          <h2 className="mt-2 text-[42px] font-semibold leading-none text-white">{printer.name}</h2>
+          <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+            Fullscreen printer workspace
+          </div>
+          <h2 className="mt-2 text-[42px] font-semibold leading-none text-white">
+            {printer.name}
+          </h2>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -526,21 +594,34 @@ function FullscreenPrinterWorkspace({
               <div className="section-title">Camera</div>
               <CameraFeedTabs
                 feeds={printer.cameraFeeds}
-                onSelect={(feedId) => startTransition(() => setSelectedFeedId(feedId))}
+                onSelect={(feedId) =>
+                  startTransition(() => setSelectedFeedId(feedId))
+                }
                 selectedFeedId={selectedFeedId}
               />
             </div>
             <div className="camera-stage mt-5">
               <div className="camera-stage__top">
-                <div className="text-sm text-zinc-300">{printer.cameraLabel}</div>
+                <div className="text-sm text-zinc-300">
+                  {printer.cameraLabel}
+                </div>
                 <div className="camera-stage__meta">
-                  <button className="icon-button icon-button--tiny" type="button">
+                  <button
+                    className="icon-button icon-button--tiny"
+                    type="button"
+                  >
                     <Video className="h-4 w-4" />
                   </button>
-                  <button className="icon-button icon-button--tiny" type="button">
+                  <button
+                    className="icon-button icon-button--tiny"
+                    type="button"
+                  >
                     <Play className="h-4 w-4" />
                   </button>
-                  <button className="icon-button icon-button--tiny" type="button">
+                  <button
+                    className="icon-button icon-button--tiny"
+                    type="button"
+                  >
                     <Maximize2 className="h-4 w-4" />
                   </button>
                 </div>
@@ -549,13 +630,20 @@ function FullscreenPrinterWorkspace({
                 <div className="camera-feed-blur" />
                 <div className="camera-stage__machine" />
                 <div className="camera-stage__print camera-stage__print--full">
-                  <PrinterPreviewArt className="h-full" kind={printer.previewKind} primaryColor={previewColor(printer)} />
+                  <PrinterPreviewArt
+                    className="h-full"
+                    kind={printer.previewKind}
+                    primaryColor={previewColor(printer)}
+                  />
                 </div>
                 <div className="camera-feed-watermark">Bambu Lab</div>
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-white/8 px-4 py-3 text-sm text-zinc-400">
                 <div className="flex items-center gap-2">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PRINTING_GREEN }} />
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: PRINTING_GREEN }}
+                  />
                   Live stream active
                 </div>
                 <div>Last move: {movementLabel}</div>
@@ -563,15 +651,25 @@ function FullscreenPrinterWorkspace({
             </div>
           </section>
           <section className="panel">
-            <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">Printing Progress</div>
+            <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+              Printing Progress
+            </div>
             <div className="mt-5 grid gap-5 lg:grid-cols-[120px_1fr]">
-              <PrinterPreviewArt className="h-[112px]" kind={printer.previewKind} primaryColor={previewColor(printer)} />
+              <PrinterPreviewArt
+                className="h-[112px]"
+                kind={printer.previewKind}
+                primaryColor={previewColor(printer)}
+              />
               <div>
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <div className="text-2xl font-semibold text-white">{printer.fileName}</div>
+                    <div className="text-2xl font-semibold text-white">
+                      {printer.fileName}
+                    </div>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-zinc-400">
-                      <span className={statusTone(printer.status)}>{printer.statusLabel}</span>
+                      <span className={statusTone(printer.status)}>
+                        {printer.statusLabel}
+                      </span>
                       <span>&bull;</span>
                       <span>{printer.layer}</span>
                       <span>&bull;</span>
@@ -584,12 +682,22 @@ function FullscreenPrinterWorkspace({
                   </div>
                 </div>
                 <div className="mt-5 h-3 overflow-hidden rounded-full bg-white/8">
-                  <div className={`h-full rounded-full ${progressTone(printer.status)}`} style={{ width: `${printer.progress}%` }} />
+                  <div
+                    className={`h-full rounded-full ${progressTone(printer.status)}`}
+                    style={{ width: `${printer.progress}%` }}
+                  />
                 </div>
                 <div className="mt-5 flex items-center justify-between gap-3">
-                  <div className={`text-4xl font-semibold ${statusTone(printer.status)}`}>{printer.progress}%</div>
+                  <div
+                    className={`text-4xl font-semibold ${statusTone(printer.status)}`}
+                  >
+                    {printer.progress}%
+                  </div>
                   <div className="flex items-center gap-3">
-                    <button className="icon-button text-amber-400" type="button">
+                    <button
+                      className="icon-button text-amber-400"
+                      type="button"
+                    >
                       <Pause className="h-4 w-4" />
                     </button>
                     <button className="icon-button text-red-400" type="button">
@@ -621,19 +729,21 @@ function FullscreenPrinterWorkspace({
   );
 }
 
-export function PrinterDetailPanel({
-  printer
-}: {
-  printer: PrinterDetail;
-}) {
-  const [selectedFeedId, setSelectedFeedId] = useState(printer.selectedCameraFeedId);
-  const [focusMode, setFocusMode] = useState(false);
-  const [controlTab, setControlTab] = useState<"printer-parts" | "print-options" | "calibration">(
-    "printer-parts"
+export function PrinterDetailPanel({ printer }: { printer: PrinterDetail }) {
+  const [selectedFeedId, setSelectedFeedId] = useState(
+    printer.selectedCameraFeedId,
   );
+  const [focusMode, setFocusMode] = useState(false);
+  const [controlTab, setControlTab] = useState<
+    "printer-parts" | "print-options" | "calibration"
+  >("printer-parts");
   const [fanPower, setFanPower] = useState(100);
   const [lampEnabled, setLampEnabled] = useState(true);
-  const [selectedSlot, setSelectedSlot] = useState(printer.slots.find((slot) => slot.active)?.slot ?? printer.slots[0]?.slot ?? "A1");
+  const [selectedSlot, setSelectedSlot] = useState(
+    printer.slots.find((slot) => slot.active)?.slot ??
+      printer.slots[0]?.slot ??
+      "A1",
+  );
   const [autoRefillEnabled, setAutoRefillEnabled] = useState(true);
   const [movementLabel, setMovementLabel] = useState("Home");
 
@@ -643,7 +753,11 @@ export function PrinterDetailPanel({
     setControlTab("printer-parts");
     setFanPower(100);
     setLampEnabled(true);
-    setSelectedSlot(printer.slots.find((slot) => slot.active)?.slot ?? printer.slots[0]?.slot ?? "A1");
+    setSelectedSlot(
+      printer.slots.find((slot) => slot.active)?.slot ??
+        printer.slots[0]?.slot ??
+        "A1",
+    );
     setAutoRefillEnabled(true);
     setMovementLabel("Home");
   }, [printer]);
@@ -675,16 +789,24 @@ export function PrinterDetailPanel({
     <aside className="detail-panel">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-[42px] font-semibold leading-none text-white">{printer.name}</h2>
+          <h2 className="text-[42px] font-semibold leading-none text-white">
+            {printer.name}
+          </h2>
           <div className="mt-3 flex flex-wrap gap-6 text-sm text-zinc-400">
-            {["Overview", "Jobs", "History", "Maintenance", "Config"].map((tab, index) => (
-              <span
-                className={index === 0 ? "border-b border-[color:var(--accent)] pb-2 text-white" : ""}
-                key={tab}
-              >
-                {tab}
-              </span>
-            ))}
+            {["Overview", "Jobs", "History", "Maintenance", "Config"].map(
+              (tab, index) => (
+                <span
+                  className={
+                    index === 0
+                      ? "border-b border-[color:var(--accent)] pb-2 text-white"
+                      : ""
+                  }
+                  key={tab}
+                >
+                  {tab}
+                </span>
+              ),
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -702,10 +824,19 @@ export function PrinterDetailPanel({
         <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             <section className="panel">
-              <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">Status</div>
-              <div className={`mt-4 flex items-center gap-3 ${statusTone(printer.status)}`}>
-                <span className="h-3 w-3 rounded-full" style={{ backgroundColor: PRINTING_GREEN }} />
-                <span className="text-lg font-medium">{printer.statusLabel}</span>
+              <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
+                Status
+              </div>
+              <div
+                className={`mt-4 flex items-center gap-3 ${statusTone(printer.status)}`}
+              >
+                <span
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: PRINTING_GREEN }}
+                />
+                <span className="text-lg font-medium">
+                  {printer.statusLabel}
+                </span>
               </div>
               <div className="mt-6 space-y-4 text-sm text-zinc-400">
                 <div className="flex justify-between gap-4">
@@ -722,7 +853,10 @@ export function PrinterDetailPanel({
                 </div>
               </div>
               <div className="mt-5 h-2.5 overflow-hidden rounded-full bg-white/8">
-                <div className={`h-full rounded-full ${progressTone(printer.status)}`} style={{ width: `${printer.progress}%` }} />
+                <div
+                  className={`h-full rounded-full ${progressTone(printer.status)}`}
+                  style={{ width: `${printer.progress}%` }}
+                />
               </div>
             </section>
             <section className="panel">
@@ -734,8 +868,12 @@ export function PrinterDetailPanel({
                     key={item.label}
                   >
                     <div className="text-sm text-zinc-400">{item.label}</div>
-                    <div className="mt-3 text-2xl font-semibold text-white">{item.current}</div>
-                    <div className="text-sm text-zinc-500">Target {item.target}</div>
+                    <div className="mt-3 text-2xl font-semibold text-white">
+                      {item.current}
+                    </div>
+                    <div className="text-sm text-zinc-500">
+                      Target {item.target}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -745,7 +883,9 @@ export function PrinterDetailPanel({
               <div className="mt-5">
                 <CameraFeedTabs
                   feeds={printer.cameraFeeds}
-                  onSelect={(feedId) => startTransition(() => setSelectedFeedId(feedId))}
+                  onSelect={(feedId) =>
+                    startTransition(() => setSelectedFeedId(feedId))
+                  }
                   selectedFeedId={selectedFeedId}
                 />
               </div>
@@ -766,12 +906,9 @@ export function PrinterDetailPanel({
                   ["Serial", printer.serial],
                   ["Location", printer.location],
                   ["IP Address", printer.ipAddress],
-                  ["Firmware", printer.firmwareVersion]
+                  ["Firmware", printer.firmwareVersion],
                 ].map(([label, value]) => (
-                  <div
-                    className="flex justify-between gap-4"
-                    key={label}
-                  >
+                  <div className="flex justify-between gap-4" key={label}>
                     <span>{label}</span>
                     <span className="text-zinc-200">{value}</span>
                   </div>
@@ -793,7 +930,9 @@ export function PrinterDetailPanel({
                         style={{ backgroundColor: slot.color }}
                       />
                     </div>
-                    <div className="mt-3 text-sm text-zinc-400">{slot.material}</div>
+                    <div className="mt-3 text-sm text-zinc-400">
+                      {slot.material}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -801,19 +940,21 @@ export function PrinterDetailPanel({
             <section className="panel">
               <div className="section-title">Controls</div>
               <div className="mt-5 grid gap-3">
-                {["Pause Print", "Stop Print", "Send File"].map((action, index) => (
-                  <button
-                    className={`rounded-full border px-5 py-3 text-sm font-medium transition ${
-                      index === 0
-                        ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-white"
-                        : "border-white/10 bg-white/[0.03] text-zinc-200 hover:border-white/20"
-                    }`}
-                    key={action}
-                    type="button"
-                  >
-                    {action}
-                  </button>
-                ))}
+                {["Pause Print", "Stop Print", "Send File"].map(
+                  (action, index) => (
+                    <button
+                      className={`rounded-full border px-5 py-3 text-sm font-medium transition ${
+                        index === 0
+                          ? "border-[color:var(--accent)] bg-[color:var(--accent-soft)] text-white"
+                          : "border-white/10 bg-white/[0.03] text-zinc-200 hover:border-white/20"
+                      }`}
+                      key={action}
+                      type="button"
+                    >
+                      {action}
+                    </button>
+                  ),
+                )}
               </div>
             </section>
           </div>
@@ -825,29 +966,110 @@ export function PrinterDetailPanel({
 
 export function LiveFleetPreview({
   appearance,
-  overview
+  overview,
 }: {
   appearance: AppearanceSettings;
   overview: FleetOverview;
 }) {
-  const deferredPrinters = useDeferredValue(overview.printers.slice(0, 2));
+  const previewPrinters = overview.printers.slice(0, 4);
 
   return (
     <div
-      className={`${appearanceStyleClass(appearance.backgroundStyle)} live-fleet-preview rounded-[30px] border border-white/8 p-4 ${
-        appearance.mode === "light" ? "bg-white text-zinc-900" : "bg-[color:var(--panel)] text-white"
-      }`}
+      className={`${appearanceStyleClass(appearance.backgroundStyle)} live-fleet-preview live-fleet-preview--${appearance.mode}`}
     >
-      <StatsBar overview={overview} />
-      <div className="mt-4 grid gap-4 xl:grid-cols-2">
-        {deferredPrinters.map((printer, index) => (
-          <PrinterCard
-            isSelected={index === 0}
-            key={printer.id}
-            onClick={() => undefined}
-            printer={printer}
-          />
-        ))}
+      <div className="live-fleet-preview__viewport">
+        <div className="live-fleet-preview__canvas" aria-hidden="true">
+          <aside className="live-fleet-preview__rail">
+            <div className="live-fleet-preview__brand">
+              <span>Bambu</span>
+              <strong>View</strong>
+            </div>
+            <div className="live-fleet-preview__nav-item live-fleet-preview__nav-item--active">
+              Fleet
+            </div>
+            <div className="live-fleet-preview__nav-item">Prepare & Slice</div>
+            <div className="live-fleet-preview__nav-item">Cameras</div>
+            <div className="live-fleet-preview__rail-spacer" />
+            <div className="live-fleet-preview__status-card">
+              All Systems Operational
+            </div>
+          </aside>
+          <main className="live-fleet-preview__main">
+            <div className="live-fleet-preview__header">
+              <div>
+                <div className="live-fleet-preview__title">Fleet</div>
+                <div className="live-fleet-preview__subtitle">
+                  Monitor and manage your entire printer fleet.
+                </div>
+              </div>
+              <div className="live-fleet-preview__controls">
+                <span>Dark</span>
+                <span>Appearance</span>
+              </div>
+            </div>
+
+            <div className="live-fleet-preview__filters">
+              <span>All</span>
+              <span>Printers</span>
+              <span>Farms</span>
+              <span>Offline</span>
+              <strong>Search printers...</strong>
+            </div>
+
+            <div className="live-fleet-preview__stats">
+              {(
+                [
+                  ["PRINTERS", overview.stats.printers, "Online"],
+                  ["ACTIVE PRINTS", overview.stats.activePrints, "Printing"],
+                  ["COMPLETED", overview.stats.completedToday, "Today"],
+                  ["FARM GROUPS", overview.stats.farmGroups, "Online"],
+                ] as const
+              ).map(([label, value, meta]) => (
+                <div className="live-fleet-preview__stat" key={label}>
+                  <span>{label}</span>
+                  <strong>{value}</strong>
+                  <em>{meta}</em>
+                </div>
+              ))}
+            </div>
+
+            <div className="live-fleet-preview__cards">
+              {previewPrinters.length > 0 ? (
+                previewPrinters.map((printer, index) => (
+                  <div
+                    className={`live-fleet-preview__card ${index === 0 ? "live-fleet-preview__card--selected" : ""}`}
+                    key={printer.id}
+                  >
+                    <PrinterPreviewArt
+                      className="live-fleet-preview__art"
+                      kind={printer.previewKind}
+                      primaryColor={previewColor(printer)}
+                    />
+                    <div className="live-fleet-preview__card-copy">
+                      <div className="live-fleet-preview__code">
+                        {printer.shortCode}
+                      </div>
+                      <strong>{printer.name}</strong>
+                      <span className={statusTone(printer.status)}>
+                        {printer.statusLabel} • {printer.layer}
+                      </span>
+                      <div className="live-fleet-preview__meter">
+                        <i style={{ width: `${printer.progress}%` }} />
+                      </div>
+                    </div>
+                    <div className="live-fleet-preview__percent">
+                      {printer.progress}%
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="live-fleet-preview__empty">
+                  No live printers connected yet.
+                </div>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
     </div>
   );

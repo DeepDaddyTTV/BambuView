@@ -98,8 +98,8 @@ Your appearance settings are saved to your local account.
 
 The access code is stored only in the local SQLite database and is not returned to the browser after the printer is saved.
 
-## What to expect in `0.0.21`
+## What to expect in `0.0.22`
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 
-Saved Bambu printers now persist locally and appear in Fleet. Full live printer telemetry, printer controls, camera playback, and prepare/slice workflows are still staged for upcoming releases.
+Saved Bambu printers now persist locally and appear in Fleet when the Fleet page is set to `Live`. Switch to `Placeholder` when you want to view the mock layout while full live printer telemetry, printer controls, camera playback, and prepare/slice workflows are still staged for upcoming releases.

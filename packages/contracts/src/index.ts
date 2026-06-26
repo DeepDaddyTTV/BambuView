@@ -149,11 +149,13 @@ export interface BambuConnectionTestResult {
   reachable: boolean;
 }
 
+export type FleetDataMode = "live" | "placeholder";
+
 export interface FleetOverview {
   stats: FleetStats;
   printers: PrinterSummary[];
-  selectedPrinterId: string;
-  selectedPrinter: PrinterDetail;
+  selectedPrinterId: string | null;
+  selectedPrinter: PrinterDetail | null;
 }
 
 export interface CameraSource {

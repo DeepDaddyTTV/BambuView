@@ -46,6 +46,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   BambuConnectionTestResult,
   BambuPrinterConnectionInput,
+  FleetDataMode,
   FleetOverview,
   PrinterConnectionRecord,
   PrinterDetail,
@@ -1590,9 +1591,11 @@ function DetailPanel({
 }
 
 export function FleetPage({ user }: { user: UserProfile }) {
+  const [fleetDataMode, setFleetDataMode] = useState<FleetDataMode>("live");
   const overviewQuery = useQuery({
-    queryKey: ["fleet-overview"],
-    queryFn: () => apiFetch<FleetOverview>("/api/fleet/overview"),
+    queryKey: ["fleet-overview", fleetDataMode],
+    queryFn: () =>
+      apiFetch<FleetOverview>(`/api/fleet/overview?mode=${fleetDataMode}`),
   });
   const [selectedPrinterId, setSelectedPrinterId] = useState<string | null>(
     null,
@@ -1612,17 +1615,20 @@ export function FleetPage({ user }: { user: UserProfile }) {
   const activePrinterId =
     selectedPrinterId ?? overview?.selectedPrinterId ?? "";
   const printerDetailQuery = useQuery({
-    enabled: activePrinterId.length > 0,
+    enabled: detailOpen && activePrinterId.length > 0,
     placeholderData: (previousData) =>
       previousData ??
       (activePrinterId === overview?.selectedPrinterId
-        ? overview?.selectedPrinter
+        ? (overview?.selectedPrinter ?? undefined)
         : undefined),
-    queryKey: ["printer-detail", activePrinterId],
-    queryFn: () => apiFetch<PrinterDetail>(`/api/printers/${activePrinterId}`),
+    queryKey: ["printer-detail", fleetDataMode, activePrinterId],
+    queryFn: () =>
+      apiFetch<PrinterDetail>(
+        `/api/printers/${activePrinterId}?mode=${fleetDataMode}`,
+      ),
   });
 
-  if (overviewQuery.isLoading || !overview || !printerDetailQuery.data) {
+  if (overviewQuery.isLoading || !overview) {
     return <div className="panel m-4">Loading the fleet view…</div>;
   }
 
@@ -1660,6 +1666,21 @@ export function FleetPage({ user }: { user: UserProfile }) {
         );
 
   const detailPrinter = printerDetailQuery.data;
+  const liveModeIsEmpty =
+    fleetDataMode === "live" && overview.printers.length === 0;
+
+  function changeFleetDataMode(nextMode: FleetDataMode) {
+    if (nextMode === fleetDataMode) {
+      return;
+    }
+
+    startTransition(() => {
+      setFleetDataMode(nextMode);
+      setSelectedPrinterId(null);
+      setDetailOpen(false);
+      setFocusMode(false);
+    });
+  }
 
   return (
     <div
@@ -1752,6 +1773,27 @@ export function FleetPage({ user }: { user: UserProfile }) {
             <p>Monitor and manage your entire printer fleet.</p>
           </div>
           <div className="fleet-console-header__actions">
+            <div
+              aria-label="Fleet data source"
+              className="fleet-console-data-toggle"
+              role="group"
+            >
+              {(
+                [
+                  ["live", "Live"],
+                  ["placeholder", "Placeholder"],
+                ] as const
+              ).map(([mode, label]) => (
+                <button
+                  className={`fleet-console-data-toggle__button ${fleetDataMode === mode ? "fleet-console-data-toggle__button--active" : ""}`}
+                  key={mode}
+                  onClick={() => changeFleetDataMode(mode)}
+                  type="button"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <ModeToggle />
             <Link className="fleet-console-toolbar__button" to="/settings">
               <Palette className="h-4 w-4" />
@@ -1850,18 +1892,21 @@ export function FleetPage({ user }: { user: UserProfile }) {
             <CircleHelp className="h-6 w-6" />
             <div>
               <div className="fleet-console-empty__title">
-                No printers matched this filter.
+                {liveModeIsEmpty
+                  ? "No live printers connected yet."
+                  : "No printers matched this filter."}
               </div>
               <div className="fleet-console-empty__copy">
-                Try another scope or search term to bring printers, farms, or
-                offline devices back into view.
+                {liveModeIsEmpty
+                  ? "Add a Bambu printer to start testing real fleet and camera data, or switch to Placeholder for the mock layout."
+                  : "Try another scope or search term to bring printers, farms, or offline devices back into view."}
               </div>
             </div>
           </section>
         ) : null}
       </main>
 
-      {detailOpen ? (
+      {detailOpen && detailPrinter ? (
         <DetailPanel
           focusMode={focusMode}
           onClose={() => {
@@ -1878,6 +1923,7 @@ export function FleetPage({ user }: { user: UserProfile }) {
           onClose={() => setAddPrinterOpen(false)}
           onSaved={(printerId) => {
             startTransition(() => {
+              setFleetDataMode("live");
               setSelectedPrinterId(printerId);
               setDetailOpen(true);
               setFocusMode(false);

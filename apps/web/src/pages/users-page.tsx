@@ -24,39 +24,44 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
   const usersQuery = useQuery({
     enabled: currentUser.role === "admin",
     queryKey: ["users"],
-    queryFn: () => apiFetch<UsersPayload>("/api/users")
+    queryFn: () => apiFetch<UsersPayload>("/api/users"),
   });
   const invitesQuery = useQuery({
     enabled: currentUser.role === "admin",
     queryKey: ["invites"],
-    queryFn: () => apiFetch<{ invites: InviteRecord[] }>("/api/users/invites")
+    queryFn: () => apiFetch<{ invites: InviteRecord[] }>("/api/users/invites"),
   });
 
   const createInvite = useMutation({
     mutationFn: (payload: { email: string; role: UserRole }) =>
-      apiFetch<{ invite: InviteRecord; inviteToken: string }>("/api/users/invites", {
-        method: "POST",
-        body: JSON.stringify(payload)
-      }),
+      apiFetch<{ invite: InviteRecord; inviteToken: string }>(
+        "/api/users/invites",
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        },
+      ),
     onSuccess: (payload) => {
       setLatestInvite(payload);
       setInviteEmail("");
       queryClient.invalidateQueries({ queryKey: ["invites"] });
     },
     onError: (error) => {
-      setErrorMessage(error instanceof ApiError ? error.message : "Could not create invite.");
-    }
+      setErrorMessage(
+        error instanceof ApiError ? error.message : "Could not create invite.",
+      );
+    },
   });
 
   const updateRole = useMutation({
     mutationFn: ({ role, userId }: { role: UserRole; userId: string }) =>
       apiFetch(`/api/users/${userId}/role`, {
         method: "PATCH",
-        body: JSON.stringify({ role })
+        body: JSON.stringify({ role }),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["users"] });
-    }
+    },
   });
 
   async function submitInvite(event: FormEvent) {
@@ -64,7 +69,7 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
     setErrorMessage(null);
     await createInvite.mutateAsync({
       email: inviteEmail,
-      role: inviteRole
+      role: inviteRole,
     });
   }
 
@@ -76,7 +81,9 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
           <span className="font-medium">Admin access required</span>
         </div>
         <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-400">
-          Invite creation and role management are real in `0.0.20`, but they stay locked behind the local admin model you approved for first-run bootstrap.
+          Invite creation and role management are real in `0.0.22`, but they
+          stay locked behind the local admin model you approved for first-run
+          bootstrap.
         </p>
       </div>
     );
@@ -88,7 +95,8 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
         <section className="panel">
           <div className="section-title">Create invite</div>
           <p className="mt-3 text-sm leading-7 text-zinc-400">
-            Invites reserve a role and email for a local account. Copy the generated tokenized URL immediately after creation.
+            Invites reserve a role and email for a local account. Copy the
+            generated tokenized URL immediately after creation.
           </p>
           <form
             className="mt-6 space-y-4"
@@ -97,7 +105,9 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
             }}
           >
             <label className="block">
-              <span className="mb-2 block text-sm text-zinc-400">Invite email</span>
+              <span className="mb-2 block text-sm text-zinc-400">
+                Invite email
+              </span>
               <input
                 className="input-field"
                 onChange={(event) => setInviteEmail(event.target.value)}
@@ -111,7 +121,9 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
               <span className="mb-2 block text-sm text-zinc-400">Role</span>
               <select
                 className="input-field"
-                onChange={(event) => setInviteRole(event.target.value as UserRole)}
+                onChange={(event) =>
+                  setInviteRole(event.target.value as UserRole)
+                }
                 value={inviteRole}
               >
                 <option value="viewer">Viewer</option>
@@ -119,7 +131,11 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
                 <option value="admin">Admin</option>
               </select>
             </label>
-            {errorMessage ? <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">{errorMessage}</div> : null}
+            {errorMessage ? (
+              <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                {errorMessage}
+              </div>
+            ) : null}
             <button
               className="rounded-full bg-[color:var(--accent)] px-5 py-3 font-medium text-zinc-950"
               disabled={createInvite.isPending}
@@ -143,7 +159,7 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-white"
                 onClick={() =>
                   navigator.clipboard.writeText(
-                    `${latestInvite.invite.inviteUrl}?token=${latestInvite.inviteToken}`
+                    `${latestInvite.invite.inviteUrl}?token=${latestInvite.inviteToken}`,
                   )
                 }
                 type="button"
@@ -154,7 +170,8 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
             </div>
           ) : (
             <p className="mt-5 text-sm leading-7 text-zinc-400">
-              Create an invite to surface the tokenized registration URL you can hand to a user.
+              Create an invite to surface the tokenized registration URL you can
+              hand to a user.
             </p>
           )}
         </section>
@@ -185,11 +202,14 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
                     <td className="py-4">
                       <select
                         className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-white"
-                        disabled={updateRole.isPending || usersQuery.data?.currentUserId === user.id}
+                        disabled={
+                          updateRole.isPending ||
+                          usersQuery.data?.currentUserId === user.id
+                        }
                         onChange={(event) =>
                           updateRole.mutate({
                             role: event.target.value as UserRole,
-                            userId: user.id
+                            userId: user.id,
                           })
                         }
                         value={user.role}
@@ -199,7 +219,9 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
                         <option value="admin">Admin</option>
                       </select>
                     </td>
-                    <td className="py-4 capitalize text-zinc-300">{user.status}</td>
+                    <td className="py-4 capitalize text-zinc-300">
+                      {user.status}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -226,7 +248,9 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
                 {invitesQuery.data?.invites.map((invite) => (
                   <tr key={invite.id}>
                     <td className="py-4 text-zinc-100">{invite.email}</td>
-                    <td className="py-4 capitalize text-zinc-300">{invite.role}</td>
+                    <td className="py-4 capitalize text-zinc-300">
+                      {invite.role}
+                    </td>
                     <td className="py-4 text-zinc-400">
                       {new Date(invite.expiresAt).toLocaleString()}
                     </td>

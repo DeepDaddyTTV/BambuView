@@ -280,6 +280,19 @@ describe("auth and settings flows", () => {
     });
     const cookie = bootstrap.headers["set-cookie"];
 
+    const emptyLiveFleet = await app.inject({
+      method: "GET",
+      url: "/api/fleet/overview?mode=live",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(emptyLiveFleet.statusCode).toBe(200);
+    expect(emptyLiveFleet.json().printers).toHaveLength(0);
+    expect(emptyLiveFleet.json().selectedPrinterId).toBeNull();
+    expect(emptyLiveFleet.json().selectedPrinter).toBeNull();
+
     const create = await app.inject({
       method: "POST",
       url: "/api/printers/bambu",
@@ -325,6 +338,19 @@ describe("auth and settings flows", () => {
 
     expect(fleet.statusCode).toBe(200);
     expect(fleet.json().printers[0].name).toBe("Office X1 Carbon");
+
+    const liveFleet = await app.inject({
+      method: "GET",
+      url: "/api/fleet/overview?mode=live",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(liveFleet.statusCode).toBe(200);
+    expect(liveFleet.json().printers).toHaveLength(1);
+    expect(liveFleet.json().stats.printers).toBe(1);
+    expect(liveFleet.json().stats.completedToday).toBe(0);
 
     const duplicate = await app.inject({
       method: "POST",
