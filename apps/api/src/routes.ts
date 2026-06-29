@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+
 import { z } from "zod";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
@@ -5,12 +7,20 @@ import {
   BAMBU_PRINTER_MODELS,
   type AppearanceSettings,
   type AuthSession,
+  type CameraAssignmentInput,
+  type CameraSourceInput,
   type BambuConnectImportRequest,
   type BambuPrinterConnectionInput,
   type UserProfile,
 } from "@bambuview/contracts";
 
 import { buildBambuConnectImportUrl, testBambuLanConnection } from "./bambu.js";
+import {
+  cameraProxyTarget,
+  cameraRequestHeaders,
+  normalizeCameraSourceInput,
+  testCameraSource,
+} from "./cameras.js";
 import {
   clearSessionCookie,
   createAuthenticatedSession,
@@ -25,12 +35,15 @@ import type { AppConfig } from "./config.js";
 import {
   countAdmins,
   countUsers,
+  createCameraSource,
   createInvite,
   createPrinterConnection,
   createUser,
   findActiveInviteByTokenHash,
   findInviteById,
+  getCameraSourceSecretById,
   getAppearance,
+  getPrinterConnectionById,
   getPrinterConnectionBySerial,
   getUserByEmail,
   getUserById,
@@ -38,6 +51,7 @@ import {
   listPrinterConnections,
   listUsers,
   markInviteUsed,
+  upsertCameraAssignment,
   type AppDatabase,
   upsertAppearance,
   updateUserRole,
@@ -136,6 +150,58 @@ const bambuPrinterSchema = z
 const bambuConnectImportSchema = z.object({
   name: z.string().trim().min(1).max(120),
   path: z.string().trim().min(1).max(2048),
+});
+
+const cameraSourceSchema = z
+  .object({
+    frigateBaseUrl: z.string().trim().max(2048).optional(),
+    frigateCamera: z.string().trim().max(160).optional(),
+    name: z.string().trim().min(2).max(120),
+    password: z.string().trim().max(512).optional(),
+    provider: z.enum([
+      "frigate",
+      "direct-rtsp",
+      "direct-http",
+      "direct-mjpeg",
+      "bambu",
+      "bambu-connect",
+      "farm-overview",
+    ]),
+    streamUrl: z.string().trim().max(2048).optional(),
+    username: z.string().trim().max(160).optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.provider === "frigate") {
+      if (!value.frigateBaseUrl) {
+        context.addIssue({
+          code: "custom",
+          message: "Frigate base URL is required.",
+          path: ["frigateBaseUrl"],
+        });
+      }
+      if (!value.frigateCamera) {
+        context.addIssue({
+          code: "custom",
+          message: "Frigate camera name is required.",
+          path: ["frigateCamera"],
+        });
+      }
+      return;
+    }
+
+    if (!value.streamUrl) {
+      context.addIssue({
+        code: "custom",
+        message: "A camera stream URL is required.",
+        path: ["streamUrl"],
+      });
+    }
+  });
+
+const cameraAssignmentSchema = z.object({
+  feedLabel: z.string().trim().min(2).max(80),
+  printerId: z.string().trim().min(1).max(120),
+  sourceId: z.uuid(),
 });
 
 const fleetModeSchema = z.object({
@@ -618,6 +684,141 @@ export async function registerRoutes(
     }
 
     return dependencies.cameraProvider.getOverview();
+  });
+
+  app.post("/api/cameras/sources/test", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const body: CameraSourceInput = cameraSourceSchema.parse(request.body);
+
+    return {
+      test: await testCameraSource(body),
+    };
+  });
+
+  app.post("/api/cameras/sources", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const body: CameraSourceInput = cameraSourceSchema.parse(request.body);
+    const normalized = normalizeCameraSourceInput(body);
+    const test = await testCameraSource(body);
+    const source = await createCameraSource(dependencies.db, {
+      ...body,
+      details: test.detail || normalized.details,
+      frigateBaseUrl: normalized.frigateBaseUrl ?? undefined,
+      frigateCamera: normalized.frigateCamera ?? undefined,
+      lastTestedAt: test.checkedAt,
+      password: normalized.password,
+      status: test.status,
+      streamKind: normalized.streamKind,
+      streamUrl: normalized.streamUrl,
+      username: normalized.username,
+    });
+
+    return reply.code(201).send({
+      source,
+      test,
+    });
+  });
+
+  app.post("/api/cameras/assignments", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const body: CameraAssignmentInput = cameraAssignmentSchema.parse(
+      request.body,
+    );
+    const source = await getCameraSourceSecretById(
+      dependencies.db,
+      body.sourceId,
+    );
+    if (!source) {
+      return reply.code(404).send({ message: "Camera source not found." });
+    }
+
+    const printer = await getPrinterConnectionById(
+      dependencies.db,
+      body.printerId,
+    );
+    if (!printer) {
+      return reply.code(404).send({ message: "Printer not found." });
+    }
+
+    return {
+      assignment: await upsertCameraAssignment(dependencies.db, body),
+    };
+  });
+
+  async function proxyCamera(
+    sourceId: string,
+    mode: "snapshot" | "stream",
+    reply: FastifyReply,
+  ) {
+    const source = await getCameraSourceSecretById(dependencies.db, sourceId);
+    if (!source) {
+      return reply.code(404).send({ message: "Camera source not found." });
+    }
+
+    const target = cameraProxyTarget(source, mode);
+    if (!target) {
+      return reply.code(409).send({
+        message:
+          "This camera source is saved but cannot be rendered directly in a browser. Use Frigate/go2rtc or an HTTP/MJPEG/HLS restream and assign that feed.",
+      });
+    }
+
+    try {
+      const upstream = await fetch(target, {
+        headers: cameraRequestHeaders(source),
+      });
+      if (!upstream.ok || !upstream.body) {
+        return reply.code(upstream.status || 502).send({
+          message: `Camera upstream returned HTTP ${upstream.status}.`,
+        });
+      }
+
+      reply.header("cache-control", "no-store");
+      reply.type(
+        upstream.headers.get("content-type") ??
+          (mode === "snapshot" ? "image/jpeg" : "multipart/x-mixed-replace"),
+      );
+
+      return reply.send(
+        Readable.from(upstream.body as AsyncIterable<Uint8Array>),
+      );
+    } catch {
+      return reply
+        .code(502)
+        .send({ message: "BambuView could not reach the camera upstream." });
+    }
+  }
+
+  app.get("/api/cameras/sources/:id/snapshot", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    return proxyCamera(params.id, "snapshot", reply);
+  });
+
+  app.get("/api/cameras/sources/:id/stream", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    return proxyCamera(params.id, "stream", reply);
   });
 
   app.get("/api/prepare/status", async (request, reply) => {

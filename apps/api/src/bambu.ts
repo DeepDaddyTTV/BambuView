@@ -15,6 +15,39 @@ const BAMBU_CAMERA_PORT = 322;
 const CONNECTION_TIMEOUT_MS = 3000;
 const MQTT_REPORT_TIMEOUT_MS = 4500;
 
+export interface BambuPrinterTelemetry {
+  activeTray: string | null;
+  bedTemperature: number | null;
+  bedTargetTemperature: number | null;
+  chamberTemperature: number | null;
+  chamberTargetTemperature: number | null;
+  elapsedMinutes: number | null;
+  fileName: string;
+  firmwareVersion: string | null;
+  layerCurrent: number | null;
+  layerTotal: number | null;
+  nozzleTemperature: number | null;
+  nozzleTargetTemperature: number | null;
+  partFanSpeed: number | null;
+  printStatus: "printing" | "paused" | "idle" | "offline";
+  progress: number;
+  remainingMinutes: number | null;
+  raw: unknown;
+  slots: Array<{
+    active: boolean;
+    color: string;
+    colorName: string;
+    material: string;
+    slot: string;
+  }>;
+  statusLabel: string;
+}
+
+interface BambuMqttReport {
+  latencyMs: number;
+  payload: unknown;
+}
+
 function elapsed(startedAt: number): number {
   return Math.max(1, Math.round(performance.now() - startedAt));
 }
@@ -232,7 +265,7 @@ function readRemainingLength(
 
 function shiftMqttPacket(
   buffer: Buffer,
-): { packet: Buffer; remaining: Buffer; type: number } | null {
+): { flags: number; packet: Buffer; remaining: Buffer; type: number } | null {
   if (buffer.length < 2) {
     return null;
   }
@@ -249,6 +282,7 @@ function shiftMqttPacket(
   }
 
   return {
+    flags: buffer[0] & 0x0f,
     packet: buffer.subarray(fixedHeaderLength, packetLength),
     remaining: buffer.subarray(packetLength),
     type: buffer[0] >> 4,
@@ -268,22 +302,241 @@ function packetContainsTopic(packet: Buffer, expectedTopic: string): boolean {
   return packet.subarray(2, 2 + topicLength).toString("utf8") === expectedTopic;
 }
 
-async function testMqttTelemetry(
+function getPublishPayload(packet: Buffer, flags: number): string | null {
+  if (packet.length < 2) {
+    return null;
+  }
+
+  const topicLength = packet.readUInt16BE(0);
+  let payloadOffset = 2 + topicLength;
+  const qos = (flags & 0x06) >> 1;
+  if (qos > 0) {
+    payloadOffset += 2;
+  }
+
+  if (packet.length < payloadOffset) {
+    return null;
+  }
+
+  return packet.subarray(payloadOffset).toString("utf8");
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function readNested(record: Record<string, unknown>, keys: string[]): unknown {
+  for (const key of keys) {
+    if (key in record) {
+      return record[key];
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeStatus(
+  value: string | null,
+): BambuPrinterTelemetry["printStatus"] {
+  const status = value?.toUpperCase() ?? "";
+  if (["RUNNING", "PRINTING", "PREPARE", "SLICING"].includes(status)) {
+    return "printing";
+  }
+
+  if (["PAUSE", "PAUSED"].includes(status)) {
+    return "paused";
+  }
+
+  if (["FAILED", "ERROR", "OFFLINE"].includes(status)) {
+    return "offline";
+  }
+
+  return "idle";
+}
+
+function labelForStatus(status: BambuPrinterTelemetry["printStatus"]): string {
+  if (status === "printing") return "Printing";
+  if (status === "paused") return "Paused";
+  if (status === "offline") return "Offline";
+
+  return "Idle";
+}
+
+function normalizeColor(value: string | null): string {
+  if (!value) {
+    return "#b8babd";
+  }
+
+  const trimmed = value.trim();
+  if (/^[0-9a-fA-F]{6,8}$/.test(trimmed)) {
+    return `#${trimmed.slice(0, 6)}`;
+  }
+
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return "#b8babd";
+}
+
+function parseSlots(
+  print: Record<string, unknown>,
+): BambuPrinterTelemetry["slots"] {
+  const ams = asRecord(print.ams);
+  const activeTray =
+    readString(readNested(print, ["tray_now", "vt_tray", "ams_tray_now"])) ??
+    readString(readNested(ams, ["tray_now", "ams_tray_now"]));
+  const amsUnits = Array.isArray(ams.ams) ? ams.ams : [];
+  const slots: BambuPrinterTelemetry["slots"] = [];
+
+  for (const unit of amsUnits) {
+    const unitRecord = asRecord(unit);
+    const trays = Array.isArray(unitRecord.tray) ? unitRecord.tray : [];
+    for (const tray of trays) {
+      const trayRecord = asRecord(tray);
+      const id =
+        readString(readNested(trayRecord, ["id", "tray_id"])) ??
+        String(slots.length);
+      const material =
+        readString(
+          readNested(trayRecord, ["tray_type", "type", "filament_type"]),
+        ) ?? "Unknown";
+      const colorName =
+        readString(
+          readNested(trayRecord, [
+            "tray_sub_brands",
+            "name",
+            "filament_name",
+            "tray_info_idx",
+          ]),
+        ) ?? "Loaded";
+      const color = normalizeColor(
+        readString(readNested(trayRecord, ["tray_color", "color"])),
+      );
+      const slot = `A${Number(id) + 1}`;
+
+      slots.push({
+        active: activeTray === id || activeTray === slot,
+        color,
+        colorName,
+        material,
+        slot,
+      });
+    }
+  }
+
+  if (slots.length > 0) {
+    return slots.slice(0, 4);
+  }
+
+  return [
+    {
+      active: true,
+      color: "#66d139",
+      colorName: "Loaded",
+      material: readString(print.filam_type) ?? "PLA",
+      slot: "A1",
+    },
+  ];
+}
+
+export function parseBambuTelemetry(payload: unknown): BambuPrinterTelemetry {
+  const root = asRecord(payload);
+  const print = asRecord(root.print ?? root);
+  const rawStatus = readString(
+    readNested(print, ["gcode_state", "print_status", "stg_cur"]),
+  );
+  const printStatus = normalizeStatus(rawStatus);
+  const progress = Math.min(
+    100,
+    Math.max(0, Math.round(readNumber(print.mc_percent) ?? 0)),
+  );
+  const layerCurrent = readNumber(readNested(print, ["layer_num", "layer"]));
+  const layerTotal = readNumber(
+    readNested(print, ["total_layer_num", "total_layers"]),
+  );
+  const remainingMinutes = readNumber(
+    readNested(print, ["mc_remaining_time", "remaining_time"]),
+  );
+
+  return {
+    activeTray: readString(readNested(print, ["tray_now", "vt_tray"])),
+    bedTemperature: readNumber(readNested(print, ["bed_temper", "bed_temp"])),
+    bedTargetTemperature: readNumber(
+      readNested(print, ["bed_target_temper", "bed_target_temp"]),
+    ),
+    chamberTemperature: readNumber(
+      readNested(print, ["chamber_temper", "chamber_temp"]),
+    ),
+    chamberTargetTemperature: readNumber(
+      readNested(print, ["chamber_target_temper", "chamber_target_temp"]),
+    ),
+    elapsedMinutes: readNumber(
+      readNested(print, ["print_time", "mc_print_time"]),
+    ),
+    fileName:
+      readString(
+        readNested(print, ["subtask_name", "gcode_file", "file", "gcode_name"]),
+      ) ?? (printStatus === "idle" ? "Ready for a print job." : "Live print"),
+    firmwareVersion:
+      readString(root.firmware_version) ??
+      readString(readNested(print, ["firmware_version", "version"])),
+    layerCurrent,
+    layerTotal,
+    nozzleTemperature: readNumber(
+      readNested(print, ["nozzle_temper", "nozzle_temp"]),
+    ),
+    nozzleTargetTemperature: readNumber(
+      readNested(print, ["nozzle_target_temper", "nozzle_target_temp"]),
+    ),
+    partFanSpeed: readNumber(
+      readNested(print, ["big_fan1_speed", "fan_gear", "cooling_fan_speed"]),
+    ),
+    printStatus,
+    progress,
+    raw: payload,
+    remainingMinutes,
+    slots: parseSlots(print),
+    statusLabel: labelForStatus(printStatus),
+  };
+}
+
+export async function fetchBambuMqttReport(
   input: BambuPrinterConnectionInput,
-): Promise<PrinterConnectionCheck> {
+): Promise<BambuMqttReport> {
   const host = input.host.trim();
   const serial = input.serial.trim().toUpperCase();
   const accessCode = input.accessCode?.trim() ?? "";
   const startedAt = performance.now();
 
   if (!host || !serial || !accessCode) {
-    return actionRequiredCheck(
-      "MQTT status telemetry",
+    throw new Error(
       "Local Bambu status telemetry requires the printer host, serial number, and LAN access code.",
     );
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     let settled = false;
     let connected = false;
     let buffered: Buffer<ArrayBufferLike> = Buffer.alloc(0);
@@ -295,7 +548,7 @@ async function testMqttTelemetry(
       rejectUnauthorized: false,
     });
 
-    const finish = (check: PrinterConnectionCheck) => {
+    const finish = (report: BambuMqttReport) => {
       if (settled) {
         return;
       }
@@ -303,27 +556,30 @@ async function testMqttTelemetry(
       clearTimeout(timeout);
       socket.removeAllListeners();
       socket.destroy();
-      resolve(check);
+      resolve(report);
+    };
+
+    const fail = (message: string) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      socket.removeAllListeners();
+      socket.destroy();
+      reject(new Error(message));
     };
 
     const timeout = setTimeout(() => {
       if (connected) {
-        finish({
-          detail:
-            "BambuView authenticated to MQTT and requested a status report, but the printer did not publish a report before the timeout.",
-          label: "MQTT status telemetry",
-          latencyMs: elapsed(startedAt),
-          status: "passed",
-        });
+        fail(
+          "BambuView authenticated to MQTT and requested a status report, but the printer did not publish a report before the timeout.",
+        );
         return;
       }
 
-      finish(
-        failedCheck(
-          "MQTT status telemetry",
-          "BambuView could not authenticate to the printer MQTT service before the timeout.",
-          elapsed(startedAt),
-        ),
+      fail(
+        "BambuView could not authenticate to the printer MQTT service before the timeout.",
       );
     }, MQTT_REPORT_TIMEOUT_MS);
 
@@ -354,12 +610,8 @@ async function testMqttTelemetry(
         if (parsed.type === 2) {
           const returnCode = parsed.packet[1];
           if (returnCode !== 0) {
-            finish(
-              failedCheck(
-                "MQTT status telemetry",
-                "The printer rejected the MQTT username, access code, or client session.",
-                elapsed(startedAt),
-              ),
+            fail(
+              "The printer rejected the MQTT username, access code, or client session.",
             );
             return;
           }
@@ -384,12 +636,23 @@ async function testMqttTelemetry(
           parsed.type === 3 &&
           packetContainsTopic(parsed.packet, reportTopic)
         ) {
+          const publishPayload = getPublishPayload(parsed.packet, parsed.flags);
+          if (!publishPayload) {
+            fail("The printer published an empty MQTT status payload.");
+            return;
+          }
+
+          let payload: unknown;
+          try {
+            payload = JSON.parse(publishPayload);
+          } catch {
+            fail("The printer returned a status payload that was not JSON.");
+            return;
+          }
+
           finish({
-            detail:
-              "BambuView authenticated to MQTT, subscribed to the report topic, and received a printer status payload.",
-            label: "MQTT status telemetry",
             latencyMs: elapsed(startedAt),
-            status: "passed",
+            payload,
           });
           return;
         }
@@ -397,25 +660,50 @@ async function testMqttTelemetry(
     });
 
     socket.once("timeout", () => {
-      finish(
-        failedCheck(
-          "MQTT status telemetry",
-          "BambuView could not complete the MQTT TLS handshake before the timeout.",
-          elapsed(startedAt),
-        ),
+      fail(
+        "BambuView could not complete the MQTT TLS handshake before the timeout.",
       );
     });
 
     socket.once("error", () => {
-      finish(
-        failedCheck(
-          "MQTT status telemetry",
-          "The printer rejected the MQTT session or the LAN access code is not valid for this printer.",
-          elapsed(startedAt),
-        ),
+      fail(
+        "The printer rejected the MQTT session or the LAN access code is not valid for this printer.",
       );
     });
   });
+}
+
+async function testMqttTelemetry(
+  input: BambuPrinterConnectionInput,
+): Promise<PrinterConnectionCheck> {
+  const startedAt = performance.now();
+
+  if (!input.host.trim() || !input.serial.trim() || !input.accessCode?.trim()) {
+    return actionRequiredCheck(
+      "MQTT status telemetry",
+      "Local Bambu status telemetry requires the printer host, serial number, and LAN access code.",
+    );
+  }
+
+  try {
+    const report = await fetchBambuMqttReport(input);
+    const telemetry = parseBambuTelemetry(report.payload);
+
+    return {
+      detail: `BambuView received live status for ${telemetry.fileName} (${telemetry.progress}% complete).`,
+      label: "MQTT status telemetry",
+      latencyMs: report.latencyMs,
+      status: "passed",
+    };
+  } catch (error) {
+    return failedCheck(
+      "MQTT status telemetry",
+      error instanceof Error
+        ? error.message
+        : "BambuView could not read the printer MQTT status report.",
+      elapsed(startedAt),
+    );
+  }
 }
 
 export function buildBambuConnectImportUrl(

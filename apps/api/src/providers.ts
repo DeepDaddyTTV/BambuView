@@ -4,11 +4,25 @@ import type {
   FleetDataMode,
   FleetOverview,
   PrepareStatus,
+  PrinterCameraFeed,
   PrinterConnectionRecord,
   PrinterDetail,
 } from "@bambuview/contracts";
 
-import { listPrinterConnections, type AppDatabase } from "./db.js";
+import {
+  listCameraAssignments,
+  listCameraSources,
+  listPrinterConnectionSecrets,
+  listPrinterConnections,
+  type AppDatabase,
+  type PrinterConnectionSecretRecord,
+  updatePrinterConnectionStatus,
+} from "./db.js";
+import {
+  fetchBambuMqttReport,
+  parseBambuTelemetry,
+  type BambuPrinterTelemetry,
+} from "./bambu.js";
 
 export interface PrinterProvider {
   getFleetOverview(mode?: FleetDataMode): Promise<FleetOverview>;
@@ -24,6 +38,25 @@ export interface CameraProvider {
 
 export interface SliceProvider {
   getStatus(): Promise<PrepareStatus>;
+}
+
+const TELEMETRY_CACHE_MS = 8000;
+
+function mockCameraFeed(
+  id: string,
+  label: string,
+  kind: PrinterCameraFeed["kind"],
+): PrinterCameraFeed {
+  return {
+    id,
+    kind,
+    label,
+    snapshotUrl: null,
+    sourceId: null,
+    status: "online",
+    streamKind: "snapshot",
+    streamUrl: null,
+  };
 }
 
 const printers: PrinterDetail[] = [
@@ -56,10 +89,10 @@ const printers: PrinterDetail[] = [
       { label: "Chamber", current: "35°C", target: "35°C" },
     ],
     cameraFeeds: [
-      { id: "x1c-printer", label: "Printer Cam", kind: "printer" },
-      { id: "x1c-ams", label: "AMS Cam", kind: "ams" },
-      { id: "x1c-enclosure", label: "Enclosure Cam", kind: "enclosure" },
-      { id: "x1c-overview", label: "Studio Overview", kind: "overview" },
+      mockCameraFeed("x1c-printer", "Printer Cam", "printer"),
+      mockCameraFeed("x1c-ams", "AMS Cam", "ams"),
+      mockCameraFeed("x1c-enclosure", "Enclosure Cam", "enclosure"),
+      mockCameraFeed("x1c-overview", "Studio Overview", "overview"),
     ],
     selectedCameraFeedId: "x1c-printer",
     slots: [
@@ -126,10 +159,10 @@ const printers: PrinterDetail[] = [
       { label: "Chamber", current: "27°C", target: "0°C" },
     ],
     cameraFeeds: [
-      { id: "p1s-printer", label: "Printer Cam", kind: "printer" },
-      { id: "p1s-ams", label: "AMS Cam", kind: "ams" },
-      { id: "p1s-enclosure", label: "Enclosure Cam", kind: "enclosure" },
-      { id: "p1s-overview", label: "Studio Overview", kind: "overview" },
+      mockCameraFeed("p1s-printer", "Printer Cam", "printer"),
+      mockCameraFeed("p1s-ams", "AMS Cam", "ams"),
+      mockCameraFeed("p1s-enclosure", "Enclosure Cam", "enclosure"),
+      mockCameraFeed("p1s-overview", "Studio Overview", "overview"),
     ],
     selectedCameraFeedId: "p1s-printer",
     slots: [
@@ -196,10 +229,10 @@ const printers: PrinterDetail[] = [
       { label: "Chamber", current: "33°C", target: "35°C" },
     ],
     cameraFeeds: [
-      { id: "a1-printer", label: "Printer Cam", kind: "printer" },
-      { id: "a1-ams", label: "AMS Cam", kind: "ams" },
-      { id: "a1-enclosure", label: "Enclosure Cam", kind: "enclosure" },
-      { id: "a1-overview", label: "Studio Overview", kind: "overview" },
+      mockCameraFeed("a1-printer", "Printer Cam", "printer"),
+      mockCameraFeed("a1-ams", "AMS Cam", "ams"),
+      mockCameraFeed("a1-enclosure", "Enclosure Cam", "enclosure"),
+      mockCameraFeed("a1-overview", "Studio Overview", "overview"),
     ],
     selectedCameraFeedId: "a1-printer",
     slots: [
@@ -266,10 +299,10 @@ const printers: PrinterDetail[] = [
       { label: "Chamber", current: "39°C", target: "40°C" },
     ],
     cameraFeeds: [
-      { id: "x1e-printer", label: "Printer Cam", kind: "printer" },
-      { id: "x1e-ams", label: "AMS Cam", kind: "ams" },
-      { id: "x1e-enclosure", label: "Enclosure Cam", kind: "enclosure" },
-      { id: "x1e-overview", label: "Studio Overview", kind: "overview" },
+      mockCameraFeed("x1e-printer", "Printer Cam", "printer"),
+      mockCameraFeed("x1e-ams", "AMS Cam", "ams"),
+      mockCameraFeed("x1e-enclosure", "Enclosure Cam", "enclosure"),
+      mockCameraFeed("x1e-overview", "Studio Overview", "overview"),
     ],
     selectedCameraFeedId: "x1e-printer",
     slots: [
@@ -336,9 +369,9 @@ const printers: PrinterDetail[] = [
       { label: "Chamber", current: "25°C", target: "0°C" },
     ],
     cameraFeeds: [
-      { id: "p1p-printer", label: "Printer Cam", kind: "printer" },
-      { id: "p1p-ams", label: "AMS Cam", kind: "ams" },
-      { id: "p1p-enclosure", label: "Enclosure Cam", kind: "enclosure" },
+      mockCameraFeed("p1p-printer", "Printer Cam", "printer"),
+      mockCameraFeed("p1p-ams", "AMS Cam", "ams"),
+      mockCameraFeed("p1p-enclosure", "Enclosure Cam", "enclosure"),
     ],
     selectedCameraFeedId: "p1p-printer",
     slots: [
@@ -405,7 +438,7 @@ const printers: PrinterDetail[] = [
       { label: "Paused", current: "1", target: "0" },
     ],
     cameraFeeds: [
-      { id: "farm-overview", label: "Studio Overview", kind: "overview" },
+      mockCameraFeed("farm-overview", "Studio Overview", "overview"),
     ],
     selectedCameraFeedId: "farm-overview",
     slots: [
@@ -450,6 +483,10 @@ const cameraSources: CameraSource[] = [
     id: "frigate-x1-office",
     name: "Frigate X1 Office",
     provider: "frigate",
+    details: "Placeholder Frigate source for design preview.",
+    lastTestedAt: null,
+    snapshotUrl: null,
+    streamKind: "rtsp",
     streamUrl: "rtsp://placeholder/frigate/x1-office",
     status: "online",
     assignedTo: ["x1-carbon-office"],
@@ -458,6 +495,10 @@ const cameraSources: CameraSource[] = [
     id: "direct-workshop-cam",
     name: "Workshop RTSP Cam",
     provider: "direct-rtsp",
+    details: "Placeholder direct RTSP source for design preview.",
+    lastTestedAt: null,
+    snapshotUrl: null,
+    streamKind: "rtsp",
     streamUrl: "rtsp://placeholder/workshop-cam",
     status: "online",
     assignedTo: ["p1s-studio", "a1-mini-workshop"],
@@ -466,6 +507,10 @@ const cameraSources: CameraSource[] = [
     id: "bambu-x1e",
     name: "Bambu X1E Native Cam",
     provider: "bambu",
+    details: "Placeholder native Bambu stream for design preview.",
+    lastTestedAt: null,
+    snapshotUrl: null,
+    streamKind: "bambu-native",
     streamUrl: "bambu://x1e-engineering/printer",
     status: "degraded",
     assignedTo: ["x1e-engineering", "p1p-break-room"],
@@ -474,6 +519,10 @@ const cameraSources: CameraSource[] = [
     id: "farm-overview",
     name: "Farm Overview",
     provider: "farm-overview",
+    details: "Placeholder farm overview for design preview.",
+    lastTestedAt: null,
+    snapshotUrl: null,
+    streamKind: "rtsp",
     streamUrl: "rtsp://placeholder/farm-overview",
     status: "online",
     assignedTo: ["production-farm"],
@@ -540,84 +589,58 @@ function integrationCopyForConnection(
   return "LAN Mode uses local MQTT for status telemetry and Bambu Connect for restricted commands.";
 }
 
-function detailForConnection(
-  connection: PrinterConnectionRecord,
-): PrinterDetail {
-  const isReachable = connection.connectionStatus === "online";
-  const isCloudMode = connection.connectionMode === "cloud";
-  const isBambuConnectMode = connection.connectionMode === "bambu-connect";
-  const modeLabel = modeLabelForConnection(connection);
-  const integrationCopy = integrationCopyForConnection(connection);
-
+function formatTemperature(
+  current: number | null,
+  target: number | null,
+): { current: string; target: string } {
   return {
-    id: connection.id,
-    shortCode: shortCodeForConnection(connection),
-    name: connection.name,
-    status:
-      isReachable || isCloudMode || isBambuConnectMode ? "idle" : "offline",
-    statusLabel: isReachable
-      ? `${modeLabel} Ready`
-      : isBambuConnectMode
-        ? "Bambu Connect Ready"
-        : isCloudMode
-          ? "Cloud / Normal Ready"
-          : "Offline",
-    progress: 0,
-    layer: isReachable ? `Connected through Bambu ${modeLabel}` : modeLabel,
-    eta: isReachable
-      ? "Ready"
-      : isBambuConnectMode || isCloudMode
-        ? "Ready"
-        : "Offline",
-    elapsed: isReachable
-      ? "Idle"
-      : isBambuConnectMode
-        ? "Bridge"
-        : isCloudMode
-          ? "Cloud"
-          : "No heartbeat",
-    fileName: isReachable ? "Waiting for live telemetry." : integrationCopy,
-    location: modeLabel,
-    material: "PLA",
-    materialColor: "Unknown",
-    nozzleProfile: "Printer profile pending",
-    cameraLabel: isBambuConnectMode
-      ? "Bambu Connect Cam"
-      : isCloudMode
-        ? "Bambu Connect Cam"
-        : "Bambu Native Cam",
-    previewKind: previewKindForConnection(connection),
-    serial: connection.serial,
-    ipAddress:
-      connection.host ||
-      (isBambuConnectMode ? "Bambu Connect bridge" : "Cloud profile"),
-    firmwareVersion: "Pending live query",
-    filamentRemaining: "Pending",
-    filamentUsed: "0g",
-    printTimeRemaining: "—",
-    temperatures: [
-      { label: "Nozzle", current: "—", target: "—" },
-      { label: "Bed", current: "—", target: "—" },
-      { label: "Chamber", current: "—", target: "—" },
-    ],
-    cameraFeeds: [
-      {
-        id: `${connection.id}-bambu-printer`,
-        label: isBambuConnectMode
-          ? "Bambu Connect Cam"
-          : isCloudMode
-            ? "Bambu Connect Cam"
-            : "Printer Cam",
-        kind: "printer",
-      },
-      {
-        id: `${connection.id}-bambu-overview`,
-        label: "Studio Overview",
-        kind: "overview",
-      },
-    ],
-    selectedCameraFeedId: `${connection.id}-bambu-printer`,
-    slots: [
+    current: current === null ? "—" : `${Math.round(current)}°C`,
+    target: target === null ? "—" : `${Math.round(target)}°C`,
+  };
+}
+
+function formatMinutes(minutes: number | null): string {
+  if (minutes === null) {
+    return "—";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const mins = Math.max(0, Math.round(minutes % 60));
+  if (hours <= 0) {
+    return `${mins}m`;
+  }
+
+  return `${hours}h ${mins}m`;
+}
+
+function formatEta(minutes: number | null): string {
+  if (minutes === null) {
+    return "—";
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(Date.now() + minutes * 60_000));
+}
+
+function layerLabel(telemetry: BambuPrinterTelemetry): string {
+  if (telemetry.layerCurrent !== null && telemetry.layerTotal !== null) {
+    return `Layer ${telemetry.layerCurrent} of ${telemetry.layerTotal}`;
+  }
+
+  if (telemetry.printStatus === "idle") {
+    return "Ready to Print";
+  }
+
+  return "Live telemetry";
+}
+
+function telemetrySlots(
+  telemetry: BambuPrinterTelemetry | null,
+): PrinterDetail["slots"] {
+  if (!telemetry?.slots.length) {
+    return [
       {
         slot: "A1",
         label: "A1",
@@ -626,41 +649,270 @@ function detailForConnection(
         material: "PLA",
         active: true,
       },
-      {
-        slot: "B2",
-        label: "B2",
-        color: "#b8babd",
-        colorName: "Pending",
-        material: "PLA",
-        active: false,
-      },
-      {
-        slot: "C3",
-        label: "C3",
-        color: "#36393f",
-        colorName: "Pending",
-        material: "PLA",
-        active: false,
-      },
-      {
-        slot: "D4",
-        label: "D4",
-        color: "#f6f7f8",
-        colorName: "Pending",
-        material: "PLA",
-        active: false,
-      },
+    ];
+  }
+
+  return telemetry.slots.map((slot) => ({
+    ...slot,
+    label: slot.slot,
+  }));
+}
+
+function cameraFeedsForConnection(
+  connection: PrinterConnectionRecord,
+  assignedFeeds: PrinterCameraFeed[] = [],
+): PrinterCameraFeed[] {
+  const isBambuConnect =
+    connection.connectionMode === "bambu-connect" ||
+    connection.connectionMode === "cloud";
+  const nativeStatus =
+    connection.connectionMode === "developer" &&
+    connection.connectionStatus === "online"
+      ? "degraded"
+      : "offline";
+  const defaultFeed: PrinterCameraFeed = {
+    id: `${connection.id}-bambu-printer`,
+    kind: "printer",
+    label: isBambuConnect ? "Bambu Connect Cam" : "Printer Cam",
+    snapshotUrl: null,
+    sourceId: null,
+    status: isBambuConnect ? "degraded" : nativeStatus,
+    streamKind: isBambuConnect ? "unknown" : "bambu-native",
+    streamUrl: null,
+  };
+
+  return assignedFeeds.length > 0
+    ? assignedFeeds
+    : [
+        defaultFeed,
+        {
+          ...defaultFeed,
+          id: `${connection.id}-bambu-overview`,
+          kind: "overview",
+          label: "Studio Overview",
+        },
+      ];
+}
+
+function isRawLanConnection(connection: PrinterConnectionRecord): boolean {
+  return (
+    connection.connectionMode === "lan" ||
+    connection.connectionMode === "developer"
+  );
+}
+
+function cameraFeedKind(label: string): PrinterCameraFeed["kind"] {
+  const normalized = label.toLowerCase();
+  if (normalized.includes("ams")) return "ams";
+  if (normalized.includes("overview") || normalized.includes("studio")) {
+    return "overview";
+  }
+  if (normalized.includes("enclosure")) return "enclosure";
+
+  return "printer";
+}
+
+function detailForConnection(
+  connection: PrinterConnectionRecord,
+  telemetry: BambuPrinterTelemetry | null = null,
+  assignedFeeds: PrinterCameraFeed[] = [],
+): PrinterDetail {
+  const isReachable = connection.connectionStatus === "online";
+  const isCloudMode = connection.connectionMode === "cloud";
+  const isBambuConnectMode = connection.connectionMode === "bambu-connect";
+  const modeLabel = modeLabelForConnection(connection);
+  const integrationCopy = integrationCopyForConnection(connection);
+  const status = telemetry?.printStatus ?? (isReachable ? "idle" : "offline");
+  const slots = telemetrySlots(telemetry);
+  const selectedCameraFeeds = cameraFeedsForConnection(
+    connection,
+    assignedFeeds,
+  );
+  const primaryFeed = selectedCameraFeeds[0];
+  const nozzle = formatTemperature(
+    telemetry?.nozzleTemperature ?? null,
+    telemetry?.nozzleTargetTemperature ?? null,
+  );
+  const bed = formatTemperature(
+    telemetry?.bedTemperature ?? null,
+    telemetry?.bedTargetTemperature ?? null,
+  );
+  const chamber = formatTemperature(
+    telemetry?.chamberTemperature ?? null,
+    telemetry?.chamberTargetTemperature ?? null,
+  );
+
+  return {
+    id: connection.id,
+    shortCode: shortCodeForConnection(connection),
+    name: connection.name,
+    status: isCloudMode || isBambuConnectMode ? "idle" : status,
+    statusLabel: telemetry
+      ? telemetry.statusLabel
+      : isReachable
+        ? `${modeLabel} Ready`
+        : isBambuConnectMode
+          ? "Bambu Connect Ready"
+          : isCloudMode
+            ? "Cloud / Normal Ready"
+            : "Offline",
+    progress: telemetry?.progress ?? 0,
+    layer: telemetry
+      ? layerLabel(telemetry)
+      : isReachable
+        ? `Connected through Bambu ${modeLabel}`
+        : modeLabel,
+    eta: telemetry
+      ? formatEta(telemetry.remainingMinutes)
+      : isReachable
+        ? "Ready"
+        : isBambuConnectMode || isCloudMode
+          ? "Ready"
+          : "Offline",
+    elapsed: telemetry
+      ? formatMinutes(telemetry.elapsedMinutes)
+      : isReachable
+        ? "Idle"
+        : isBambuConnectMode
+          ? "Bridge"
+          : isCloudMode
+            ? "Cloud"
+            : "No heartbeat",
+    fileName:
+      telemetry?.fileName ??
+      (isReachable ? "Waiting for live telemetry." : integrationCopy),
+    location: modeLabel,
+    material: slots[0]?.material ?? "PLA",
+    materialColor: slots[0]?.colorName ?? "Unknown",
+    nozzleProfile: "Printer profile pending",
+    cameraLabel: primaryFeed?.label ?? "Printer Cam",
+    previewKind: previewKindForConnection(connection),
+    serial: connection.serial,
+    ipAddress:
+      connection.host ||
+      (isBambuConnectMode ? "Bambu Connect bridge" : "Cloud profile"),
+    firmwareVersion: telemetry?.firmwareVersion ?? "Pending live query",
+    filamentRemaining: "Pending",
+    filamentUsed: "0g",
+    printTimeRemaining: formatMinutes(telemetry?.remainingMinutes ?? null),
+    temperatures: [
+      { label: "Nozzle", current: nozzle.current, target: nozzle.target },
+      { label: "Bed", current: bed.current, target: bed.target },
+      { label: "Chamber", current: chamber.current, target: chamber.target },
     ],
+    cameraFeeds: selectedCameraFeeds,
+    selectedCameraFeedId: primaryFeed?.id ?? `${connection.id}-bambu-printer`,
+    slots,
   };
 }
 
 class DatabaseBackedPrinterProvider implements PrinterProvider {
+  private readonly telemetryCache = new Map<
+    string,
+    { expiresAt: number; telemetry: BambuPrinterTelemetry | null }
+  >();
+
   constructor(private readonly db: AppDatabase) {}
 
-  private async getStoredPrinterDetails(): Promise<PrinterDetail[]> {
-    const connections = await listPrinterConnections(this.db);
+  private async telemetryForConnection(
+    connection: PrinterConnectionSecretRecord,
+  ): Promise<BambuPrinterTelemetry | null> {
+    if (!isRawLanConnection(connection) || !connection.accessCode) {
+      return null;
+    }
 
-    return connections.map(detailForConnection);
+    const cached = this.telemetryCache.get(connection.id);
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.telemetry;
+    }
+
+    try {
+      const report = await fetchBambuMqttReport({
+        accessCode: connection.accessCode,
+        connectionMode: connection.connectionMode,
+        host: connection.host,
+        model: connection.model,
+        name: connection.name,
+        serial: connection.serial,
+      });
+      const telemetry = parseBambuTelemetry(report.payload);
+      const seenAt = new Date().toISOString();
+      await updatePrinterConnectionStatus(
+        this.db,
+        connection.id,
+        "online",
+        seenAt,
+      );
+      this.telemetryCache.set(connection.id, {
+        expiresAt: Date.now() + TELEMETRY_CACHE_MS,
+        telemetry,
+      });
+
+      return telemetry;
+    } catch {
+      await updatePrinterConnectionStatus(
+        this.db,
+        connection.id,
+        "offline",
+        null,
+      );
+      this.telemetryCache.set(connection.id, {
+        expiresAt: Date.now() + TELEMETRY_CACHE_MS,
+        telemetry: null,
+      });
+
+      return null;
+    }
+  }
+
+  private async cameraFeedsByPrinter(): Promise<
+    Map<string, PrinterCameraFeed[]>
+  > {
+    const [assignments, sources] = await Promise.all([
+      listCameraAssignments(this.db),
+      listCameraSources(this.db),
+    ]);
+    const sourceById = new Map(sources.map((source) => [source.id, source]));
+    const feedsByPrinter = new Map<string, PrinterCameraFeed[]>();
+
+    for (const assignment of assignments) {
+      const source = sourceById.get(assignment.sourceId);
+      if (!source) {
+        continue;
+      }
+
+      const existing = feedsByPrinter.get(assignment.printerId) ?? [];
+      existing.push({
+        id: assignment.feedId,
+        kind: cameraFeedKind(assignment.feedLabel),
+        label: assignment.feedLabel,
+        snapshotUrl: source.snapshotUrl,
+        sourceId: source.id,
+        status: source.status,
+        streamKind: source.streamKind,
+        streamUrl: source.streamUrl,
+      });
+      feedsByPrinter.set(assignment.printerId, existing);
+    }
+
+    return feedsByPrinter;
+  }
+
+  private async getStoredPrinterDetails(): Promise<PrinterDetail[]> {
+    const [connections, feedsByPrinter] = await Promise.all([
+      listPrinterConnectionSecrets(this.db),
+      this.cameraFeedsByPrinter(),
+    ]);
+
+    return Promise.all(
+      connections.map(async (connection) =>
+        detailForConnection(
+          connection,
+          await this.telemetryForConnection(connection),
+          feedsByPrinter.get(connection.id) ?? [],
+        ),
+      ),
+    );
   }
 
   async getFleetOverview(
@@ -715,10 +967,20 @@ class DatabaseBackedCameraProvider implements CameraProvider {
   constructor(private readonly db: AppDatabase) {}
 
   async getOverview(): Promise<CameraOverview> {
-    const connections = await listPrinterConnections(this.db);
+    const [connections, persistedSources, persistedAssignments] =
+      await Promise.all([
+        listPrinterConnections(this.db),
+        listCameraSources(this.db),
+        listCameraAssignments(this.db),
+      ]);
     const storedSources: CameraSource[] = connections.map((connection) => {
       const isBambuConnect = connection.connectionMode === "bambu-connect";
       const isCloud = connection.connectionMode === "cloud";
+      const nativeStatus =
+        connection.connectionMode === "developer" &&
+        connection.connectionStatus === "online"
+          ? "degraded"
+          : "offline";
 
       return {
         id: `${connection.id}-bambu-printer`,
@@ -728,32 +990,39 @@ class DatabaseBackedCameraProvider implements CameraProvider {
             ? `${connection.name} Bambu Connect Cam`
             : `${connection.name} Native Cam`,
         provider: isBambuConnect || isCloud ? "bambu-connect" : "bambu",
+        details:
+          isBambuConnect || isCloud
+            ? "Bambu Connect exposes camera viewing through Bambu's supported desktop integration path. Add a Frigate/go2rtc restream here when you want it embedded in BambuView."
+            : "Native Bambu camera streams are detected locally but need a browser-compatible restream before they can be embedded.",
+        lastTestedAt: connection.lastTestedAt,
+        snapshotUrl: null,
+        streamKind: isBambuConnect ? "unknown" : "bambu-native",
         streamUrl: `bambu://${connection.id}/${connection.connectionMode}/printer-cam`,
-        status:
-          isBambuConnect ||
-          isCloud ||
-          (!isCloud && connection.connectionStatus === "online")
-            ? "degraded"
-            : "offline",
+        status: isBambuConnect || isCloud ? "degraded" : nativeStatus,
         assignedTo: [connection.id],
       };
     });
     const storedAssignments = connections.map((connection) => ({
-      printerId: connection.id,
-      printerName: connection.name,
       feedId: `${connection.id}-bambu-printer`,
       feedLabel: "Printer Cam",
+      printerId: connection.id,
+      printerName: connection.name,
+      sourceId: `${connection.id}-bambu-printer`,
+      sourceName: `${connection.name} Native Cam`,
     }));
 
     return {
-      sources: [...storedSources, ...cameraSources],
+      sources: [...persistedSources, ...storedSources, ...cameraSources],
       assignments: [
+        ...persistedAssignments,
         ...storedAssignments,
         ...printers.map((printer) => ({
-          printerId: printer.id,
-          printerName: printer.name,
           feedId: printer.selectedCameraFeedId,
           feedLabel: printer.cameraLabel,
+          printerId: printer.id,
+          printerName: printer.name,
+          sourceId: printer.selectedCameraFeedId,
+          sourceName: printer.cameraLabel,
         })),
       ],
     };

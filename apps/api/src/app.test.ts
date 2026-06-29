@@ -437,6 +437,77 @@ describe("auth and settings flows", () => {
       "bambu-connect://import-file?path=%2Ftmp%2Fflexi%20dino.gcode.3mf&name=Flexi%20Dino",
     );
 
+    const cameraTest = await app.inject({
+      method: "POST",
+      url: "/api/cameras/sources/test",
+      headers: {
+        cookie,
+      },
+      payload: {
+        name: "Workbench MJPEG",
+        provider: "direct-mjpeg",
+        streamUrl: "http://127.0.0.1:1/video.mjpg",
+      },
+    });
+
+    expect(cameraTest.statusCode).toBe(200);
+    expect(cameraTest.json().test.kind).toBe("mjpeg");
+
+    const cameraCreate = await app.inject({
+      method: "POST",
+      url: "/api/cameras/sources",
+      headers: {
+        cookie,
+      },
+      payload: {
+        name: "Workbench MJPEG",
+        password: "camera-secret",
+        provider: "direct-mjpeg",
+        streamUrl: "http://camera-user:camera-secret@127.0.0.1:1/video.mjpg",
+        username: "camera-user",
+      },
+    });
+
+    expect(cameraCreate.statusCode).toBe(201);
+    expect(cameraCreate.json().source.name).toBe("Workbench MJPEG");
+    expect(JSON.stringify(cameraCreate.json())).not.toContain("camera-secret");
+
+    const cameraSourceId = cameraCreate.json().source.id;
+    const assignCamera = await app.inject({
+      method: "POST",
+      url: "/api/cameras/assignments",
+      headers: {
+        cookie,
+      },
+      payload: {
+        feedLabel: "Printer Cam",
+        printerId: createdPayload.printer.id,
+        sourceId: cameraSourceId,
+      },
+    });
+
+    expect(assignCamera.statusCode).toBe(200);
+    expect(assignCamera.json().assignment.sourceId).toBe(cameraSourceId);
+
+    const cameras = await app.inject({
+      method: "GET",
+      url: "/api/cameras",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(cameras.statusCode).toBe(200);
+    expect(JSON.stringify(cameras.json())).not.toContain("camera-secret");
+    expect(
+      cameras.json().sources.map((source: { id: string }) => source.id),
+    ).toContain(cameraSourceId);
+    expect(
+      cameras
+        .json()
+        .assignments.map((item: { sourceId: string }) => item.sourceId),
+    ).toContain(cameraSourceId);
+
     const duplicate = await app.inject({
       method: "POST",
       url: "/api/printers/bambu",

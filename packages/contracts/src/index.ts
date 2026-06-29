@@ -91,6 +91,17 @@ export interface PrinterCameraFeed {
   id: string;
   label: string;
   kind: "printer" | "ams" | "enclosure" | "overview";
+  snapshotUrl: string | null;
+  sourceId: string | null;
+  status: "online" | "degraded" | "offline";
+  streamKind:
+    | "mjpeg"
+    | "snapshot"
+    | "hls"
+    | "rtsp"
+    | "bambu-native"
+    | "unknown";
+  streamUrl: string | null;
 }
 
 export interface PrinterDetail extends PrinterSummary {
@@ -212,23 +223,41 @@ export interface FleetOverview {
   selectedPrinter: PrinterDetail | null;
 }
 
+export type CameraProviderType =
+  | "frigate"
+  | "direct-rtsp"
+  | "direct-http"
+  | "direct-mjpeg"
+  | "bambu"
+  | "bambu-connect"
+  | "farm-overview";
+
+export type CameraStreamKind =
+  | "mjpeg"
+  | "snapshot"
+  | "hls"
+  | "rtsp"
+  | "bambu-native"
+  | "unknown";
+
 export interface CameraSource {
   id: string;
   name: string;
-  provider:
-    | "frigate"
-    | "direct-rtsp"
-    | "bambu"
-    | "bambu-connect"
-    | "farm-overview";
+  provider: CameraProviderType;
+  snapshotUrl: string | null;
   streamUrl: string;
+  streamKind: CameraStreamKind;
   status: "online" | "degraded" | "offline";
   assignedTo: string[];
+  details: string;
+  lastTestedAt: string | null;
 }
 
 export interface CameraAssignment {
   printerId: string;
   printerName: string;
+  sourceId: string;
+  sourceName: string;
   feedId: string;
   feedLabel: string;
 }
@@ -236,6 +265,30 @@ export interface CameraAssignment {
 export interface CameraOverview {
   sources: CameraSource[];
   assignments: CameraAssignment[];
+}
+
+export interface CameraSourceInput {
+  frigateBaseUrl?: string;
+  frigateCamera?: string;
+  name: string;
+  password?: string;
+  provider: CameraProviderType;
+  streamUrl?: string;
+  username?: string;
+}
+
+export interface CameraAssignmentInput {
+  feedLabel: string;
+  printerId: string;
+  sourceId: string;
+}
+
+export interface CameraTestResult {
+  checkedAt: string;
+  detail: string;
+  kind: CameraStreamKind;
+  reachable: boolean;
+  status: CameraSource["status"];
 }
 
 export interface PrepareStatus {

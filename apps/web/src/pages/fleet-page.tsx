@@ -223,6 +223,77 @@ function FleetPreview({
   );
 }
 
+function selectedCameraFeed(printer: PrinterDetail, selectedFeedId: string) {
+  return (
+    printer.cameraFeeds.find((feed) => feed.id === selectedFeedId) ??
+    printer.cameraFeeds[0] ??
+    null
+  );
+}
+
+function CameraFeedFrame({
+  className = "",
+  feed,
+  printer,
+}: {
+  className?: string;
+  feed: PrinterDetail["cameraFeeds"][number] | null;
+  printer: PrinterDetail;
+}) {
+  const sourceUrl = feed?.streamUrl ?? feed?.snapshotUrl;
+  const canRender =
+    feed && sourceUrl && ["mjpeg", "snapshot", "hls"].includes(feed.streamKind);
+
+  if (canRender && feed.streamKind === "hls") {
+    return (
+      <video
+        className={`h-full w-full bg-black object-cover ${className}`}
+        controls
+        muted
+        playsInline
+        src={sourceUrl}
+      />
+    );
+  }
+
+  if (canRender) {
+    return (
+      <img
+        alt={`${printer.name} ${feed.label}`}
+        className={`h-full w-full bg-black object-cover ${className}`}
+        src={sourceUrl}
+      />
+    );
+  }
+
+  return (
+    <div className={`relative h-full w-full overflow-hidden ${className}`}>
+      <img
+        alt={`${printer.name} camera preview placeholder`}
+        className="h-full w-full object-cover opacity-70"
+        src={cameraStageMockup}
+      />
+      <div className="absolute inset-0 grid place-items-center bg-black/45 px-6 text-center">
+        <div>
+          <div className="text-sm uppercase tracking-[0.24em] text-zinc-400">
+            {feed?.streamKind === "rtsp" || feed?.streamKind === "bambu-native"
+              ? "Restream Required"
+              : "Camera Not Assigned"}
+          </div>
+          <div className="mt-3 text-base font-semibold text-white">
+            {feed?.label ?? "Assign a camera feed"}
+          </div>
+          <div className="mt-2 max-w-md text-sm leading-6 text-zinc-300">
+            {feed?.streamKind === "rtsp" || feed?.streamKind === "bambu-native"
+              ? "This source is saved and assignable, but browsers need a Frigate/go2rtc/HTTP restream before BambuView can display it inline."
+              : "Add a Frigate, HTTP/MJPEG, or HLS camera source and assign it to this printer."}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ModeToggle() {
   const { appearance, updateAppearance } = useAppearance();
 
@@ -1227,6 +1298,8 @@ function FocusWorkspace({
   setSelectedFeedId: (next: string) => void;
   setSelectedSlot: (next: string) => void;
 }) {
+  const activeFeed = selectedCameraFeed(printer, selectedFeedId);
+
   return (
     <aside className="detail-panel detail-panel--focus">
       <div className="flex items-center justify-between gap-4">
@@ -1282,31 +1355,31 @@ function FocusWorkspace({
             <div className="camera-stage mt-5">
               <div className="camera-stage__top">
                 <div className="text-sm text-zinc-300">
-                  {printer.cameraLabel}
+                  {activeFeed?.label ?? printer.cameraLabel}
                 </div>
                 <div className="camera-stage__meta">
-                  <span className="fleet-console-dot fleet-console-dot--green" />
-                  <span>Live stream</span>
-                  <span>1080p</span>
-                  <span>30 FPS</span>
+                  <span
+                    className={`fleet-console-dot ${
+                      activeFeed?.status === "offline"
+                        ? "fleet-console-dot--red"
+                        : activeFeed?.status === "degraded"
+                          ? "fleet-console-dot--amber"
+                          : "fleet-console-dot--green"
+                    }`}
+                  />
+                  <span>{activeFeed?.status ?? "unassigned"}</span>
+                  <span>{activeFeed?.streamKind ?? "none"}</span>
                 </div>
               </div>
               <div className="camera-stage__viewport camera-stage__viewport--full">
-                <div className="camera-feed-blur" />
-                <div className="camera-stage__machine" />
-                <div className="camera-stage__print camera-stage__print--full">
-                  <PrinterPreviewArt
-                    className="h-full"
-                    kind={printer.previewKind}
-                    primaryColor={previewColor(printer)}
-                  />
-                </div>
-                <div className="camera-feed-watermark">Bambu Lab</div>
+                <CameraFeedFrame feed={activeFeed} printer={printer} />
               </div>
               <div className="flex items-center justify-between gap-3 border-t border-white/8 px-4 py-3 text-sm text-zinc-400">
                 <div className="flex items-center gap-2">
                   <span className="fleet-console-dot fleet-console-dot--green" />
-                  Live stream active
+                  {activeFeed?.sourceId
+                    ? "Assigned camera source"
+                    : "Default printer camera slot"}
                 </div>
                 <div>Last move: {movementLabel}</div>
               </div>
@@ -1421,6 +1494,7 @@ function DetailPanel({
   const [movementLabel, setMovementLabel] = useState("Home");
   const tone = printerTone(printer);
   const fans = fanMetrics(printer);
+  const activeFeed = selectedCameraFeed(printer, selectedFeedId);
 
   useEffect(() => {
     startTransition(() => {
@@ -1657,11 +1731,29 @@ function DetailPanel({
         </div>
 
         <div className="fleet-console-camera-stage">
-          <img
-            alt={`${printer.name} printer camera`}
+          <CameraFeedFrame
             className="fleet-console-camera-stage__image"
-            src={cameraStageMockup}
+            feed={activeFeed}
+            printer={printer}
           />
+        </div>
+        <div className="fleet-console-camera-stage__footer">
+          <div className="fleet-console-camera-stage__meta">
+            <span
+              className={`fleet-console-dot ${
+                activeFeed?.status === "offline"
+                  ? "fleet-console-dot--red"
+                  : activeFeed?.status === "degraded"
+                    ? "fleet-console-dot--amber"
+                    : "fleet-console-dot--green"
+              }`}
+            />
+            <span>{activeFeed?.status ?? "unassigned"}</span>
+            <span>{activeFeed?.streamKind ?? "none"}</span>
+          </div>
+          <div className="fleet-console-camera-stage__controls">
+            {activeFeed?.sourceId ? "Assigned" : "Default"}
+          </div>
         </div>
       </section>
 

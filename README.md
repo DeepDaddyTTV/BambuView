@@ -17,11 +17,11 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Current Features
 
-- **Fleet dashboard** with printer cards, farm cards, live-style status data, and a detailed printer panel.
+- **Fleet dashboard** with printer cards, farm cards, live printer status, print progress, temperatures, filament state, and a detailed printer panel.
 - **Fullscreen printer workspace** with camera, movement, temperature, fan, lamp, extruder, filament, and print-action controls mapped to each connection profile's supported path.
 - **Bambu printer setup** with Cloud / Normal, Bambu Connect, LAN Mode, and LAN-only Developer Mode profiles, MQTT/Bambu Connect capability checks, SQLite persistence, and redacted access-code handling.
 - **Current Bambu model catalog** covering H2, X2, P2, A2, X1, P1, and A1 families.
-- **Camera source management** for future Frigate, direct RTSP, Bambu native, and farm overview feeds.
+- **Camera source management** for Frigate, direct HTTP/MJPEG/HLS, direct RTSP, Bambu native, and farm overview feeds with server-side credential handling.
 - **Local first-run setup** that creates the first admin account before the app opens.
 - **Invite-only users** after bootstrap, with `admin`, `operator`, and `viewer` roles.
 - **Per-user appearance settings** for light mode, dark mode, highlight colors, background colors, and background styles.
@@ -32,9 +32,9 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.25` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
+The `0.0.26` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
 
-The Bambu connection profiles now expose real capability states. Cloud / Normal and Bambu Connect use Bambu Connect for authorized file handoff and restricted functions, LAN Mode tests local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths.
+The Bambu connection profiles now expose real capability states. Cloud / Normal and Bambu Connect use Bambu Connect for authorized file handoff and restricted functions, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers; RTSP and native Bambu feeds are saved and monitored, then displayed after you provide a Frigate/go2rtc/HTTP restream.
 
 ## Getting Started
 
@@ -171,6 +171,11 @@ Core routes currently include:
 - `POST /api/bambu-connect/import-url`
 - `GET /api/printers/:id`
 - `GET /api/cameras`
+- `POST /api/cameras/sources/test`
+- `POST /api/cameras/sources`
+- `POST /api/cameras/assignments`
+- `GET /api/cameras/sources/:id/snapshot`
+- `GET /api/cameras/sources/:id/stream`
 - `GET /api/settings/appearance`
 - `PUT /api/settings/appearance`
 - `GET /api/prepare/status`

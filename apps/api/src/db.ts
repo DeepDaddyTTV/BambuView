@@ -9,6 +9,12 @@ import {
   type AppearanceSettings,
   type BambuConnectionMode,
   type BambuPrinterConnectionInput,
+  type CameraAssignment,
+  type CameraAssignmentInput,
+  type CameraProviderType,
+  type CameraSource,
+  type CameraSourceInput,
+  type CameraStreamKind,
   DEFAULT_APPEARANCE,
   type InviteRecord,
   type PrinterConnectionProvider,
@@ -88,7 +94,37 @@ const printerConnections = sqliteTable("printer_connections", {
   updatedAt: text("updated_at").notNull(),
 });
 
+const cameraSources = sqliteTable("camera_sources", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  provider: text("provider").$type<CameraProviderType>().notNull(),
+  streamUrl: text("stream_url").notNull(),
+  streamKind: text("stream_kind").$type<CameraStreamKind>().notNull(),
+  frigateBaseUrl: text("frigate_base_url"),
+  frigateCamera: text("frigate_camera"),
+  username: text("username"),
+  password: text("password"),
+  status: text("status").$type<CameraSource["status"]>().notNull(),
+  details: text("details").notNull(),
+  lastTestedAt: text("last_tested_at"),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+const cameraAssignments = sqliteTable("camera_assignments", {
+  id: text("id").primaryKey(),
+  printerId: text("printer_id").notNull(),
+  sourceId: text("source_id")
+    .notNull()
+    .references(() => cameraSources.id, { onDelete: "cascade" }),
+  feedLabel: text("feed_label").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const schema = {
+  cameraAssignments,
+  cameraSources,
   invites,
   printerConnections,
   sessions,
@@ -127,6 +163,26 @@ export interface CreateSessionInput {
 export interface CreatePrinterConnectionInput extends BambuPrinterConnectionInput {
   connectionStatus: PrinterConnectionStatus;
   lastTestedAt: string | null;
+}
+
+export interface CreateCameraSourceInput extends CameraSourceInput {
+  details: string;
+  lastTestedAt: string | null;
+  status: CameraSource["status"];
+  streamKind: CameraStreamKind;
+  streamUrl: string;
+}
+
+export interface CameraSourceSecretRecord extends CameraSource {
+  frigateBaseUrl: string | null;
+  frigateCamera: string | null;
+  password: string;
+  rawStreamUrl: string;
+  username: string;
+}
+
+export interface PrinterConnectionSecretRecord extends PrinterConnectionRecord {
+  accessCode: string;
 }
 
 function nowIso(): string {
@@ -191,6 +247,31 @@ export function createDatabase(databaseFile: string): DatabaseClient {
       last_seen_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS camera_sources (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      provider TEXT NOT NULL,
+      stream_url TEXT NOT NULL,
+      stream_kind TEXT NOT NULL,
+      frigate_base_url TEXT,
+      frigate_camera TEXT,
+      username TEXT,
+      password TEXT,
+      status TEXT NOT NULL,
+      details TEXT NOT NULL,
+      last_tested_at TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS camera_assignments (
+      id TEXT PRIMARY KEY,
+      printer_id TEXT NOT NULL,
+      source_id TEXT NOT NULL REFERENCES camera_sources(id) ON DELETE CASCADE,
+      feed_label TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(printer_id, source_id, feed_label)
     );
   `);
 
@@ -261,6 +342,74 @@ function mapPrinterConnection(
     lastSeenAt: row.lastSeenAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
+  };
+}
+
+function redactUrl(value: string): string {
+  if (!value) {
+    return "";
+  }
+
+  try {
+    const url = new URL(value);
+    url.username = "";
+    url.password = "";
+    return url.toString();
+  } catch {
+    return value.replace(/\/\/([^/@]+)@/, "//");
+  }
+}
+
+function cameraProxyUrls(
+  row: typeof cameraSources.$inferSelect,
+): Pick<CameraSource, "snapshotUrl" | "streamUrl"> {
+  const canProxy =
+    row.streamKind === "mjpeg" ||
+    row.streamKind === "snapshot" ||
+    row.streamKind === "hls";
+
+  return {
+    snapshotUrl:
+      row.streamKind === "snapshot" || row.provider === "frigate"
+        ? `/api/cameras/sources/${row.id}/snapshot`
+        : null,
+    streamUrl: canProxy
+      ? `/api/cameras/sources/${row.id}/stream`
+      : redactUrl(row.streamUrl),
+  };
+}
+
+function mapCameraSource(
+  row: typeof cameraSources.$inferSelect,
+  assignedTo: string[] = [],
+): CameraSource {
+  const proxyUrls = cameraProxyUrls(row);
+
+  return {
+    id: row.id,
+    name: row.name,
+    provider: row.provider,
+    snapshotUrl: proxyUrls.snapshotUrl,
+    streamUrl: proxyUrls.streamUrl,
+    streamKind: row.streamKind,
+    status: row.status,
+    assignedTo,
+    details: row.details,
+    lastTestedAt: row.lastTestedAt,
+  };
+}
+
+function mapCameraSourceSecret(
+  row: typeof cameraSources.$inferSelect,
+  assignedTo: string[] = [],
+): CameraSourceSecretRecord {
+  return {
+    ...mapCameraSource(row, assignedTo),
+    frigateBaseUrl: row.frigateBaseUrl ?? null,
+    frigateCamera: row.frigateCamera ?? null,
+    password: row.password ?? "",
+    rawStreamUrl: row.streamUrl,
+    username: row.username ?? "",
   };
 }
 
@@ -351,6 +500,26 @@ export async function listPrinterConnections(
   return rows.map(mapPrinterConnection);
 }
 
+function mapPrinterConnectionSecret(
+  row: typeof printerConnections.$inferSelect,
+): PrinterConnectionSecretRecord {
+  return {
+    ...mapPrinterConnection(row),
+    accessCode: row.accessCode,
+  };
+}
+
+export async function listPrinterConnectionSecrets(
+  db: AppDatabase,
+): Promise<PrinterConnectionSecretRecord[]> {
+  const rows = await db
+    .select()
+    .from(printerConnections)
+    .orderBy(printerConnections.createdAt);
+
+  return rows.map(mapPrinterConnectionSecret);
+}
+
 export async function getPrinterConnectionById(
   db: AppDatabase,
   connectionId: string,
@@ -360,6 +529,17 @@ export async function getPrinterConnectionById(
   });
 
   return row ? mapPrinterConnection(row) : undefined;
+}
+
+export async function getPrinterConnectionSecretById(
+  db: AppDatabase,
+  connectionId: string,
+): Promise<PrinterConnectionSecretRecord | undefined> {
+  const row = await db.query.printerConnections.findFirst({
+    where: eq(printerConnections.id, connectionId),
+  });
+
+  return row ? mapPrinterConnectionSecret(row) : undefined;
 }
 
 export async function getPrinterConnectionBySerial(
@@ -397,6 +577,192 @@ export async function createPrinterConnection(
   await db.insert(printerConnections).values(row);
 
   return mapPrinterConnection(row as typeof printerConnections.$inferSelect);
+}
+
+export async function updatePrinterConnectionStatus(
+  db: AppDatabase,
+  connectionId: string,
+  connectionStatus: PrinterConnectionStatus,
+  seenAt: string | null,
+): Promise<void> {
+  await db
+    .update(printerConnections)
+    .set({
+      connectionStatus,
+      lastSeenAt: seenAt,
+      lastTestedAt: seenAt ?? nowIso(),
+      updatedAt: nowIso(),
+    })
+    .where(eq(printerConnections.id, connectionId));
+}
+
+export async function listCameraSources(
+  db: AppDatabase,
+): Promise<CameraSource[]> {
+  const rows = await db
+    .select()
+    .from(cameraSources)
+    .orderBy(cameraSources.createdAt);
+  const assignments = await listCameraAssignments(db);
+  const assignedBySource = new Map<string, string[]>();
+  for (const assignment of assignments) {
+    const existing = assignedBySource.get(assignment.sourceId) ?? [];
+    existing.push(assignment.printerId);
+    assignedBySource.set(assignment.sourceId, existing);
+  }
+
+  return rows.map((row) => mapCameraSource(row, assignedBySource.get(row.id)));
+}
+
+export async function listCameraSourceSecrets(
+  db: AppDatabase,
+): Promise<CameraSourceSecretRecord[]> {
+  const rows = await db
+    .select()
+    .from(cameraSources)
+    .orderBy(cameraSources.createdAt);
+  const assignments = await listCameraAssignments(db);
+  const assignedBySource = new Map<string, string[]>();
+  for (const assignment of assignments) {
+    const existing = assignedBySource.get(assignment.sourceId) ?? [];
+    existing.push(assignment.printerId);
+    assignedBySource.set(assignment.sourceId, existing);
+  }
+
+  return rows.map((row) =>
+    mapCameraSourceSecret(row, assignedBySource.get(row.id)),
+  );
+}
+
+export async function getCameraSourceSecretById(
+  db: AppDatabase,
+  sourceId: string,
+): Promise<CameraSourceSecretRecord | undefined> {
+  const row = await db.query.cameraSources.findFirst({
+    where: eq(cameraSources.id, sourceId),
+  });
+
+  return row ? mapCameraSourceSecret(row) : undefined;
+}
+
+export async function createCameraSource(
+  db: AppDatabase,
+  input: CreateCameraSourceInput,
+): Promise<CameraSource> {
+  const timestamp = nowIso();
+  const row: typeof cameraSources.$inferInsert = {
+    id: randomUUID(),
+    name: input.name.trim(),
+    provider: input.provider,
+    streamUrl: input.streamUrl.trim(),
+    streamKind: input.streamKind,
+    frigateBaseUrl: input.frigateBaseUrl?.trim() || null,
+    frigateCamera: input.frigateCamera?.trim() || null,
+    username: input.username?.trim() || null,
+    password: input.password?.trim() || null,
+    status: input.status,
+    details: input.details,
+    lastTestedAt: input.lastTestedAt,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+
+  await db.insert(cameraSources).values(row);
+
+  return mapCameraSource(row as typeof cameraSources.$inferSelect);
+}
+
+export async function updateCameraSourceStatus(
+  db: AppDatabase,
+  sourceId: string,
+  input: Pick<CreateCameraSourceInput, "details" | "lastTestedAt" | "status">,
+): Promise<void> {
+  await db
+    .update(cameraSources)
+    .set({
+      details: input.details,
+      lastTestedAt: input.lastTestedAt,
+      status: input.status,
+      updatedAt: nowIso(),
+    })
+    .where(eq(cameraSources.id, sourceId));
+}
+
+export async function listCameraAssignments(
+  db: AppDatabase,
+): Promise<CameraAssignment[]> {
+  const rows = await db
+    .select({
+      feedId: cameraAssignments.id,
+      feedLabel: cameraAssignments.feedLabel,
+      printerId: cameraAssignments.printerId,
+      sourceId: cameraAssignments.sourceId,
+      sourceName: cameraSources.name,
+    })
+    .from(cameraAssignments)
+    .leftJoin(cameraSources, eq(cameraAssignments.sourceId, cameraSources.id))
+    .orderBy(cameraAssignments.createdAt);
+  const printers = await listPrinterConnections(db);
+  const printerById = new Map(printers.map((printer) => [printer.id, printer]));
+
+  return rows.map((row) => ({
+    feedId: row.feedId,
+    feedLabel: row.feedLabel,
+    printerId: row.printerId,
+    printerName: printerById.get(row.printerId)?.name ?? row.printerId,
+    sourceId: row.sourceId,
+    sourceName: row.sourceName ?? row.sourceId,
+  }));
+}
+
+export async function upsertCameraAssignment(
+  db: AppDatabase,
+  input: CameraAssignmentInput,
+): Promise<CameraAssignment> {
+  const timestamp = nowIso();
+  const existing = await db.query.cameraAssignments.findFirst({
+    where: and(
+      eq(cameraAssignments.printerId, input.printerId),
+      eq(cameraAssignments.sourceId, input.sourceId),
+      eq(cameraAssignments.feedLabel, input.feedLabel.trim()),
+    ),
+  });
+
+  const row: typeof cameraAssignments.$inferInsert = {
+    id: existing?.id ?? randomUUID(),
+    printerId: input.printerId,
+    sourceId: input.sourceId,
+    feedLabel: input.feedLabel.trim(),
+    createdAt: existing?.createdAt ?? timestamp,
+    updatedAt: timestamp,
+  };
+
+  if (existing) {
+    await db
+      .update(cameraAssignments)
+      .set({
+        feedLabel: row.feedLabel,
+        updatedAt: timestamp,
+      })
+      .where(eq(cameraAssignments.id, existing.id));
+  } else {
+    await db.insert(cameraAssignments).values(row);
+  }
+
+  const [assignment] = (await listCameraAssignments(db)).filter(
+    (item) => item.feedId === row.id,
+  );
+
+  return (
+    assignment ?? {
+      feedId: row.id,
+      feedLabel: row.feedLabel,
+      printerId: row.printerId,
+      printerName: row.printerId,
+      sourceId: row.sourceId,
+      sourceName: row.sourceId,
+    }
+  );
 }
 
 export async function getAppearance(
