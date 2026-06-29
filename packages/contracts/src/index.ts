@@ -107,7 +107,11 @@ export interface PrinterDetail extends PrinterSummary {
 
 export type PrinterConnectionProvider = "bambu-lan";
 
-export type BambuConnectionMode = "cloud" | "lan" | "developer";
+export type BambuConnectionMode =
+  | "cloud"
+  | "bambu-connect"
+  | "lan"
+  | "developer";
 
 export type PrinterConnectionStatus = "online" | "offline" | "unverified";
 
@@ -146,6 +150,7 @@ export interface PrinterConnectionCheck {
 export interface BambuConnectionTestResult {
   checkedAt: string;
   checks: {
+    bambuConnectBridge: PrinterConnectionCheck;
     cameraStream: PrinterConnectionCheck;
     developerMode: PrinterConnectionCheck;
     lanControl: PrinterConnectionCheck;
@@ -167,7 +172,12 @@ export interface FleetOverview {
 export interface CameraSource {
   id: string;
   name: string;
-  provider: "frigate" | "direct-rtsp" | "bambu" | "farm-overview";
+  provider:
+    | "frigate"
+    | "direct-rtsp"
+    | "bambu"
+    | "bambu-connect"
+    | "farm-overview";
   streamUrl: string;
   status: "online" | "degraded" | "offline";
   assignedTo: string[];

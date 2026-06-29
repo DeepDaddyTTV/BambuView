@@ -5,14 +5,14 @@ These docs are written for someone setting up BambuView for the first time.
 Start here:
 
 - [First-time setup](./getting-started.md)
-- [Bambu LAN setup](./lan-mode.md)
+- [Bambu connection modes](./lan-mode.md)
 
-What BambuView `0.0.23` includes:
+What BambuView `0.0.24` alpha includes:
 
 - A local first-run admin setup flow
 - Invite-only account creation after bootstrap
 - A fleet dashboard with a mockup-aligned shell, connected sidebar utility stack, tighter spacing, fullscreen printer focus mode, and temporary live/placeholder data switching
-- Bambu printer setup with Cloud / Normal, LAN Mode, and LAN-only Developer Mode profiles
+- Bambu printer setup with Cloud / Normal, Bambu Connect, LAN Mode, and LAN-only Developer Mode profiles
 - Local LAN connection testing for Bambu LAN and Developer profiles
 - Camera source management for future Frigate, direct, and Bambu feed playback
 - Docker Compose-first setup with persistent SQLite state

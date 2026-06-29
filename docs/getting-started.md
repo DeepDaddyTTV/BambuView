@@ -94,6 +94,7 @@ Your appearance settings are saved to your local account.
 2. Select `Add Printer or Farm`.
 3. Choose the connection profile:
    - `Cloud / Normal` if you want to keep Bambu Handy and cloud behavior active while BambuView stages the printer.
+   - `Bambu Connect` if you want the future supported camera, monitoring, and slicer job-handoff path.
    - `LAN Mode` if you have the printer IP or hostname and LAN access code.
    - `LAN-only Developer` if LAN-only and Developer Mode are enabled on the printer and you want the future full-control path.
 4. Enter the printer name, Bambu model, serial number, and any required local network details.
@@ -102,10 +103,10 @@ Your appearance settings are saved to your local account.
 
 The access code is stored only in the local SQLite database and is not returned to the browser after the printer is saved.
 
-For a full printer-side walkthrough, read [Bambu LAN Setup](./lan-mode.md).
+For a full printer-side walkthrough, read [Bambu Connection Modes](./lan-mode.md).
 
-## What to expect in `0.0.23`
+## What to expect in `0.0.24` alpha
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 
-Saved Bambu printers now persist locally and appear in Fleet when the Fleet page is set to `Live`. Cloud / Normal profiles appear as staged printers, while LAN and LAN-only Developer profiles run the current local reachability test. Switch to `Placeholder` when you want to view the mock layout while full live printer telemetry, printer controls, camera playback, and prepare/slice workflows are still staged for upcoming releases.
+Saved Bambu printers now persist locally and appear in Fleet when the Fleet page is set to `Live`. Cloud / Normal profiles keep normal Bambu behavior, Bambu Connect profiles mark the supported camera/status/job-handoff path, and LAN or LAN-only Developer profiles run the current local reachability test. Switch to `Placeholder` when you want to view the mock layout while full live printer telemetry, printer controls, camera playback, and prepare/slice workflows are still staged for upcoming releases.

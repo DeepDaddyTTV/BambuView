@@ -79,6 +79,10 @@ function modeLabel(mode: BambuConnectionMode): string {
     return "LAN Mode";
   }
 
+  if (mode === "bambu-connect") {
+    return "Bambu Connect";
+  }
+
   return "Cloud / Normal Mode";
 }
 
@@ -88,22 +92,38 @@ export async function testBambuLanConnection(
   const checkedAt = new Date().toISOString();
   const connectionMode = input.connectionMode;
   const trimmedHost = input.host.trim();
-  const shouldCheckLan = connectionMode !== "cloud" && trimmedHost.length > 0;
+  const shouldCheckLan =
+    (connectionMode === "lan" || connectionMode === "developer") &&
+    trimmedHost.length > 0;
   const lanControl = shouldCheckLan
     ? await testTcpConnection(trimmedHost, BAMBU_LAN_CONTROL_PORT)
     : skippedCheck(
         "Bambu LAN control",
-        "Cloud / Normal Mode keeps the printer connected to Bambu cloud services. Local control is staged until LAN Mode or LAN-only Developer Mode is selected.",
+        connectionMode === "bambu-connect"
+          ? "Bambu Connect uses Bambu's supported bridge path for camera, monitoring, and job handoff. Raw LAN control is separate."
+          : "Cloud / Normal Mode keeps the printer connected to Bambu cloud services. Raw local control is staged until LAN Mode or LAN-only Developer Mode is selected.",
       );
   const reachable = lanControl.status === "passed";
 
   const cameraStream: PrinterConnectionCheck = {
     detail:
-      "Camera validation is staged for the next camera-assignment pass after live printer telemetry is wired.",
+      connectionMode === "bambu-connect"
+        ? "Bambu Connect is expected to provide the supported camera/live-view path. BambuView still needs the companion bridge implementation before playback is live."
+        : "Camera validation is staged for the next camera-assignment pass after live printer telemetry is wired.",
     label: "Bambu native camera",
     latencyMs: null,
     status: "skipped",
   };
+  const bambuConnectBridge =
+    connectionMode === "bambu-connect"
+      ? skippedCheck(
+          "Bambu Connect bridge",
+          "BambuView will use this profile for supported Bambu Connect camera, monitoring, and send-job workflows once the local companion bridge is implemented.",
+        )
+      : skippedCheck(
+          "Bambu Connect bridge",
+          "Select Bambu Connect when you want Bambu's supported camera/status/job handoff path instead of direct LAN protocol work.",
+        );
   const developerMode =
     connectionMode === "developer"
       ? skippedCheck(
@@ -118,6 +138,7 @@ export async function testBambuLanConnection(
   return {
     checkedAt,
     checks: {
+      bambuConnectBridge,
       cameraStream,
       developerMode,
       lanControl,
@@ -125,9 +146,11 @@ export async function testBambuLanConnection(
     connectionMode,
     message: reachable
       ? `${modeLabel(connectionMode)} is reachable over the local network. The printer can be saved for live telemetry work.`
-      : connectionMode === "cloud"
-        ? "Cloud / Normal Mode is saved for staged monitoring. The printer keeps Bambu Handy/cloud behavior, but full local control will require LAN-only Developer Mode later."
-        : `${modeLabel(connectionMode)} was not reachable. You can still save the printer, but it will show as offline until the connection succeeds.`,
+      : connectionMode === "bambu-connect"
+        ? "Bambu Connect is saved as the supported camera, monitoring, and send-job profile. Add the future companion bridge to make those features live."
+        : connectionMode === "cloud"
+          ? "Cloud / Normal Mode is saved for normal Bambu cloud behavior. Use Bambu Connect for supported camera/status/job handoff, or Developer Mode for direct local control."
+          : `${modeLabel(connectionMode)} was not reachable. You can still save the printer, but it will show as offline until the connection succeeds.`,
     reachable,
   };
 }

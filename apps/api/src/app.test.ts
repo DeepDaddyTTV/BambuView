@@ -377,6 +377,31 @@ describe("auth and settings flows", () => {
       "skipped",
     );
 
+    const bambuConnectCreate = await app.inject({
+      method: "POST",
+      url: "/api/printers/bambu",
+      headers: {
+        cookie,
+      },
+      payload: {
+        connectionMode: "bambu-connect",
+        model: "A1 Mini",
+        name: "Workshop A1 Mini",
+        serial: "00M09A000000003",
+      },
+    });
+
+    expect(bambuConnectCreate.statusCode).toBe(201);
+    expect(bambuConnectCreate.json().printer.connectionMode).toBe(
+      "bambu-connect",
+    );
+    expect(bambuConnectCreate.json().printer.connectionStatus).toBe(
+      "unverified",
+    );
+    expect(
+      bambuConnectCreate.json().test.checks.bambuConnectBridge.status,
+    ).toBe("skipped");
+
     const duplicate = await app.inject({
       method: "POST",
       url: "/api/printers/bambu",

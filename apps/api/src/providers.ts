@@ -503,46 +503,81 @@ function previewKindForConnection(
   return "bracket";
 }
 
+function modeLabelForConnection(connection: PrinterConnectionRecord): string {
+  if (connection.connectionMode === "developer") return "Developer Mode";
+  if (connection.connectionMode === "bambu-connect") return "Bambu Connect";
+  if (connection.connectionMode === "cloud") return "Cloud Mode";
+
+  return "LAN Mode";
+}
+
+function stagedCopyForConnection(connection: PrinterConnectionRecord): string {
+  if (connection.connectionMode === "bambu-connect") {
+    return "Camera, monitoring, and send-job support are staged for the Bambu Connect bridge.";
+  }
+
+  if (connection.connectionMode === "cloud") {
+    return "Keep Bambu Handy/cloud control active. Local monitoring is staged.";
+  }
+
+  if (connection.connectionMode === "developer") {
+    return "Enable LAN-only Developer Mode on the printer for full local controls.";
+  }
+
+  return "Enable LAN Mode on the printer for local monitoring.";
+}
+
 function detailForConnection(
   connection: PrinterConnectionRecord,
 ): PrinterDetail {
   const isReachable = connection.connectionStatus === "online";
   const isCloudMode = connection.connectionMode === "cloud";
-  const isDeveloperMode = connection.connectionMode === "developer";
-  const modeLabel = isDeveloperMode
-    ? "Developer Mode"
-    : isCloudMode
-      ? "Cloud Mode"
-      : "LAN Mode";
-  const stagedCopy = isCloudMode
-    ? "Keep Bambu Handy/cloud control active. Local monitoring is staged."
-    : isDeveloperMode
-      ? "Enable LAN-only Developer Mode on the printer for full local controls."
-      : "Enable LAN Mode on the printer for local monitoring.";
+  const isBambuConnectMode = connection.connectionMode === "bambu-connect";
+  const modeLabel = modeLabelForConnection(connection);
+  const stagedCopy = stagedCopyForConnection(connection);
 
   return {
     id: connection.id,
     shortCode: shortCodeForConnection(connection),
     name: connection.name,
-    status: isReachable || isCloudMode ? "idle" : "offline",
+    status:
+      isReachable || isCloudMode || isBambuConnectMode ? "idle" : "offline",
     statusLabel: isReachable
       ? `${modeLabel} Ready`
-      : isCloudMode
-        ? "Cloud Mode Staged"
-        : "Offline",
+      : isBambuConnectMode
+        ? "Bambu Connect Staged"
+        : isCloudMode
+          ? "Cloud Mode Staged"
+          : "Offline",
     progress: 0,
     layer: isReachable ? `Connected through Bambu ${modeLabel}` : modeLabel,
-    eta: isReachable ? "Ready" : isCloudMode ? "Staged" : "Offline",
-    elapsed: isReachable ? "Idle" : isCloudMode ? "Cloud" : "No heartbeat",
+    eta: isReachable
+      ? "Ready"
+      : isBambuConnectMode || isCloudMode
+        ? "Staged"
+        : "Offline",
+    elapsed: isReachable
+      ? "Idle"
+      : isBambuConnectMode
+        ? "Bridge"
+        : isCloudMode
+          ? "Cloud"
+          : "No heartbeat",
     fileName: isReachable ? "Waiting for live telemetry." : stagedCopy,
     location: modeLabel,
     material: "PLA",
     materialColor: "Unknown",
     nozzleProfile: "Printer profile pending",
-    cameraLabel: isCloudMode ? "Camera staged" : "Bambu Native Cam",
+    cameraLabel: isBambuConnectMode
+      ? "Bambu Connect Cam"
+      : isCloudMode
+        ? "Camera staged"
+        : "Bambu Native Cam",
     previewKind: previewKindForConnection(connection),
     serial: connection.serial,
-    ipAddress: connection.host || "Cloud profile",
+    ipAddress:
+      connection.host ||
+      (isBambuConnectMode ? "Bambu Connect bridge" : "Cloud profile"),
     firmwareVersion: "Pending live query",
     filamentRemaining: "Pending",
     filamentUsed: "0g",
@@ -555,7 +590,11 @@ function detailForConnection(
     cameraFeeds: [
       {
         id: `${connection.id}-bambu-printer`,
-        label: isCloudMode ? "Printer Cam (staged)" : "Printer Cam",
+        label: isBambuConnectMode
+          ? "Bambu Connect Cam"
+          : isCloudMode
+            ? "Printer Cam (staged)"
+            : "Printer Cam",
         kind: "printer",
       },
       {
@@ -664,21 +703,27 @@ class DatabaseBackedCameraProvider implements CameraProvider {
 
   async getOverview(): Promise<CameraOverview> {
     const connections = await listPrinterConnections(this.db);
-    const storedSources: CameraSource[] = connections.map((connection) => ({
-      id: `${connection.id}-bambu-printer`,
-      name:
-        connection.connectionMode === "cloud"
-          ? `${connection.name} Native Cam (staged)`
-          : `${connection.name} Native Cam`,
-      provider: "bambu",
-      streamUrl: `bambu://${connection.id}/${connection.connectionMode}/printer-cam`,
-      status:
-        connection.connectionMode !== "cloud" &&
-        connection.connectionStatus === "online"
-          ? "degraded"
-          : "offline",
-      assignedTo: [connection.id],
-    }));
+    const storedSources: CameraSource[] = connections.map((connection) => {
+      const isBambuConnect = connection.connectionMode === "bambu-connect";
+      const isCloud = connection.connectionMode === "cloud";
+
+      return {
+        id: `${connection.id}-bambu-printer`,
+        name: isBambuConnect
+          ? `${connection.name} Bambu Connect Cam`
+          : isCloud
+            ? `${connection.name} Native Cam (staged)`
+            : `${connection.name} Native Cam`,
+        provider: isBambuConnect ? "bambu-connect" : "bambu",
+        streamUrl: `bambu://${connection.id}/${connection.connectionMode}/printer-cam`,
+        status:
+          isBambuConnect ||
+          (!isCloud && connection.connectionStatus === "online")
+            ? "degraded"
+            : "offline",
+        assignedTo: [connection.id],
+      };
+    });
     const storedAssignments = connections.map((connection) => ({
       printerId: connection.id,
       printerName: connection.name,

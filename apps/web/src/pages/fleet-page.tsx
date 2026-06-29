@@ -581,7 +581,14 @@ const bambuConnectionModes: Array<{
     label: "Cloud / Normal",
     summary: "Keep Bambu Handy and cloud features active.",
     description:
-      "Best for staged monitoring. Full local control stays locked until you switch this printer to LAN-only Developer Mode.",
+      "Best when you only want the printer listed in BambuView while normal Bambu behavior stays unchanged.",
+  },
+  {
+    key: "bambu-connect",
+    label: "Bambu Connect",
+    summary: "Supported camera, monitoring, and send-job path.",
+    description:
+      "Best for Bambu's supported bridge workflow. Camera/live view, status, and slicer job handoff will target this profile.",
   },
   {
     key: "lan",
@@ -598,6 +605,10 @@ const bambuConnectionModes: Array<{
       "Requires LAN-only and Developer Mode enabled on the printer screen. This is the intended path for print controls.",
   },
 ];
+
+function requiresRawLanDetails(mode: BambuConnectionMode) {
+  return mode === "lan" || mode === "developer";
+}
 
 function AddCard({ onClick }: { onClick: () => void }) {
   return (
@@ -732,8 +743,9 @@ function AddPrinterDialog({
 
         <p className="fleet-console-modal__copy">
           Choose how BambuView should treat this printer today. Cloud / Normal
-          mode keeps Bambu cloud behavior intact; LAN-only Developer Mode is the
-          path we will use for full local controls as the integration matures.
+          keeps the printer listed without changing Bambu behavior, Bambu
+          Connect targets supported camera/status/job handoff, and LAN-only
+          Developer Mode stays the direct-control path.
         </p>
 
         <form className="fleet-console-printer-form" onSubmit={savePrinter}>
@@ -787,11 +799,11 @@ function AddPrinterDialog({
               autoCorrect="off"
               onChange={(event) => updateField("host", event.target.value)}
               placeholder={
-                form.connectionMode === "cloud"
-                  ? "Optional in cloud/normal mode"
-                  : "printer.local or 192.0.2.20"
+                requiresRawLanDetails(form.connectionMode)
+                  ? "printer.local or 192.0.2.20"
+                  : "printer.local, bridge host, or leave blank"
               }
-              required={form.connectionMode !== "cloud"}
+              required={requiresRawLanDetails(form.connectionMode)}
               type="text"
               value={form.host}
             />
@@ -813,7 +825,7 @@ function AddPrinterDialog({
           <label className="fleet-console-printer-form__wide">
             <span>
               LAN access code
-              {form.connectionMode === "cloud" ? " (optional)" : ""}
+              {requiresRawLanDetails(form.connectionMode) ? "" : " (optional)"}
             </span>
             <input
               autoCapitalize="off"
@@ -822,11 +834,11 @@ function AddPrinterDialog({
                 updateField("accessCode", event.target.value)
               }
               placeholder={
-                form.connectionMode === "cloud"
-                  ? "Optional until LAN mode is enabled"
-                  : "Local access code"
+                requiresRawLanDetails(form.connectionMode)
+                  ? "Local access code"
+                  : "Optional unless your bridge requires it"
               }
-              required={form.connectionMode !== "cloud"}
+              required={requiresRawLanDetails(form.connectionMode)}
               type="password"
               value={form.accessCode}
             />

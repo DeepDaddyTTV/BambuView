@@ -85,7 +85,9 @@ const appearanceSchema = z.object({
 const bambuPrinterSchema = z
   .object({
     accessCode: z.string().trim().max(128).optional(),
-    connectionMode: z.enum(["cloud", "lan", "developer"]).default("lan"),
+    connectionMode: z
+      .enum(["cloud", "bambu-connect", "lan", "developer"])
+      .default("cloud"),
     host: z
       .string()
       .trim()
@@ -99,8 +101,9 @@ const bambuPrinterSchema = z
     serial: z.string().trim().min(4).max(80),
   })
   .superRefine((value, context) => {
-    const isLocalMode = value.connectionMode !== "cloud";
-    if (isLocalMode && value.host.length === 0) {
+    const isRawLanMode =
+      value.connectionMode === "lan" || value.connectionMode === "developer";
+    if (isRawLanMode && value.host.length === 0) {
       context.addIssue({
         code: "custom",
         message: "Hostname or IP is required for LAN and Developer Mode.",
@@ -119,7 +122,7 @@ const bambuPrinterSchema = z
       return;
     }
 
-    if (isLocalMode) {
+    if (isRawLanMode) {
       context.addIssue({
         code: "custom",
         message: "LAN access code is required for LAN and Developer Mode.",
@@ -530,7 +533,8 @@ export async function registerRoutes(
     const printer = await createPrinterConnection(dependencies.db, {
       ...body,
       connectionStatus:
-        body.connectionMode === "cloud"
+        body.connectionMode === "cloud" ||
+        body.connectionMode === "bambu-connect"
           ? "unverified"
           : test.reachable
             ? "online"

@@ -83,3 +83,5 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          prerelease: true
+          name: BambuView v${{ steps.version.outputs.value }} Alpha

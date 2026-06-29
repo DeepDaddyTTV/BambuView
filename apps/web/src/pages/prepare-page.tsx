@@ -21,7 +21,7 @@ export function PreparePage() {
         <div className="flex items-center gap-3 text-[color:var(--accent)]">
           <Rocket className="h-5 w-5" />
           <span className="font-medium">
-            Prepare & Slice is staged in `0.0.23`.
+            Prepare & Slice is staged in `0.0.24` alpha.
           </span>
         </div>
         <h2 className="mt-6 text-4xl font-semibold text-white">
