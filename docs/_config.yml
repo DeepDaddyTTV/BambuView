@@ -1,0 +1,12 @@
+title: BambuView Docs
+description: Human-first setup notes for BambuView.
+url: https://deepdaddyttv.github.io
+baseurl: /BambuView
+markdown: kramdown
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+exclude:
+  - README.md

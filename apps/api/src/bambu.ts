@@ -1,6 +1,7 @@
 import net from "node:net";
 
 import type {
+  BambuConnectionMode,
   BambuConnectionTestResult,
   BambuPrinterConnectionInput,
   PrinterConnectionCheck,
@@ -60,14 +61,40 @@ async function testTcpConnection(
   });
 }
 
+function skippedCheck(label: string, detail: string): PrinterConnectionCheck {
+  return {
+    detail,
+    label,
+    latencyMs: null,
+    status: "skipped",
+  };
+}
+
+function modeLabel(mode: BambuConnectionMode): string {
+  if (mode === "developer") {
+    return "LAN-only Developer Mode";
+  }
+
+  if (mode === "lan") {
+    return "LAN Mode";
+  }
+
+  return "Cloud / Normal Mode";
+}
+
 export async function testBambuLanConnection(
   input: BambuPrinterConnectionInput,
 ): Promise<BambuConnectionTestResult> {
   const checkedAt = new Date().toISOString();
-  const lanControl = await testTcpConnection(
-    input.host.trim(),
-    BAMBU_LAN_CONTROL_PORT,
-  );
+  const connectionMode = input.connectionMode;
+  const trimmedHost = input.host.trim();
+  const shouldCheckLan = connectionMode !== "cloud" && trimmedHost.length > 0;
+  const lanControl = shouldCheckLan
+    ? await testTcpConnection(trimmedHost, BAMBU_LAN_CONTROL_PORT)
+    : skippedCheck(
+        "Bambu LAN control",
+        "Cloud / Normal Mode keeps the printer connected to Bambu cloud services. Local control is staged until LAN Mode or LAN-only Developer Mode is selected.",
+      );
   const reachable = lanControl.status === "passed";
 
   const cameraStream: PrinterConnectionCheck = {
@@ -77,16 +104,30 @@ export async function testBambuLanConnection(
     latencyMs: null,
     status: "skipped",
   };
+  const developerMode =
+    connectionMode === "developer"
+      ? skippedCheck(
+          "Developer Mode",
+          "BambuView cannot remotely flip the printer into Developer Mode yet. Enable it on the printer, then use this profile for full local-control work.",
+        )
+      : skippedCheck(
+          "Developer Mode",
+          "Full local printer controls require the LAN-only Developer Mode profile. This mode keeps Bambu cloud behavior unchanged but limits local control.",
+        );
 
   return {
     checkedAt,
     checks: {
       cameraStream,
+      developerMode,
       lanControl,
     },
+    connectionMode,
     message: reachable
-      ? "Bambu LAN control is reachable. The printer can be saved for live telemetry work."
-      : "Bambu LAN control was not reachable. You can still save the printer, but it will show as offline until the connection succeeds.",
+      ? `${modeLabel(connectionMode)} is reachable over the local network. The printer can be saved for live telemetry work.`
+      : connectionMode === "cloud"
+        ? "Cloud / Normal Mode is saved for staged monitoring. The printer keeps Bambu Handy/cloud behavior, but full local control will require LAN-only Developer Mode later."
+        : `${modeLabel(connectionMode)} was not reachable. You can still save the printer, but it will show as offline until the connection succeeds.`,
     reachable,
   };
 }

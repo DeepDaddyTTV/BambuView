@@ -44,6 +44,7 @@ import { Link, NavLink } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
+  BambuConnectionMode,
   BambuConnectionTestResult,
   BambuPrinterConnectionInput,
   FleetDataMode,
@@ -569,6 +570,35 @@ const bambuModelOptions = [
   "A1 Mini",
 ] as const;
 
+const bambuConnectionModes: Array<{
+  description: string;
+  key: BambuConnectionMode;
+  label: string;
+  summary: string;
+}> = [
+  {
+    key: "cloud",
+    label: "Cloud / Normal",
+    summary: "Keep Bambu Handy and cloud features active.",
+    description:
+      "Best for staged monitoring. Full local control stays locked until you switch this printer to LAN-only Developer Mode.",
+  },
+  {
+    key: "lan",
+    label: "LAN Mode",
+    summary: "Use the printer's local IP and access code.",
+    description:
+      "Best for local monitoring experiments while we wire live telemetry and native camera checks.",
+  },
+  {
+    key: "developer",
+    label: "LAN-only Developer",
+    summary: "Target full local controls in future releases.",
+    description:
+      "Requires LAN-only and Developer Mode enabled on the printer screen. This is the intended path for print controls.",
+  },
+];
+
 function AddCard({ onClick }: { onClick: () => void }) {
   return (
     <button className="fleet-console-add-card" onClick={onClick} type="button">
@@ -596,6 +626,7 @@ function AddPrinterDialog({
   const queryClient = useQueryClient();
   const [form, setForm] = useState<BambuPrinterConnectionInput>({
     accessCode: "",
+    connectionMode: "cloud",
     host: "",
     model: "X1 Carbon",
     name: "",
@@ -686,7 +717,7 @@ function AddPrinterDialog({
       >
         <div className="fleet-console-modal__header">
           <div>
-            <div className="fleet-console-modal__kicker">Bambu LAN printer</div>
+            <div className="fleet-console-modal__kicker">Bambu printer</div>
             <h2 id="add-bambu-printer-title">Add Bambu Printer</h2>
           </div>
           <button
@@ -700,11 +731,30 @@ function AddPrinterDialog({
         </div>
 
         <p className="fleet-console-modal__copy">
-          Add the printer from its local network details. The access code stays
-          in the local SQLite database and is never returned after saving.
+          Choose how BambuView should treat this printer today. Cloud / Normal
+          mode keeps Bambu cloud behavior intact; LAN-only Developer Mode is the
+          path we will use for full local controls as the integration matures.
         </p>
 
         <form className="fleet-console-printer-form" onSubmit={savePrinter}>
+          <fieldset className="fleet-console-printer-form__mode">
+            <legend>Connection mode</legend>
+            <div className="fleet-console-printer-form__mode-grid">
+              {bambuConnectionModes.map((mode) => (
+                <button
+                  className={`fleet-console-mode-card ${form.connectionMode === mode.key ? "fleet-console-mode-card--active" : ""}`}
+                  key={mode.key}
+                  onClick={() => updateField("connectionMode", mode.key)}
+                  type="button"
+                >
+                  <strong>{mode.label}</strong>
+                  <span>{mode.summary}</span>
+                  <small>{mode.description}</small>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
           <label>
             <span>Display name</span>
             <input
@@ -736,8 +786,12 @@ function AddPrinterDialog({
               autoCapitalize="off"
               autoCorrect="off"
               onChange={(event) => updateField("host", event.target.value)}
-              placeholder="printer.local or 192.0.2.20"
-              required
+              placeholder={
+                form.connectionMode === "cloud"
+                  ? "Optional in cloud/normal mode"
+                  : "printer.local or 192.0.2.20"
+              }
+              required={form.connectionMode !== "cloud"}
               type="text"
               value={form.host}
             />
@@ -757,15 +811,22 @@ function AddPrinterDialog({
           </label>
 
           <label className="fleet-console-printer-form__wide">
-            <span>LAN access code</span>
+            <span>
+              LAN access code
+              {form.connectionMode === "cloud" ? " (optional)" : ""}
+            </span>
             <input
               autoCapitalize="off"
               autoCorrect="off"
               onChange={(event) =>
                 updateField("accessCode", event.target.value)
               }
-              placeholder="Local access code"
-              required
+              placeholder={
+                form.connectionMode === "cloud"
+                  ? "Optional until LAN mode is enabled"
+                  : "Local access code"
+              }
+              required={form.connectionMode !== "cloud"}
               type="password"
               value={form.accessCode}
             />
@@ -778,10 +839,7 @@ function AddPrinterDialog({
               <div className="fleet-console-connection-result__headline">
                 {testResult.message}
               </div>
-              {[
-                testResult.checks.lanControl,
-                testResult.checks.cameraStream,
-              ].map((check) => (
+              {Object.values(testResult.checks).map((check) => (
                 <div
                   className="fleet-console-connection-result__check"
                   key={check.label}

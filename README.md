@@ -19,7 +19,7 @@ It is being built for people who want a clean local-first printer console with i
 
 - **Fleet dashboard** with printer cards, farm cards, live-style status data, and a detailed printer panel.
 - **Fullscreen printer workspace** with staged camera, movement, temperature, fan, lamp, extruder, filament, and print-action controls.
-- **Bambu LAN printer setup** with local connection testing, SQLite persistence, and redacted access-code handling.
+- **Bambu printer setup** with Cloud / Normal, LAN Mode, and LAN-only Developer Mode profiles, local connection testing, SQLite persistence, and redacted access-code handling.
 - **Camera source management** for future Frigate, direct RTSP, Bambu native, and farm overview feeds.
 - **Local first-run setup** that creates the first admin account before the app opens.
 - **Invite-only users** after bootstrap, with `admin`, `operator`, and `viewer` roles.
@@ -31,9 +31,9 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.22` interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
+The `0.0.23` interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
 
-The first Bambu LAN connection path is now in place. Fleet can temporarily switch between `Live` data and `Placeholder` data for testing, saved printers stage Bambu-native camera records, and full live telemetry parsing and real camera playback are still upcoming work.
+The first Bambu connection profiles are now in place. Fleet can temporarily switch between `Live` data and `Placeholder` data for testing, saved printers stage Bambu-native camera records, and full live telemetry parsing and real camera playback are still upcoming work.
 
 ## Getting Started
 
@@ -79,13 +79,53 @@ http://localhost:4173
 
 The first time you open the app, BambuView walks you through creating the first admin account. After that, new accounts are created by invite only from the `Users` page.
 
+## Bambu LAN-only And Developer Mode
+
+BambuView lets you save a Bambu printer in three ways:
+
+| Profile              | Use it when                                                                        | Result                                                                         |
+| -------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `Cloud / Normal`     | You want Bambu Handy and Bambu cloud workflows to keep working.                    | The printer is saved as staged. Full local control is not expected yet.        |
+| `LAN Mode`           | You want BambuView to test local reachability with an IP/hostname and access code. | The printer can be checked from your LAN and prepared for live telemetry work. |
+| `LAN-only Developer` | You are ready to target full local controls in future BambuView releases.          | Requires LAN-only and Developer Mode enabled on the printer screen.            |
+
+To enable LAN-only on the printer:
+
+1. Stand at the printer touchscreen.
+2. Open `Settings`.
+3. Open the network or `WLAN` page.
+4. Find `LAN Only Mode`, `LAN Mode`, or the local network access section.
+5. Turn it on and wait for the printer to apply the change.
+6. Write down the printer IP address or hostname.
+7. Write down the LAN access code shown by the printer.
+
+After LAN-only is enabled, treat Bambu cloud and Bambu Handy access for that printer as unavailable until you turn LAN-only off again.
+
+To enable Developer Mode:
+
+1. Enable `LAN Only Mode` first.
+2. Stay on the printer touchscreen.
+3. Open the printer settings area that contains `Developer Mode`.
+4. Turn `Developer Mode` on and confirm any printer warning.
+5. Use the printer IP/hostname, serial number, and access code when adding the printer in BambuView.
+
+If Developer Mode is not visible, check Bambu's current documentation for your model and firmware.
+
+References:
+
+- [Bambu Lab LAN mode guide](https://wiki.bambulab.com/en/knowledge-sharing/enable-lan-mode)
+- [Bambu Lab third-party integration notes](https://wiki.bambulab.com/en/software/third-party-integration)
+- [SimplyPrint Bambu LAN-only and Developer Mode walkthrough](https://help.simplyprint.io/en/article/bambu-lab-lan-only-mode-and-developer-mode-how-to-enable-xa0hch/)
+
 ## Documentation
 
-Human-facing setup docs live in the repo `docs/` folder and will move to the GitHub Pages docs site when the app style is locked.
+Human-facing setup docs live in the repo `docs/` folder and are published through GitHub Pages from that folder only.
 
 - [Docker Hub](https://hub.docker.com/repository/docker/deepdaddyttv/bambuview/general)
 - [GitHub Repository](https://github.com/DeepDaddyTTV/BambuView)
+- [GitHub Pages Docs](https://deepdaddyttv.github.io/BambuView/)
 - [First-time setup](docs/getting-started.md)
+- [Bambu LAN setup](docs/lan-mode.md)
 - [Docs home](docs/index.md)
 
 ## Public Deployment Notes

@@ -92,14 +92,20 @@ Your appearance settings are saved to your local account.
 
 1. Open `Fleet`.
 2. Select `Add Printer or Farm`.
-3. Enter the printer name, Bambu model, hostname or IP address, serial number, and LAN access code.
-4. Use `Test Connection` to confirm the local control channel is reachable.
-5. Save the printer.
+3. Choose the connection profile:
+   - `Cloud / Normal` if you want to keep Bambu Handy and cloud behavior active while BambuView stages the printer.
+   - `LAN Mode` if you have the printer IP or hostname and LAN access code.
+   - `LAN-only Developer` if LAN-only and Developer Mode are enabled on the printer and you want the future full-control path.
+4. Enter the printer name, Bambu model, serial number, and any required local network details.
+5. Use `Test Connection` when you selected a LAN profile.
+6. Save the printer.
 
 The access code is stored only in the local SQLite database and is not returned to the browser after the printer is saved.
 
-## What to expect in `0.0.22`
+For a full printer-side walkthrough, read [Bambu LAN Setup](./lan-mode.md).
+
+## What to expect in `0.0.23`
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 
-Saved Bambu printers now persist locally and appear in Fleet when the Fleet page is set to `Live`. Switch to `Placeholder` when you want to view the mock layout while full live printer telemetry, printer controls, camera playback, and prepare/slice workflows are still staged for upcoming releases.
+Saved Bambu printers now persist locally and appear in Fleet when the Fleet page is set to `Live`. Cloud / Normal profiles appear as staged printers, while LAN and LAN-only Developer profiles run the current local reachability test. Switch to `Placeholder` when you want to view the mock layout while full live printer telemetry, printer controls, camera playback, and prepare/slice workflows are still staged for upcoming releases.

@@ -82,20 +82,51 @@ const appearanceSchema = z.object({
   backgroundStyle: z.enum(["topo", "two-tone", "blueprint", "sweep", "plain"]),
 });
 
-const bambuPrinterSchema = z.object({
-  accessCode: z.string().trim().min(4).max(128),
-  host: z
-    .string()
-    .trim()
-    .min(1)
-    .max(255)
-    .refine((value) => !value.includes("://") && !/\s/.test(value), {
-      message: "Enter a hostname or IP address without a protocol.",
-    }),
-  model: z.string().trim().min(2).max(80),
-  name: z.string().trim().min(2).max(80),
-  serial: z.string().trim().min(4).max(80),
-});
+const bambuPrinterSchema = z
+  .object({
+    accessCode: z.string().trim().max(128).optional(),
+    connectionMode: z.enum(["cloud", "lan", "developer"]).default("lan"),
+    host: z
+      .string()
+      .trim()
+      .max(255)
+      .default("")
+      .refine((value) => !value.includes("://") && !/\s/.test(value), {
+        message: "Enter a hostname or IP address without a protocol.",
+      }),
+    model: z.string().trim().min(2).max(80),
+    name: z.string().trim().min(2).max(80),
+    serial: z.string().trim().min(4).max(80),
+  })
+  .superRefine((value, context) => {
+    const isLocalMode = value.connectionMode !== "cloud";
+    if (isLocalMode && value.host.length === 0) {
+      context.addIssue({
+        code: "custom",
+        message: "Hostname or IP is required for LAN and Developer Mode.",
+        path: ["host"],
+      });
+    }
+
+    if (value.accessCode && value.accessCode.length > 0) {
+      if (value.accessCode.length < 4) {
+        context.addIssue({
+          code: "custom",
+          message: "Access code must be at least 4 characters.",
+          path: ["accessCode"],
+        });
+      }
+      return;
+    }
+
+    if (isLocalMode) {
+      context.addIssue({
+        code: "custom",
+        message: "LAN access code is required for LAN and Developer Mode.",
+        path: ["accessCode"],
+      });
+    }
+  });
 
 const fleetModeSchema = z.object({
   mode: z.enum(["live", "placeholder"]).default("placeholder"),
@@ -498,7 +529,12 @@ export async function registerRoutes(
     const test = await testBambuLanConnection(body);
     const printer = await createPrinterConnection(dependencies.db, {
       ...body,
-      connectionStatus: test.reachable ? "online" : "offline",
+      connectionStatus:
+        body.connectionMode === "cloud"
+          ? "unverified"
+          : test.reachable
+            ? "online"
+            : "offline",
       lastTestedAt: test.checkedAt,
     });
 

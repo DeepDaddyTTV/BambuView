@@ -107,11 +107,14 @@ export interface PrinterDetail extends PrinterSummary {
 
 export type PrinterConnectionProvider = "bambu-lan";
 
+export type BambuConnectionMode = "cloud" | "lan" | "developer";
+
 export type PrinterConnectionStatus = "online" | "offline" | "unverified";
 
 export interface PrinterConnectionRecord {
   id: string;
   provider: PrinterConnectionProvider;
+  connectionMode: BambuConnectionMode;
   name: string;
   model: string;
   host: string;
@@ -125,11 +128,12 @@ export interface PrinterConnectionRecord {
 }
 
 export interface BambuPrinterConnectionInput {
+  connectionMode: BambuConnectionMode;
   name: string;
   model: string;
   host: string;
   serial: string;
-  accessCode: string;
+  accessCode?: string;
 }
 
 export interface PrinterConnectionCheck {
@@ -143,8 +147,10 @@ export interface BambuConnectionTestResult {
   checkedAt: string;
   checks: {
     cameraStream: PrinterConnectionCheck;
+    developerMode: PrinterConnectionCheck;
     lanControl: PrinterConnectionCheck;
   };
+  connectionMode: BambuConnectionMode;
   message: string;
   reachable: boolean;
 }

@@ -7,6 +7,7 @@ import { sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 import {
   type AppearanceSettings,
+  type BambuConnectionMode,
   type BambuPrinterConnectionInput,
   DEFAULT_APPEARANCE,
   type InviteRecord,
@@ -70,6 +71,9 @@ const userPreferences = sqliteTable("user_preferences", {
 const printerConnections = sqliteTable("printer_connections", {
   id: text("id").primaryKey(),
   provider: text("provider").$type<PrinterConnectionProvider>().notNull(),
+  connectionMode: text("connection_mode")
+    .$type<BambuConnectionMode>()
+    .notNull(),
   name: text("name").notNull(),
   model: text("model").notNull(),
   host: text("host").notNull(),
@@ -176,6 +180,7 @@ export function createDatabase(databaseFile: string): DatabaseClient {
     CREATE TABLE IF NOT EXISTS printer_connections (
       id TEXT PRIMARY KEY,
       provider TEXT NOT NULL,
+      connection_mode TEXT NOT NULL DEFAULT 'lan',
       name TEXT NOT NULL,
       model TEXT NOT NULL,
       host TEXT NOT NULL,
@@ -188,6 +193,19 @@ export function createDatabase(databaseFile: string): DatabaseClient {
       updated_at TEXT NOT NULL
     );
   `);
+
+  const printerConnectionColumns = sqlite
+    .prepare("PRAGMA table_info(printer_connections)")
+    .all() as Array<{ name: string }>;
+  if (
+    !printerConnectionColumns.some(
+      (column) => column.name === "connection_mode",
+    )
+  ) {
+    sqlite.exec(
+      "ALTER TABLE printer_connections ADD COLUMN connection_mode TEXT NOT NULL DEFAULT 'lan';",
+    );
+  }
 
   const db = drizzle(sqlite, { schema });
 
@@ -232,6 +250,7 @@ function mapPrinterConnection(
   return {
     id: row.id,
     provider: row.provider,
+    connectionMode: row.connectionMode,
     name: row.name,
     model: row.model,
     host: row.host,
@@ -362,11 +381,12 @@ export async function createPrinterConnection(
   const row: typeof printerConnections.$inferInsert = {
     id: randomUUID(),
     provider: "bambu-lan",
+    connectionMode: input.connectionMode,
     name: input.name.trim(),
     model: input.model.trim(),
     host: input.host.trim(),
     serial: input.serial.trim().toUpperCase(),
-    accessCode: input.accessCode,
+    accessCode: input.accessCode?.trim() ?? "",
     connectionStatus: input.connectionStatus,
     lastTestedAt: input.lastTestedAt,
     lastSeenAt: input.connectionStatus === "online" ? input.lastTestedAt : null,

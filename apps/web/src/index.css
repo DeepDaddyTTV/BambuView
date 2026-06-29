@@ -6798,6 +6798,74 @@ html[data-theme="light"] .fleet-console-shell {
   padding: 24px;
 }
 
+.fleet-console-printer-form__mode {
+  grid-column: 1 / -1;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.fleet-console-printer-form__mode legend {
+  margin-bottom: 9px;
+  color: #c8ced7;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.fleet-console-printer-form__mode-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.fleet-console-mode-card {
+  min-height: 136px;
+  border: 1px solid var(--fleet-console-border);
+  border-radius: 0;
+  background:
+    linear-gradient(135deg, var(--accent-06), transparent 48%),
+    rgba(8, 10, 12, 0.92);
+  color: #dce2ea;
+  cursor: pointer;
+  padding: 12px;
+  text-align: left;
+}
+
+.fleet-console-mode-card strong,
+.fleet-console-mode-card span,
+.fleet-console-mode-card small {
+  display: block;
+}
+
+.fleet-console-mode-card strong {
+  color: #ffffff;
+  font-size: 0.98rem;
+}
+
+.fleet-console-mode-card span {
+  margin-top: 7px;
+  color: #b7bec9;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.fleet-console-mode-card small {
+  margin-top: 8px;
+  color: #89919d;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.fleet-console-mode-card--active {
+  border-color: var(--accent);
+  background:
+    linear-gradient(135deg, var(--accent-24), transparent 58%),
+    rgba(8, 10, 12, 0.98);
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+
 .fleet-console-printer-form label {
   display: grid;
   gap: 9px;
@@ -6921,6 +6989,10 @@ html[data-theme="light"] .fleet-console-printer-form select {
     grid-template-columns: 1fr;
   }
 
+  .fleet-console-printer-form__mode-grid {
+    grid-template-columns: 1fr;
+  }
+
   .fleet-console-modal__actions {
     flex-direction: column;
   }
@@ -6978,11 +7050,11 @@ html[data-theme="light"] .fleet-console-printer-form select {
 }
 
 .fleet-console-content {
-  padding: 14px 18px 18px;
+  padding: 12px 15px 15px;
 }
 
 .fleet-console-header {
-  gap: 16px;
+  gap: 12px;
 }
 
 .fleet-console-header p {
@@ -7016,16 +7088,16 @@ html[data-theme="light"] .fleet-console-printer-form select {
 }
 
 .fleet-console-filters {
-  gap: 8px;
-  margin-top: 12px;
+  gap: 6px;
+  margin-top: 10px;
 }
 
 .fleet-console-stats {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .fleet-console-stats__item {
-  padding: 14px 18px 13px;
+  padding: 12px 16px 11px;
 }
 
 .fleet-console-stats__value {
@@ -7038,12 +7110,12 @@ html[data-theme="light"] .fleet-console-printer-form select {
 }
 
 .fleet-console-grid {
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .fleet-console-card {
-  padding: 11px;
+  padding: 10px;
 }
 
 .fleet-console-card__title-row {
@@ -7056,8 +7128,8 @@ html[data-theme="light"] .fleet-console-printer-form select {
 
 .fleet-console-card__content {
   grid-template-columns: 118px minmax(0, 1fr);
-  gap: 12px;
-  margin-top: 10px;
+  gap: 10px;
+  margin-top: 8px;
 }
 
 .fleet-console-card__metrics {
@@ -7069,9 +7141,9 @@ html[data-theme="light"] .fleet-console-printer-form select {
 }
 
 .fleet-console-card__footer {
-  gap: 8px;
-  margin-top: 10px;
-  padding-top: 8px;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 7px;
 }
 
 .fleet-console-add-card {
@@ -7085,7 +7157,7 @@ html[data-theme="light"] .fleet-console-printer-form select {
 }
 
 .fleet-console-detail {
-  padding: 14px;
+  padding: 12px;
 }
 
 .fleet-console-detail__tabs {
@@ -7094,8 +7166,8 @@ html[data-theme="light"] .fleet-console-printer-form select {
 }
 
 .fleet-console-detail__section {
-  margin-top: 10px;
-  padding: 12px;
+  margin-top: 8px;
+  padding: 10px;
 }
 
 .fleet-console-status,

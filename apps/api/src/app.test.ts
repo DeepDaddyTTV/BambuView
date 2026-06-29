@@ -301,6 +301,7 @@ describe("auth and settings flows", () => {
       },
       payload: {
         accessCode: "test-access-code",
+        connectionMode: "developer",
         host: "127.0.0.1",
         model: "X1 Carbon",
         name: "Office X1 Carbon",
@@ -312,6 +313,9 @@ describe("auth and settings flows", () => {
     const createdPayload = create.json();
     expect(createdPayload.printer.name).toBe("Office X1 Carbon");
     expect(createdPayload.printer.accessCodeSet).toBe(true);
+    expect(createdPayload.printer.connectionMode).toBe("developer");
+    expect(createdPayload.test.connectionMode).toBe("developer");
+    expect(createdPayload.test.checks.developerMode.status).toBe("skipped");
     expect(JSON.stringify(createdPayload)).not.toContain("test-access-code");
 
     const connections = await app.inject({
@@ -352,6 +356,27 @@ describe("auth and settings flows", () => {
     expect(liveFleet.json().stats.printers).toBe(1);
     expect(liveFleet.json().stats.completedToday).toBe(0);
 
+    const cloudModeCreate = await app.inject({
+      method: "POST",
+      url: "/api/printers/bambu",
+      headers: {
+        cookie,
+      },
+      payload: {
+        connectionMode: "cloud",
+        model: "P1S",
+        name: "Studio P1S",
+        serial: "00M09A000000002",
+      },
+    });
+
+    expect(cloudModeCreate.statusCode).toBe(201);
+    expect(cloudModeCreate.json().printer.connectionMode).toBe("cloud");
+    expect(cloudModeCreate.json().printer.connectionStatus).toBe("unverified");
+    expect(cloudModeCreate.json().test.checks.lanControl.status).toBe(
+      "skipped",
+    );
+
     const duplicate = await app.inject({
       method: "POST",
       url: "/api/printers/bambu",
@@ -360,6 +385,7 @@ describe("auth and settings flows", () => {
       },
       payload: {
         accessCode: "test-access-code",
+        connectionMode: "developer",
         host: "127.0.0.1",
         model: "X1 Carbon",
         name: "Office X1 Carbon",
