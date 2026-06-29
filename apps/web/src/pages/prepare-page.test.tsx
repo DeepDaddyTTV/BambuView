@@ -8,31 +8,34 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("renders the staged prepare workspace", async () => {
+it("renders the Bambu Connect prepare handoff", async () => {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
     new Response(
       JSON.stringify({
         status: "planned",
-        headline: "Prepare & Slice is staged for the Orca/Prusa-derived workspace.",
-        description: "placeholder",
-        capabilities: ["3mf upload staging"]
+        headline: "Prepare files and hand them to Bambu Connect.",
+        description: "Bambu Connect handoff",
+        capabilities: ["Bambu Connect import-file URL generation"],
       }),
       {
-        headers: { "Content-Type": "application/json" }
-      }
-    )
+        headers: { "Content-Type": "application/json" },
+      },
+    ),
   );
 
   const client = new QueryClient();
   render(
     <QueryClientProvider client={client}>
       <PreparePage />
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 
   expect(
     await screen.findByRole("heading", {
-      name: "Prepare & Slice is staged for the Orca/Prusa-derived workspace."
-    })
+      name: "Prepare files and hand them to Bambu Connect.",
+    }),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByRole("button", { name: "Generate Bambu Connect Link" }),
   ).toBeInTheDocument();
 });

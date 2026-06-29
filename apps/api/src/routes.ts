@@ -1,14 +1,16 @@
 import { z } from "zod";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
-import type {
-  AppearanceSettings,
-  AuthSession,
-  BambuPrinterConnectionInput,
-  UserProfile,
+import {
+  BAMBU_PRINTER_MODELS,
+  type AppearanceSettings,
+  type AuthSession,
+  type BambuConnectImportRequest,
+  type BambuPrinterConnectionInput,
+  type UserProfile,
 } from "@bambuview/contracts";
 
-import { testBambuLanConnection } from "./bambu.js";
+import { buildBambuConnectImportUrl, testBambuLanConnection } from "./bambu.js";
 import {
   clearSessionCookie,
   createAuthenticatedSession,
@@ -130,6 +132,11 @@ const bambuPrinterSchema = z
       });
     }
   });
+
+const bambuConnectImportSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  path: z.string().trim().min(1).max(2048),
+});
 
 const fleetModeSchema = z.object({
   mode: z.enum(["live", "placeholder"]).default("placeholder"),
@@ -492,6 +499,32 @@ export async function registerRoutes(
 
     return {
       printers: await listPrinterConnections(dependencies.db),
+    };
+  });
+
+  app.get("/api/printers/bambu/models", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    return {
+      models: BAMBU_PRINTER_MODELS,
+    };
+  });
+
+  app.post("/api/bambu-connect/import-url", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const body: BambuConnectImportRequest = bambuConnectImportSchema.parse(
+      request.body,
+    );
+
+    return {
+      importUrl: buildBambuConnectImportUrl(body),
     };
   });
 

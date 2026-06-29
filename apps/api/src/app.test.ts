@@ -315,7 +315,7 @@ describe("auth and settings flows", () => {
     expect(createdPayload.printer.accessCodeSet).toBe(true);
     expect(createdPayload.printer.connectionMode).toBe("developer");
     expect(createdPayload.test.connectionMode).toBe("developer");
-    expect(createdPayload.test.checks.developerMode.status).toBe("skipped");
+    expect(createdPayload.test.checks.developerMode.status).toBe("available");
     expect(JSON.stringify(createdPayload)).not.toContain("test-access-code");
 
     const connections = await app.inject({
@@ -374,7 +374,10 @@ describe("auth and settings flows", () => {
     expect(cloudModeCreate.json().printer.connectionMode).toBe("cloud");
     expect(cloudModeCreate.json().printer.connectionStatus).toBe("unverified");
     expect(cloudModeCreate.json().test.checks.lanControl.status).toBe(
-      "skipped",
+      "not-supported",
+    );
+    expect(cloudModeCreate.json().test.checks.printJobHandoff.status).toBe(
+      "available",
     );
 
     const bambuConnectCreate = await app.inject({
@@ -400,7 +403,39 @@ describe("auth and settings flows", () => {
     );
     expect(
       bambuConnectCreate.json().test.checks.bambuConnectBridge.status,
-    ).toBe("skipped");
+    ).toBe("available");
+
+    const models = await app.inject({
+      method: "GET",
+      url: "/api/printers/bambu/models",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(models.statusCode).toBe(200);
+    expect(
+      models.json().models.map((model: { value: string }) => model.value),
+    ).toEqual(
+      expect.arrayContaining(["H2D", "H2S", "H2C", "P2S", "X2D", "A2L"]),
+    );
+
+    const connectImport = await app.inject({
+      method: "POST",
+      url: "/api/bambu-connect/import-url",
+      headers: {
+        cookie,
+      },
+      payload: {
+        name: "Flexi Dino",
+        path: "/tmp/flexi dino.gcode.3mf",
+      },
+    });
+
+    expect(connectImport.statusCode).toBe(200);
+    expect(connectImport.json().importUrl.url).toBe(
+      "bambu-connect://import-file?path=%2Ftmp%2Fflexi%20dino.gcode.3mf&name=Flexi%20Dino",
+    );
 
     const duplicate = await app.inject({
       method: "POST",

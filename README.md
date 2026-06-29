@@ -13,13 +13,14 @@
 
 BambuView is a self-hosted web app for keeping an eye on Bambu Lab printers, farm groups, print progress, filament status, and camera feeds from one polished dashboard.
 
-It is being built for people who want a clean local-first printer console with invite-only users, theme controls, PWA support, and room to grow into live printer integrations, direct camera feeds, and a future prepare-and-slice workspace.
+It is being built for people who want a clean local-first printer console with invite-only users, theme controls, PWA support, live printer integration paths, direct camera feeds, and a prepare-and-slice workspace.
 
 ## Current Features
 
 - **Fleet dashboard** with printer cards, farm cards, live-style status data, and a detailed printer panel.
-- **Fullscreen printer workspace** with staged camera, movement, temperature, fan, lamp, extruder, filament, and print-action controls.
-- **Bambu printer setup** with Cloud / Normal, Bambu Connect, LAN Mode, and LAN-only Developer Mode profiles, local connection testing, SQLite persistence, and redacted access-code handling.
+- **Fullscreen printer workspace** with camera, movement, temperature, fan, lamp, extruder, filament, and print-action controls mapped to each connection profile's supported path.
+- **Bambu printer setup** with Cloud / Normal, Bambu Connect, LAN Mode, and LAN-only Developer Mode profiles, MQTT/Bambu Connect capability checks, SQLite persistence, and redacted access-code handling.
+- **Current Bambu model catalog** covering H2, X2, P2, A2, X1, P1, and A1 families.
 - **Camera source management** for future Frigate, direct RTSP, Bambu native, and farm overview feeds.
 - **Local first-run setup** that creates the first admin account before the app opens.
 - **Invite-only users** after bootstrap, with `admin`, `operator`, and `viewer` roles.
@@ -31,9 +32,9 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.24` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
+The `0.0.25` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
 
-The Bambu connection profiles now include Bambu Connect as a first-class path. Fleet can temporarily switch between `Live` data and `Placeholder` data for testing, saved printers stage Bambu-native camera records, and full live telemetry parsing and real camera playback are still upcoming work.
+The Bambu connection profiles now expose real capability states. Cloud / Normal and Bambu Connect use Bambu Connect for authorized file handoff and restricted functions, LAN Mode tests local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths.
 
 ## Getting Started
 
@@ -83,12 +84,12 @@ The first time you open the app, BambuView walks you through creating the first 
 
 BambuView lets you save a Bambu printer in four ways:
 
-| Profile              | Use it when                                                                        | Result                                                                             |
-| -------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `Cloud / Normal`     | You want the printer listed without changing normal Bambu behavior.                | BambuView stores the printer as a no-change profile.                               |
-| `Bambu Connect`      | You want Bambu's supported camera, monitoring, and slicer job-handoff path.        | BambuView stages this printer for the future local Bambu Connect companion bridge. |
-| `LAN Mode`           | You want BambuView to test local reachability with an IP/hostname and access code. | The printer can be checked from your LAN and prepared for live telemetry work.     |
-| `LAN-only Developer` | You are ready to target full direct local controls in future BambuView releases.   | Requires LAN-only and Developer Mode enabled on the printer screen.                |
+| Profile              | Use it when                                                                        | Result                                                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `Cloud / Normal`     | You want normal Bambu behavior while still using Bambu Connect for secure actions. | BambuView keeps the printer in normal Bambu account flow and generates Bambu Connect file handoff links. |
+| `Bambu Connect`      | You want Bambu's supported camera, monitoring, controls, and job-handoff path.     | BambuView treats Bambu Connect as the authorized integration layer for restricted printer functions.     |
+| `LAN Mode`           | You want local status telemetry with IP/hostname and access code.                  | BambuView tests MQTT status access locally and uses Bambu Connect for restricted actions.                |
+| `LAN-only Developer` | You want direct local protocols and are willing to secure that network yourself.   | BambuView targets MQTT, native camera stream, file transfer, and machine-control paths directly.         |
 
 Use `Bambu Connect` when your goal is camera/live view, status monitoring, and sending jobs from slicer workflows through Bambu's supported bridge. Use `LAN-only Developer` when your goal is direct low-level local protocol control.
 
@@ -164,8 +165,10 @@ Core routes currently include:
 - `GET /api/fleet/overview?mode=live`
 - `GET /api/fleet/overview?mode=placeholder`
 - `GET /api/printers/connections`
+- `GET /api/printers/bambu/models`
 - `POST /api/printers/bambu/test`
 - `POST /api/printers/bambu`
+- `POST /api/bambu-connect/import-url`
 - `GET /api/printers/:id`
 - `GET /api/cameras`
 - `GET /api/settings/appearance`

@@ -113,6 +113,30 @@ export type BambuConnectionMode =
   | "lan"
   | "developer";
 
+export type BambuPrinterFamily = "H2" | "X2" | "P2" | "X1" | "P1" | "A2" | "A1";
+
+export interface BambuPrinterModel {
+  family: BambuPrinterFamily;
+  label: string;
+  value: string;
+}
+
+export const BAMBU_PRINTER_MODELS = [
+  { family: "H2", label: "H2D", value: "H2D" },
+  { family: "H2", label: "H2D Pro", value: "H2D Pro" },
+  { family: "H2", label: "H2S", value: "H2S" },
+  { family: "H2", label: "H2C", value: "H2C" },
+  { family: "X2", label: "X2D", value: "X2D" },
+  { family: "P2", label: "P2S", value: "P2S" },
+  { family: "A2", label: "A2L", value: "A2L" },
+  { family: "X1", label: "X1 Carbon", value: "X1 Carbon" },
+  { family: "X1", label: "X1E", value: "X1E" },
+  { family: "P1", label: "P1S", value: "P1S" },
+  { family: "P1", label: "P1P", value: "P1P" },
+  { family: "A1", label: "A1", value: "A1" },
+  { family: "A1", label: "A1 Mini", value: "A1 Mini" },
+] as const satisfies readonly BambuPrinterModel[];
+
 export type PrinterConnectionStatus = "online" | "offline" | "unverified";
 
 export interface PrinterConnectionRecord {
@@ -144,7 +168,12 @@ export interface PrinterConnectionCheck {
   detail: string;
   label: string;
   latencyMs: number | null;
-  status: "passed" | "failed" | "skipped";
+  status:
+    | "passed"
+    | "failed"
+    | "available"
+    | "action-required"
+    | "not-supported";
 }
 
 export interface BambuConnectionTestResult {
@@ -154,10 +183,24 @@ export interface BambuConnectionTestResult {
     cameraStream: PrinterConnectionCheck;
     developerMode: PrinterConnectionCheck;
     lanControl: PrinterConnectionCheck;
+    printJobHandoff: PrinterConnectionCheck;
+    printerControls: PrinterConnectionCheck;
+    statusTelemetry: PrinterConnectionCheck;
   };
   connectionMode: BambuConnectionMode;
   message: string;
   reachable: boolean;
+}
+
+export interface BambuConnectImportRequest {
+  name: string;
+  path: string;
+}
+
+export interface BambuConnectImportResponse {
+  name: string;
+  path: string;
+  url: string;
 }
 
 export type FleetDataMode = "live" | "placeholder";

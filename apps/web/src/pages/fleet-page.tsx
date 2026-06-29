@@ -44,6 +44,7 @@ import { Link, NavLink } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
+  BambuPrinterModel,
   BambuConnectionMode,
   BambuConnectionTestResult,
   BambuPrinterConnectionInput,
@@ -54,6 +55,7 @@ import type {
   PrinterSummary,
   UserProfile,
 } from "@bambuview/contracts";
+import { BAMBU_PRINTER_MODELS } from "@bambuview/contracts";
 
 import { useAppearance } from "../app/appearance";
 import { APP_VERSION } from "../app/version";
@@ -561,14 +563,38 @@ function FleetCard(props: {
   return <StandardPrinterCard {...props} />;
 }
 
-const bambuModelOptions = [
-  "X1 Carbon",
-  "X1E",
-  "P1S",
-  "P1P",
+const bambuModelOptions = BAMBU_PRINTER_MODELS;
+const bambuModelFamilies: Array<BambuPrinterModel["family"]> = [
+  "H2",
+  "X2",
+  "P2",
+  "A2",
+  "X1",
+  "P1",
   "A1",
-  "A1 Mini",
-] as const;
+];
+const bambuModelFamilyLabels = {
+  A1: "A1 Series",
+  A2: "A2 Series",
+  H2: "H2 Series",
+  P1: "P1 Series",
+  P2: "P2 Series",
+  X1: "X1 Series",
+  X2: "X2 Series",
+} as const satisfies Record<BambuPrinterModel["family"], string>;
+const bambuModelsByFamily = bambuModelFamilies.map((family) => ({
+  family,
+  label: bambuModelFamilyLabels[family],
+  models: bambuModelOptions.filter((model) => model.family === family),
+}));
+
+const connectionCheckLabels = {
+  "action-required": "Action required",
+  available: "Available",
+  failed: "Failed",
+  "not-supported": "Not supported",
+  passed: "Passed",
+} as const;
 
 const bambuConnectionModes: Array<{
   description: string;
@@ -579,30 +605,30 @@ const bambuConnectionModes: Array<{
   {
     key: "cloud",
     label: "Cloud / Normal",
-    summary: "Keep Bambu Handy and cloud features active.",
+    summary: "Normal Bambu account workflow.",
     description:
-      "Best when you only want the printer listed in BambuView while normal Bambu behavior stays unchanged.",
+      "Uses Bambu Connect for authorized file handoff, camera, status, and controls without switching the printer to LAN-only.",
   },
   {
     key: "bambu-connect",
     label: "Bambu Connect",
-    summary: "Supported camera, monitoring, and send-job path.",
+    summary: "Authorized Bambu integration path.",
     description:
-      "Best for Bambu's supported bridge workflow. Camera/live view, status, and slicer job handoff will target this profile.",
+      "Launches Bambu Connect for sliced-file import and uses Bambu's supported network-plugin path for restricted functions.",
   },
   {
     key: "lan",
     label: "LAN Mode",
-    summary: "Use the printer's local IP and access code.",
+    summary: "Local status plus authorized actions.",
     description:
-      "Best for local monitoring experiments while we wire live telemetry and native camera checks.",
+      "Uses local MQTT for status telemetry and Bambu Connect for camera, print start, and restricted control actions.",
   },
   {
     key: "developer",
     label: "LAN-only Developer",
-    summary: "Target full local controls in future releases.",
+    summary: "Direct local protocol integration.",
     description:
-      "Requires LAN-only and Developer Mode enabled on the printer screen. This is the intended path for print controls.",
+      "Uses direct MQTT, native camera stream, file transfer, and machine-control protocols after Developer Mode is enabled on-printer.",
   },
 ];
 
@@ -639,7 +665,7 @@ function AddPrinterDialog({
     accessCode: "",
     connectionMode: "cloud",
     host: "",
-    model: "X1 Carbon",
+    model: "H2D",
     name: "",
     serial: "",
   });
@@ -717,6 +743,11 @@ function AddPrinterDialog({
   }
 
   const isBusy = testMutation.isPending || saveMutation.isPending;
+  const hasAvailableIntegration = testResult
+    ? Object.values(testResult.checks).some(
+        (check) => check.status === "available" || check.status === "passed",
+      )
+    : false;
 
   return (
     <div className="fleet-console-modal-backdrop" role="presentation">
@@ -743,9 +774,9 @@ function AddPrinterDialog({
 
         <p className="fleet-console-modal__copy">
           Choose how BambuView should treat this printer today. Cloud / Normal
-          keeps the printer listed without changing Bambu behavior, Bambu
-          Connect targets supported camera/status/job handoff, and LAN-only
-          Developer Mode stays the direct-control path.
+          uses Bambu Connect for authorized actions without changing Bambu
+          behavior, LAN Mode adds local MQTT status, and LAN-only Developer Mode
+          uses direct local protocols.
         </p>
 
         <form className="fleet-console-printer-form" onSubmit={savePrinter}>
@@ -784,10 +815,14 @@ function AddPrinterDialog({
               onChange={(event) => updateField("model", event.target.value)}
               value={form.model}
             >
-              {bambuModelOptions.map((model) => (
-                <option key={model} value={model}>
-                  {model}
-                </option>
+              {bambuModelsByFamily.map((group) => (
+                <optgroup key={group.family} label={group.label}>
+                  {group.models.map((model) => (
+                    <option key={model.value} value={model.value}>
+                      {model.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
             </select>
           </label>
@@ -846,7 +881,7 @@ function AddPrinterDialog({
 
           {testResult ? (
             <div
-              className={`fleet-console-connection-result ${testResult.reachable ? "fleet-console-connection-result--ok" : "fleet-console-connection-result--warn"}`}
+              className={`fleet-console-connection-result ${testResult.reachable || hasAvailableIntegration ? "fleet-console-connection-result--ok" : "fleet-console-connection-result--warn"}`}
             >
               <div className="fleet-console-connection-result__headline">
                 {testResult.message}
@@ -857,7 +892,7 @@ function AddPrinterDialog({
                   key={check.label}
                 >
                   <span>{check.label}</span>
-                  <strong>{check.status}</strong>
+                  <strong>{connectionCheckLabels[check.status]}</strong>
                   <small>{check.detail}</small>
                 </div>
               ))}

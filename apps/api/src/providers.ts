@@ -484,7 +484,17 @@ const printerById = new Map(printers.map((printer) => [printer.id, printer]));
 
 function shortCodeForConnection(connection: PrinterConnectionRecord): string {
   const model = connection.model.toUpperCase();
+  if (model.includes("H2D PRO")) return "H2P";
+  if (model.includes("H2D")) return "H2D";
+  if (model.includes("H2S")) return "H2S";
+  if (model.includes("H2C")) return "H2C";
+  if (model.includes("X2D")) return "X2D";
+  if (model.includes("X2")) return "X2";
+  if (model.includes("P2S")) return "P2S";
+  if (model.includes("P2")) return "P2";
+  if (model.includes("A2L")) return "A2L";
   if (model.includes("X1C")) return "X1C";
+  if (model.includes("X1 CARBON")) return "X1C";
   if (model.includes("X1E")) return "X1E";
   if (model.includes("P1S")) return "P1S";
   if (model.includes("P1P")) return "P1P";
@@ -497,8 +507,9 @@ function previewKindForConnection(
   connection: PrinterConnectionRecord,
 ): PrinterDetail["previewKind"] {
   const model = connection.model.toUpperCase();
-  if (model.includes("A1")) return "dino";
-  if (model.includes("P1")) return "benchy";
+  if (model.includes("A1") || model.includes("A2")) return "dino";
+  if (model.includes("P1") || model.includes("P2")) return "benchy";
+  if (model.includes("H2") || model.includes("X2")) return "housing";
 
   return "bracket";
 }
@@ -511,20 +522,22 @@ function modeLabelForConnection(connection: PrinterConnectionRecord): string {
   return "LAN Mode";
 }
 
-function stagedCopyForConnection(connection: PrinterConnectionRecord): string {
+function integrationCopyForConnection(
+  connection: PrinterConnectionRecord,
+): string {
   if (connection.connectionMode === "bambu-connect") {
-    return "Camera, monitoring, and send-job support are staged for the Bambu Connect bridge.";
+    return "Bambu Connect handles authorized camera, monitoring, controls, and sliced-file handoff.";
   }
 
   if (connection.connectionMode === "cloud") {
-    return "Keep Bambu Handy/cloud control active. Local monitoring is staged.";
+    return "Cloud / Normal keeps the printer in Bambu's normal account workflow and uses Bambu Connect for secure job handoff.";
   }
 
   if (connection.connectionMode === "developer") {
-    return "Enable LAN-only Developer Mode on the printer for full local controls.";
+    return "Developer Mode uses direct local MQTT, camera stream, and machine-control protocols.";
   }
 
-  return "Enable LAN Mode on the printer for local monitoring.";
+  return "LAN Mode uses local MQTT for status telemetry and Bambu Connect for restricted commands.";
 }
 
 function detailForConnection(
@@ -534,7 +547,7 @@ function detailForConnection(
   const isCloudMode = connection.connectionMode === "cloud";
   const isBambuConnectMode = connection.connectionMode === "bambu-connect";
   const modeLabel = modeLabelForConnection(connection);
-  const stagedCopy = stagedCopyForConnection(connection);
+  const integrationCopy = integrationCopyForConnection(connection);
 
   return {
     id: connection.id,
@@ -545,16 +558,16 @@ function detailForConnection(
     statusLabel: isReachable
       ? `${modeLabel} Ready`
       : isBambuConnectMode
-        ? "Bambu Connect Staged"
+        ? "Bambu Connect Ready"
         : isCloudMode
-          ? "Cloud Mode Staged"
+          ? "Cloud / Normal Ready"
           : "Offline",
     progress: 0,
     layer: isReachable ? `Connected through Bambu ${modeLabel}` : modeLabel,
     eta: isReachable
       ? "Ready"
       : isBambuConnectMode || isCloudMode
-        ? "Staged"
+        ? "Ready"
         : "Offline",
     elapsed: isReachable
       ? "Idle"
@@ -563,7 +576,7 @@ function detailForConnection(
         : isCloudMode
           ? "Cloud"
           : "No heartbeat",
-    fileName: isReachable ? "Waiting for live telemetry." : stagedCopy,
+    fileName: isReachable ? "Waiting for live telemetry." : integrationCopy,
     location: modeLabel,
     material: "PLA",
     materialColor: "Unknown",
@@ -571,7 +584,7 @@ function detailForConnection(
     cameraLabel: isBambuConnectMode
       ? "Bambu Connect Cam"
       : isCloudMode
-        ? "Camera staged"
+        ? "Bambu Connect Cam"
         : "Bambu Native Cam",
     previewKind: previewKindForConnection(connection),
     serial: connection.serial,
@@ -593,7 +606,7 @@ function detailForConnection(
         label: isBambuConnectMode
           ? "Bambu Connect Cam"
           : isCloudMode
-            ? "Printer Cam (staged)"
+            ? "Bambu Connect Cam"
             : "Printer Cam",
         kind: "printer",
       },
@@ -712,12 +725,13 @@ class DatabaseBackedCameraProvider implements CameraProvider {
         name: isBambuConnect
           ? `${connection.name} Bambu Connect Cam`
           : isCloud
-            ? `${connection.name} Native Cam (staged)`
+            ? `${connection.name} Bambu Connect Cam`
             : `${connection.name} Native Cam`,
-        provider: isBambuConnect ? "bambu-connect" : "bambu",
+        provider: isBambuConnect || isCloud ? "bambu-connect" : "bambu",
         streamUrl: `bambu://${connection.id}/${connection.connectionMode}/printer-cam`,
         status:
           isBambuConnect ||
+          isCloud ||
           (!isCloud && connection.connectionStatus === "online")
             ? "degraded"
             : "offline",
@@ -750,15 +764,16 @@ class MockSliceProvider implements SliceProvider {
   async getStatus(): Promise<PrepareStatus> {
     return {
       status: "planned",
-      headline:
-        "Prepare & Slice is staged for the Orca/Prusa-derived workspace.",
+      headline: "Prepare files and hand them to Bambu Connect.",
       description:
-        "The first release reserves this route and its data contract so file import, editing, and slicing can land without reshaping the rest of the app shell.",
+        "BambuView can generate Bambu Connect import links for sliced Bambu G-code and 3MF files today. The in-browser editor remains the reserved workspace for future model editing and slicing.",
       capabilities: [
-        "3mf upload staging",
+        "Bambu Connect import-file URL generation",
+        "Secure handoff to Bambu's authorized print flow",
+        "3mf upload planning",
         "job queue planning",
         "printer profile targeting",
-        "future remote slice submission",
+        "remote slice submission planning",
       ],
     };
   }
