@@ -4,10 +4,10 @@
     <style>
       .cls-1 {
         fill: #fff;
-        font-family: SegoeUI-Semibold, 'Segoe UI';
+        font-family: 'Arial Rounded MT Bold', 'Segoe UI Black', 'Arial Black', sans-serif;
         font-size: 134.9px;
-        font-weight: 600;
-        letter-spacing: -.05em;
+        font-weight: 800;
+        letter-spacing: -.015em;
       }
     </style>
   </defs>

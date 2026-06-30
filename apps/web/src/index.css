@@ -6096,11 +6096,11 @@ html[data-theme="light"] .fleet-console-shell {
   min-width: 0;
   max-width: calc(100% - 39px);
   font-family:
-    "Segoe UI Variable", "Segoe UI", "Helvetica Neue", "Aptos Display",
-    "SF Pro Display", system-ui, sans-serif;
+    "Arial Rounded MT Bold", "Segoe UI Black", "Arial Black", "SF Pro Display",
+    system-ui, sans-serif;
   font-size: 1.14rem;
-  font-weight: 650;
-  letter-spacing: -0.058em;
+  font-weight: 800;
+  letter-spacing: -0.015em;
   line-height: 1;
   white-space: nowrap;
 }
@@ -6114,9 +6114,9 @@ html[data-theme="light"] .fleet-console-shell {
 
 .brand-lockup__wordmark svg text {
   font-family:
-    "Segoe UI Variable", "Segoe UI", "Helvetica Neue", "Aptos Display",
-    "SF Pro Display", system-ui, sans-serif !important;
-  font-weight: 700 !important;
+    "Arial Rounded MT Bold", "Segoe UI Black", "Arial Black", "SF Pro Display",
+    system-ui, sans-serif !important;
+  font-weight: 800 !important;
 }
 
 .brand-lockup__wordmark-main {

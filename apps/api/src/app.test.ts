@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
 
+import { FLEET_CAMERA_TARGET_ID } from "@bambuview/contracts";
+
 import { buildApp } from "./app.js";
 
 const tempDirs: string[] = [];
@@ -503,10 +505,39 @@ describe("auth and settings flows", () => {
       cameras.json().sources.map((source: { id: string }) => source.id),
     ).toContain(cameraSourceId);
     expect(
+      cameras.json().sources.map((source: { id: string }) => source.id),
+    ).not.toContain(`${createdPayload.printer.id}-bambu-printer`);
+    expect(
       cameras
         .json()
         .assignments.map((item: { sourceId: string }) => item.sourceId),
     ).toContain(cameraSourceId);
+    expect(
+      cameras
+        .json()
+        .assignments.some(
+          (item: { sourceId: string; targetType: string }) =>
+            item.sourceId === cameraSourceId && item.targetType === "printer",
+        ),
+    ).toBe(true);
+
+    const fleetCamera = await app.inject({
+      method: "POST",
+      url: "/api/cameras/assignments",
+      headers: {
+        cookie,
+      },
+      payload: {
+        feedLabel: "Fleet Overview",
+        printerId: FLEET_CAMERA_TARGET_ID,
+        sourceId: cameraSourceId,
+        targetType: "fleet",
+      },
+    });
+
+    expect(fleetCamera.statusCode).toBe(200);
+    expect(fleetCamera.json().assignment.targetName).toBe("Fleet Overview");
+    expect(fleetCamera.json().assignment.targetType).toBe("fleet");
 
     const duplicate = await app.inject({
       method: "POST",

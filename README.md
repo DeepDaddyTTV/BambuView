@@ -21,7 +21,7 @@ It is being built for people who want a clean local-first printer console with i
 - **Fullscreen printer workspace** with camera, movement, temperature, fan, lamp, extruder, filament, and print-action controls mapped to each connection profile's supported path.
 - **Bambu printer setup** with Cloud / Normal, Bambu Connect, LAN Mode, and LAN-only Developer Mode profiles, MQTT/Bambu Connect capability checks, SQLite persistence, and redacted access-code handling.
 - **Current Bambu model catalog** covering H2, X2, P2, A2, X1, P1, and A1 families.
-- **Camera source management** for Frigate, direct HTTP/MJPEG/HLS, direct RTSP, Bambu native, and farm overview feeds with server-side credential handling.
+- **Camera source management** for direct browser-compatible HTTP/MJPEG/HLS feeds, Frigate/go2rtc restream URLs, and raw RTSP sources that can be restreamed before browser playback.
 - **Local first-run setup** that creates the first admin account before the app opens.
 - **Invite-only users** after bootstrap, with `admin`, `operator`, and `viewer` roles.
 - **Per-user appearance settings** for light mode, dark mode, highlight colors, background colors, and background styles.
@@ -32,9 +32,11 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.26` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
+The `0.0.27` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
 
-The Bambu connection profiles now expose real capability states. Cloud / Normal and Bambu Connect use Bambu Connect for authorized file handoff and restricted functions, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers; RTSP and native Bambu feeds are saved and monitored, then displayed after you provide a Frigate/go2rtc/HTTP restream.
+The Bambu connection profiles now expose real capability states. Cloud / Normal and Bambu Connect use Bambu Connect for authorized file handoff and restricted functions, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers or the Fleet Overview target; RTSP and native Bambu feeds should be routed through Frigate/go2rtc or a future BambuView Companion restream before browser playback.
+
+Printers without an assigned browser-compatible camera show a black `No Camera Detected` view in the camera panel and point you back to `Cameras` for setup.
 
 ## Getting Started
 
@@ -122,6 +124,20 @@ References:
 - [Bambu Lab third-party integration notes](https://wiki.bambulab.com/en/software/third-party-integration)
 - [SimplyPrint Bambu LAN-only and Developer Mode walkthrough](https://help.simplyprint.io/en/article/bambu-lab-lan-only-mode-and-developer-mode-how-to-enable-xa0hch/)
 
+## Camera Setup
+
+Open `Cameras`, add a source, then assign it to either a saved printer or `Fleet Overview`.
+
+For Frigate, paste the browser-compatible MJPEG restream URL:
+
+```text
+http://frigate:5000/api/workbench_left
+```
+
+Replace `workbench_left` with the camera name from Frigate. BambuView proxies the stream through `/api/cameras/sources/:id/stream` so the browser does not receive upstream credentials directly. If BambuView can infer a standard Frigate camera name from the URL, it also exposes `/api/cameras/sources/:id/snapshot` for still previews.
+
+Direct MJPEG, HTTP snapshot, and HLS sources can be displayed immediately after assignment. Raw RTSP and native Bambu camera sources need a Frigate/go2rtc/HTTP restream before a browser can play them inline. BambuView Companion is planned as the easier fallback for native camera streams later.
+
 ## Documentation
 
 Human-facing setup docs live in the repo `docs/` folder and are published through GitHub Pages from that folder only.
@@ -131,6 +147,7 @@ Human-facing setup docs live in the repo `docs/` folder and are published throug
 - [GitHub Pages Docs](https://deepdaddyttv.github.io/BambuView/)
 - [First-time setup](docs/getting-started.md)
 - [Bambu connection modes](docs/lan-mode.md)
+- [Camera setup](docs/cameras.md)
 - [Docs home](docs/index.md)
 
 ## Public Deployment Notes

@@ -12,6 +12,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
   CameraAssignmentInput,
+  CameraAssignmentTargetType,
   CameraOverview,
   CameraProviderType,
   CameraSource,
@@ -19,6 +20,7 @@ import type {
   CameraTestResult,
   PrinterConnectionRecord,
 } from "@bambuview/contracts";
+import { FLEET_CAMERA_TARGET_ID } from "@bambuview/contracts";
 
 import { apiFetch } from "../lib/api";
 
@@ -37,7 +39,6 @@ const providerOptions: Array<[CameraProviderType, string]> = [
   ["direct-mjpeg", "Direct MJPEG"],
   ["direct-http", "Direct HTTP/JPEG/HLS"],
   ["direct-rtsp", "Direct RTSP"],
-  ["bambu", "Bambu Native"],
 ];
 
 function CameraPreview({ source }: { source: CameraSource }) {
@@ -96,6 +97,7 @@ export function CamerasPage() {
     feedLabel: "Printer Cam",
     printerId: "",
     sourceId: "",
+    targetType: "printer",
   });
   const [lastTest, setLastTest] = useState<CameraTestResult | null>(null);
 
@@ -186,14 +188,32 @@ export function CamerasPage() {
     /^[0-9a-f-]{36}$/i.test(source.id),
   );
   const printers = printersQuery.data?.printers ?? [];
+  const cameraTargets: Array<{
+    id: string;
+    label: string;
+    type: CameraAssignmentTargetType;
+  }> = [
+    {
+      id: FLEET_CAMERA_TARGET_ID,
+      label: "Fleet Overview",
+      type: "fleet",
+    },
+    ...printers.map((printer) => ({
+      id: printer.id,
+      label: printer.name,
+      type: "printer" as const,
+    })),
+  ];
+  const frigateRestreamExample =
+    form.streamUrl?.trim() || "http://frigate:5000/api/workbench_left";
 
   return (
     <div className="space-y-5">
       <p className="text-base leading-7 text-zinc-400">
-        Add Frigate, direct HTTP/MJPEG/HLS, RTSP, and native Bambu camera
-        sources, then assign any source to a printer feed slot. Browser playback
-        works through BambuView&apos;s proxy for Frigate and HTTP-compatible
-        streams.
+        Add Frigate restream URLs or direct browser-compatible HTTP/MJPEG/HLS
+        feeds, then assign any source to a printer or Fleet Overview slot. Raw
+        RTSP can be saved for tracking, but it needs Frigate, go2rtc, or a
+        future companion bridge before browsers can play it inline.
       </p>
 
       <section className="panel">
@@ -233,40 +253,27 @@ export function CamerasPage() {
             </select>
           </label>
           {form.provider === "frigate" ? (
-            <>
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-zinc-300">
-                  Frigate URL
-                </span>
-                <input
-                  className="input-field"
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      frigateBaseUrl: event.target.value,
-                    }))
-                  }
-                  placeholder="http://frigate:5000"
-                  value={form.frigateBaseUrl ?? ""}
-                />
-              </label>
-              <label className="space-y-2">
-                <span className="text-sm font-medium text-zinc-300">
-                  Camera Name
-                </span>
-                <input
-                  className="input-field"
-                  onChange={(event) =>
-                    setForm((current) => ({
-                      ...current,
-                      frigateCamera: event.target.value,
-                    }))
-                  }
-                  placeholder="workbench_left"
-                  value={form.frigateCamera ?? ""}
-                />
-              </label>
-            </>
+            <label className="space-y-2 xl:col-span-2">
+              <span className="text-sm font-medium text-zinc-300">
+                Frigate Restream URL
+              </span>
+              <input
+                className="input-field"
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    streamUrl: event.target.value,
+                  }))
+                }
+                placeholder="http://frigate:5000/api/workbench_left"
+                value={form.streamUrl ?? ""}
+              />
+              <span className="block text-xs leading-5 text-zinc-500">
+                Example: {frigateRestreamExample}. BambuView proxies this MJPEG
+                restream and can still infer snapshots from standard Frigate
+                URLs.
+              </span>
+            </label>
           ) : (
             <label className="space-y-2 xl:col-span-2">
               <span className="text-sm font-medium text-zinc-300">
@@ -358,21 +365,31 @@ export function CamerasPage() {
           onSubmit={submitAssignment}
         >
           <label className="space-y-2">
-            <span className="text-sm font-medium text-zinc-300">Printer</span>
+            <span className="text-sm font-medium text-zinc-300">Target</span>
             <select
               className="input-field"
-              onChange={(event) =>
+              onChange={(event) => {
+                const selectedTarget = cameraTargets.find(
+                  (target) => target.id === event.target.value,
+                );
                 setAssignment((current) => ({
                   ...current,
+                  feedLabel:
+                    selectedTarget?.type === "fleet"
+                      ? "Fleet Overview"
+                      : current.feedLabel === "Fleet Overview"
+                        ? "Printer Cam"
+                        : current.feedLabel,
                   printerId: event.target.value,
-                }))
-              }
+                  targetType: selectedTarget?.type ?? "printer",
+                }));
+              }}
               value={assignment.printerId}
             >
-              <option value="">Select printer</option>
-              {printers.map((printer) => (
-                <option key={printer.id} value={printer.id}>
-                  {printer.name}
+              <option value="">Select printer or fleet</option>
+              {cameraTargets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  {target.label}
                 </option>
               ))}
             </select>
@@ -432,6 +449,24 @@ export function CamerasPage() {
         </form>
       </section>
 
+      {sources.length === 0 ? (
+        <section className="panel">
+          <div className="grid min-h-[240px] place-items-center text-center">
+            <div>
+              <Camera className="mx-auto h-10 w-10 text-[color:var(--accent)]" />
+              <h3 className="mt-4 text-2xl font-semibold text-white">
+                No camera sources yet
+              </h3>
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-zinc-400">
+                Add a Frigate restream URL, direct MJPEG/HTTP feed, HLS feed, or
+                RTSP source above. Once saved, assign it to a printer or the
+                Fleet Overview target.
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <div className="grid gap-5 xl:grid-cols-2">
         {sources.map((source) => {
           const SourceIcon = providerIcons[source.provider];
@@ -483,7 +518,7 @@ export function CamerasPage() {
           <table className="w-full min-w-[760px] text-left">
             <thead className="text-xs uppercase tracking-[0.2em] text-zinc-500">
               <tr>
-                <th className="pb-4">Printer</th>
+                <th className="pb-4">Target</th>
                 <th className="pb-4">Source</th>
                 <th className="pb-4">Feed Label</th>
                 <th className="pb-4">Feed ID</th>
@@ -491,8 +526,13 @@ export function CamerasPage() {
             </thead>
             <tbody className="divide-y divide-white/8">
               {camerasQuery.data.assignments.map((item) => (
-                <tr key={`${item.printerId}-${item.feedId}`}>
-                  <td className="py-4 text-zinc-100">{item.printerName}</td>
+                <tr key={`${item.targetId}-${item.feedId}`}>
+                  <td className="py-4 text-zinc-100">
+                    <div>{item.targetName}</div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                      {item.targetType}
+                    </div>
+                  </td>
                   <td className="py-4 text-zinc-300">{item.sourceName}</td>
                   <td className="py-4 text-zinc-300">{item.feedLabel}</td>
                   <td className="py-4 text-zinc-500">{item.feedId}</td>
@@ -500,6 +540,11 @@ export function CamerasPage() {
               ))}
             </tbody>
           </table>
+          {camerasQuery.data.assignments.length === 0 ? (
+            <div className="border-t border-white/8 py-6 text-sm text-zinc-400">
+              No camera assignments yet.
+            </div>
+          ) : null}
         </div>
       </section>
     </div>

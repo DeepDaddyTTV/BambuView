@@ -1,6 +1,5 @@
 import type {
   CameraOverview,
-  CameraSource,
   FleetDataMode,
   FleetOverview,
   PrepareStatus,
@@ -13,7 +12,6 @@ import {
   listCameraAssignments,
   listCameraSources,
   listPrinterConnectionSecrets,
-  listPrinterConnections,
   type AppDatabase,
   type PrinterConnectionSecretRecord,
   updatePrinterConnectionStatus,
@@ -478,57 +476,6 @@ const printers: PrinterDetail[] = [
   },
 ];
 
-const cameraSources: CameraSource[] = [
-  {
-    id: "frigate-x1-office",
-    name: "Frigate X1 Office",
-    provider: "frigate",
-    details: "Placeholder Frigate source for design preview.",
-    lastTestedAt: null,
-    snapshotUrl: null,
-    streamKind: "rtsp",
-    streamUrl: "rtsp://placeholder/frigate/x1-office",
-    status: "online",
-    assignedTo: ["x1-carbon-office"],
-  },
-  {
-    id: "direct-workshop-cam",
-    name: "Workshop RTSP Cam",
-    provider: "direct-rtsp",
-    details: "Placeholder direct RTSP source for design preview.",
-    lastTestedAt: null,
-    snapshotUrl: null,
-    streamKind: "rtsp",
-    streamUrl: "rtsp://placeholder/workshop-cam",
-    status: "online",
-    assignedTo: ["p1s-studio", "a1-mini-workshop"],
-  },
-  {
-    id: "bambu-x1e",
-    name: "Bambu X1E Native Cam",
-    provider: "bambu",
-    details: "Placeholder native Bambu stream for design preview.",
-    lastTestedAt: null,
-    snapshotUrl: null,
-    streamKind: "bambu-native",
-    streamUrl: "bambu://x1e-engineering/printer",
-    status: "degraded",
-    assignedTo: ["x1e-engineering", "p1p-break-room"],
-  },
-  {
-    id: "farm-overview",
-    name: "Farm Overview",
-    provider: "farm-overview",
-    details: "Placeholder farm overview for design preview.",
-    lastTestedAt: null,
-    snapshotUrl: null,
-    streamKind: "rtsp",
-    streamUrl: "rtsp://placeholder/farm-overview",
-    status: "online",
-    assignedTo: ["production-farm"],
-  },
-];
-
 const printerById = new Map(printers.map((printer) => [printer.id, printer]));
 
 function shortCodeForConnection(connection: PrinterConnectionRecord): string {
@@ -665,19 +612,14 @@ function cameraFeedsForConnection(
   const isBambuConnect =
     connection.connectionMode === "bambu-connect" ||
     connection.connectionMode === "cloud";
-  const nativeStatus =
-    connection.connectionMode === "developer" &&
-    connection.connectionStatus === "online"
-      ? "degraded"
-      : "offline";
   const defaultFeed: PrinterCameraFeed = {
     id: `${connection.id}-bambu-printer`,
     kind: "printer",
-    label: isBambuConnect ? "Bambu Connect Cam" : "Printer Cam",
+    label: isBambuConnect ? "Bambu Connect Slot" : "Printer Cam Slot",
     snapshotUrl: null,
     sourceId: null,
-    status: isBambuConnect ? "degraded" : nativeStatus,
-    streamKind: isBambuConnect ? "unknown" : "bambu-native",
+    status: "offline",
+    streamKind: "unknown",
     streamUrl: null,
   };
 
@@ -876,6 +818,10 @@ class DatabaseBackedPrinterProvider implements PrinterProvider {
     const feedsByPrinter = new Map<string, PrinterCameraFeed[]>();
 
     for (const assignment of assignments) {
+      if (assignment.targetType !== "printer") {
+        continue;
+      }
+
       const source = sourceById.get(assignment.sourceId);
       if (!source) {
         continue;
@@ -967,64 +913,14 @@ class DatabaseBackedCameraProvider implements CameraProvider {
   constructor(private readonly db: AppDatabase) {}
 
   async getOverview(): Promise<CameraOverview> {
-    const [connections, persistedSources, persistedAssignments] =
-      await Promise.all([
-        listPrinterConnections(this.db),
-        listCameraSources(this.db),
-        listCameraAssignments(this.db),
-      ]);
-    const storedSources: CameraSource[] = connections.map((connection) => {
-      const isBambuConnect = connection.connectionMode === "bambu-connect";
-      const isCloud = connection.connectionMode === "cloud";
-      const nativeStatus =
-        connection.connectionMode === "developer" &&
-        connection.connectionStatus === "online"
-          ? "degraded"
-          : "offline";
-
-      return {
-        id: `${connection.id}-bambu-printer`,
-        name: isBambuConnect
-          ? `${connection.name} Bambu Connect Cam`
-          : isCloud
-            ? `${connection.name} Bambu Connect Cam`
-            : `${connection.name} Native Cam`,
-        provider: isBambuConnect || isCloud ? "bambu-connect" : "bambu",
-        details:
-          isBambuConnect || isCloud
-            ? "Bambu Connect exposes camera viewing through Bambu's supported desktop integration path. Add a Frigate/go2rtc restream here when you want it embedded in BambuView."
-            : "Native Bambu camera streams are detected locally but need a browser-compatible restream before they can be embedded.",
-        lastTestedAt: connection.lastTestedAt,
-        snapshotUrl: null,
-        streamKind: isBambuConnect ? "unknown" : "bambu-native",
-        streamUrl: `bambu://${connection.id}/${connection.connectionMode}/printer-cam`,
-        status: isBambuConnect || isCloud ? "degraded" : nativeStatus,
-        assignedTo: [connection.id],
-      };
-    });
-    const storedAssignments = connections.map((connection) => ({
-      feedId: `${connection.id}-bambu-printer`,
-      feedLabel: "Printer Cam",
-      printerId: connection.id,
-      printerName: connection.name,
-      sourceId: `${connection.id}-bambu-printer`,
-      sourceName: `${connection.name} Native Cam`,
-    }));
+    const [persistedSources, persistedAssignments] = await Promise.all([
+      listCameraSources(this.db),
+      listCameraAssignments(this.db),
+    ]);
 
     return {
-      sources: [...persistedSources, ...storedSources, ...cameraSources],
-      assignments: [
-        ...persistedAssignments,
-        ...storedAssignments,
-        ...printers.map((printer) => ({
-          feedId: printer.selectedCameraFeedId,
-          feedLabel: printer.cameraLabel,
-          printerId: printer.id,
-          printerName: printer.name,
-          sourceId: printer.selectedCameraFeedId,
-          sourceName: printer.cameraLabel,
-        })),
-      ],
+      sources: persistedSources,
+      assignments: persistedAssignments,
     };
   }
 }

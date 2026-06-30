@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 802.46 172.25">
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 842.46 172.25">
   <defs>
     <style>
       .cls-1 {
@@ -7,10 +7,10 @@
       }
 
       .cls-1, .cls-2 {
-        font-family: SegoeUI-Semibold, 'Segoe UI';
+        font-family: 'Arial Rounded MT Bold', 'Segoe UI Black', 'Arial Black', sans-serif;
         font-size: 134.9px;
-        font-weight: 600;
-        letter-spacing: -.05em;
+        font-weight: 800;
+        letter-spacing: -.015em;
       }
 
       .cls-2 {
@@ -19,5 +19,5 @@
     </style>
   </defs>
   <text class="cls-2" transform="translate(127.11 114.68)"><tspan x="0" y="0">Bambu</tspan></text>
-  <text class="cls-1" transform="translate(527.2 114.68)"><tspan x="0" y="0">View</tspan></text>
+  <text class="cls-1" transform="translate(548.2 114.68)"><tspan x="0" y="0">View</tspan></text>
 </svg>

@@ -110,19 +110,22 @@ For a full printer-side walkthrough, read [Bambu Connection Modes](./lan-mode.md
 
 1. Open `Cameras`.
 2. Choose the camera type:
-   - `Frigate` for a Frigate camera name and Frigate base URL.
+   - `Frigate` for a Frigate MJPEG restream URL, such as `http://frigate:5000/api/workbench_left`.
    - `Direct MJPEG` for a browser-renderable MJPEG endpoint.
    - `Direct HTTP/JPEG/HLS` for a still image, MJPEG-like HTTP endpoint, or HLS playlist.
    - `Direct RTSP` for a raw RTSP source you plan to restream through Frigate, go2rtc, or another bridge.
-   - `Bambu Native` for a native Bambu camera endpoint you want to track while you set up a browser-compatible restream.
 3. Enter credentials only if the upstream camera requires them.
 4. Select `Test` to check whether BambuView can reach the source.
 5. Save the source.
-6. Use `Assign Feed` to attach that source to a saved printer as `Printer Cam`, `AMS Cam`, `Enclosure Cam`, or `Studio Overview`.
+6. Use `Assign Feed` to attach that source to a saved printer or to `Fleet Overview` as `Printer Cam`, `AMS Cam`, `Enclosure Cam`, `Studio Overview`, or `Fleet Overview`.
 
-Frigate and HTTP-compatible feeds are proxied through BambuView so the browser does not receive upstream credentials. RTSP and native Bambu streams can be saved and assigned, but browser playback needs a restreamer such as Frigate or go2rtc.
+Frigate and HTTP-compatible feeds are proxied through BambuView so the browser does not receive upstream credentials. RTSP and native Bambu streams need a restreamer such as Frigate or go2rtc before a browser can play them.
 
-## What to expect in `0.0.26` alpha
+If a printer has no assigned browser-compatible camera, its camera panel shows `No Camera Detected`. If that is wrong, open `Cameras`, save a Frigate/go2rtc/HTTP-compatible feed, and assign it to the printer.
+
+For the full walkthrough, read [Camera Setup](./cameras.md).
+
+## What to expect in `0.0.27` alpha
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 

@@ -100,6 +100,30 @@ export function frigateStreamUrl(baseUrl: string, camera: string): string {
   return `${stripTrailingSlash(baseUrl)}/api/${encodeURIComponent(camera)}`;
 }
 
+export function parseFrigateRestreamUrl(
+  value: string,
+): { baseUrl: string; camera: string } | null {
+  try {
+    const url = new URL(value);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const apiIndex = parts.findIndex((part) => part === "api");
+    const encodedCamera = parts[apiIndex + 1];
+    if (apiIndex < 0 || !encodedCamera) {
+      return null;
+    }
+
+    const basePath = parts.slice(0, apiIndex).join("/");
+    return {
+      baseUrl: stripTrailingSlash(
+        `${url.origin}${basePath ? `/${basePath}` : ""}`,
+      ),
+      camera: decodeURIComponent(encodedCamera),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function inferCameraStreamKind(
   provider: CameraProviderType,
   streamUrl: string,
@@ -144,21 +168,32 @@ export function normalizeCameraSourceInput(
   input: CameraSourceInput,
 ): NormalizedCameraSourceInput {
   const provider = input.provider;
-  const frigateBaseUrl = input.frigateBaseUrl?.trim() || null;
-  const frigateCamera = input.frigateCamera?.trim() || null;
+  const explicitStreamUrl = input.streamUrl?.trim() ?? "";
+  const parsedFrigateUrl =
+    provider === "frigate" && explicitStreamUrl
+      ? parseFrigateRestreamUrl(explicitStreamUrl)
+      : null;
+  const frigateBaseUrl =
+    input.frigateBaseUrl?.trim() || parsedFrigateUrl?.baseUrl || null;
+  const frigateCamera =
+    input.frigateCamera?.trim() || parsedFrigateUrl?.camera || null;
   const rawStreamUrl =
-    provider === "frigate" && frigateBaseUrl && frigateCamera
-      ? frigateStreamUrl(frigateBaseUrl, frigateCamera)
-      : (input.streamUrl?.trim() ?? "");
+    provider === "frigate" && explicitStreamUrl
+      ? explicitStreamUrl
+      : provider === "frigate" && frigateBaseUrl && frigateCamera
+        ? frigateStreamUrl(frigateBaseUrl, frigateCamera)
+        : explicitStreamUrl;
   const streamKind = inferCameraStreamKind(provider, rawStreamUrl);
 
   return {
     details:
-      streamKind === "rtsp"
-        ? "RTSP source saved. Add it through Frigate/go2rtc or another HTTP restreamer to embed it in the browser."
-        : streamKind === "bambu-native"
-          ? "Native Bambu source saved. BambuView can detect it, but browser playback needs a compatible restream."
-          : "Camera source is browser-renderable through BambuView's proxy.",
+      provider === "frigate"
+        ? "Frigate restream URL saved. BambuView proxies the MJPEG feed for browser playback and assignment."
+        : streamKind === "rtsp"
+          ? "RTSP source saved. Add it through Frigate/go2rtc or another HTTP restreamer to embed it in the browser."
+          : streamKind === "bambu-native"
+            ? "Native Bambu source saved. BambuView can detect it, but browser playback needs a compatible restream."
+            : "Camera source is browser-renderable through BambuView's proxy.",
     frigateBaseUrl,
     frigateCamera,
     password: input.password?.trim() ?? "",
@@ -176,10 +211,11 @@ export async function testCameraSource(
   const now = checkedAt();
 
   if (normalized.provider === "frigate") {
-    if (!normalized.frigateBaseUrl || !normalized.frigateCamera) {
+    if (!normalized.streamUrl) {
       return {
         checkedAt: now,
-        detail: "Frigate sources require a Frigate base URL and camera name.",
+        detail:
+          "Frigate sources require a restream URL, for example http://frigate:5000/api/workbench_left.",
         kind: "mjpeg",
         reachable: false,
         status: "offline",
@@ -187,15 +223,21 @@ export async function testCameraSource(
     }
 
     try {
-      const response = await fetchWithTimeout(
-        frigateSnapshotUrl(normalized.frigateBaseUrl, normalized.frigateCamera),
-        normalized,
-      );
+      const response =
+        normalized.frigateBaseUrl && normalized.frigateCamera
+          ? await fetchWithTimeout(
+              frigateSnapshotUrl(
+                normalized.frigateBaseUrl,
+                normalized.frigateCamera,
+              ),
+              normalized,
+            )
+          : await fetchWithTimeout(normalized.streamUrl, normalized);
 
       return {
         checkedAt: now,
         detail: response.ok
-          ? "Frigate returned a latest-frame image for this camera."
+          ? "Frigate returned a camera response for this restream URL."
           : `Frigate responded with HTTP ${response.status}.`,
         kind: "mjpeg",
         reachable: response.ok,
@@ -204,7 +246,7 @@ export async function testCameraSource(
     } catch {
       return {
         checkedAt: now,
-        detail: "BambuView could not reach the Frigate latest-frame endpoint.",
+        detail: "BambuView could not reach the Frigate restream endpoint.",
         kind: "mjpeg",
         reachable: false,
         status: "offline",
@@ -270,13 +312,15 @@ export function cameraProxyTarget(
   mode: "snapshot" | "stream",
 ): string | null {
   if (source.provider === "frigate") {
+    if (mode === "stream") {
+      return source.rawStreamUrl || null;
+    }
+
     if (!source.frigateBaseUrl || !source.frigateCamera) {
       return null;
     }
 
-    return mode === "snapshot"
-      ? frigateSnapshotUrl(source.frigateBaseUrl, source.frigateCamera)
-      : frigateStreamUrl(source.frigateBaseUrl, source.frigateCamera);
+    return frigateSnapshotUrl(source.frigateBaseUrl, source.frigateCamera);
   }
 
   if (

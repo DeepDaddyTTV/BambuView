@@ -59,7 +59,6 @@ import { BAMBU_PRINTER_MODELS } from "@bambuview/contracts";
 
 import { useAppearance } from "../app/appearance";
 import { APP_VERSION } from "../app/version";
-import cameraStageMockup from "../assets/mockup/camera-stage.png";
 import { BrandLogo, PrinterPreviewArt } from "../components/art";
 import { apiFetch } from "../lib/api";
 
@@ -267,26 +266,19 @@ function CameraFeedFrame({
   }
 
   return (
-    <div className={`relative h-full w-full overflow-hidden ${className}`}>
-      <img
-        alt={`${printer.name} camera preview placeholder`}
-        className="h-full w-full object-cover opacity-70"
-        src={cameraStageMockup}
-      />
-      <div className="absolute inset-0 grid place-items-center bg-black/45 px-6 text-center">
+    <div
+      className={`relative h-full w-full overflow-hidden bg-black ${className}`}
+    >
+      <div className="absolute inset-0 grid place-items-center px-6 text-center">
         <div>
-          <div className="text-sm uppercase tracking-[0.24em] text-zinc-400">
-            {feed?.streamKind === "rtsp" || feed?.streamKind === "bambu-native"
-              ? "Restream Required"
-              : "Camera Not Assigned"}
+          <Camera className="mx-auto mb-4 h-10 w-10 text-zinc-500" />
+          <div className="text-base font-semibold text-white">
+            No Camera Detected
           </div>
-          <div className="mt-3 text-base font-semibold text-white">
-            {feed?.label ?? "Assign a camera feed"}
-          </div>
-          <div className="mt-2 max-w-md text-sm leading-6 text-zinc-300">
+          <div className="mt-2 max-w-md text-xs leading-5 text-zinc-300">
             {feed?.streamKind === "rtsp" || feed?.streamKind === "bambu-native"
-              ? "This source is saved and assignable, but browsers need a Frigate/go2rtc/HTTP restream before BambuView can display it inline."
-              : "Add a Frigate, HTTP/MJPEG, or HLS camera source and assign it to this printer."}
+              ? "If this is in error, configure cameras in Cameras with a Frigate/go2rtc restream."
+              : "If this is in error, configure cameras in Cameras and assign one to this printer."}
           </div>
         </div>
       </div>

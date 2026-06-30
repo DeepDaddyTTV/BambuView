@@ -253,9 +253,16 @@ export interface CameraSource {
   lastTestedAt: string | null;
 }
 
+export const FLEET_CAMERA_TARGET_ID = "fleet:default";
+
+export type CameraAssignmentTargetType = "printer" | "fleet";
+
 export interface CameraAssignment {
   printerId: string;
   printerName: string;
+  targetId: string;
+  targetName: string;
+  targetType: CameraAssignmentTargetType;
   sourceId: string;
   sourceName: string;
   feedId: string;
@@ -281,6 +288,7 @@ export interface CameraAssignmentInput {
   feedLabel: string;
   printerId: string;
   sourceId: string;
+  targetType?: CameraAssignmentTargetType;
 }
 
 export interface CameraTestResult {

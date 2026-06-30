@@ -5,6 +5,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import {
   BAMBU_PRINTER_MODELS,
+  FLEET_CAMERA_TARGET_ID,
   type AppearanceSettings,
   type AuthSession,
   type CameraAssignmentInput,
@@ -172,18 +173,17 @@ const cameraSourceSchema = z
   })
   .superRefine((value, context) => {
     if (value.provider === "frigate") {
-      if (!value.frigateBaseUrl) {
+      const hasRestreamUrl = Boolean(value.streamUrl);
+      const hasStructuredTarget = Boolean(
+        value.frigateBaseUrl && value.frigateCamera,
+      );
+
+      if (!hasRestreamUrl && !hasStructuredTarget) {
         context.addIssue({
           code: "custom",
-          message: "Frigate base URL is required.",
-          path: ["frigateBaseUrl"],
-        });
-      }
-      if (!value.frigateCamera) {
-        context.addIssue({
-          code: "custom",
-          message: "Frigate camera name is required.",
-          path: ["frigateCamera"],
+          message:
+            "Frigate restream URL is required, for example http://frigate:5000/api/workbench_left.",
+          path: ["streamUrl"],
         });
       }
       return;
@@ -200,8 +200,9 @@ const cameraSourceSchema = z
 
 const cameraAssignmentSchema = z.object({
   feedLabel: z.string().trim().min(2).max(80),
-  printerId: z.string().trim().min(1).max(120),
+  printerId: z.string().trim().min(1).max(160),
   sourceId: z.uuid(),
+  targetType: z.enum(["printer", "fleet"]).optional().default("printer"),
 });
 
 const fleetModeSchema = z.object({
@@ -748,8 +749,14 @@ export async function registerRoutes(
       dependencies.db,
       body.printerId,
     );
-    if (!printer) {
+    if (body.targetType === "printer" && !printer) {
       return reply.code(404).send({ message: "Printer not found." });
+    }
+    if (
+      body.targetType === "fleet" &&
+      body.printerId !== FLEET_CAMERA_TARGET_ID
+    ) {
+      return reply.code(400).send({ message: "Unknown fleet camera target." });
     }
 
     return {

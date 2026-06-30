@@ -11,6 +11,7 @@ import {
   type BambuPrinterConnectionInput,
   type CameraAssignment,
   type CameraAssignmentInput,
+  type CameraAssignmentTargetType,
   type CameraProviderType,
   type CameraSource,
   type CameraSourceInput,
@@ -113,6 +114,7 @@ const cameraSources = sqliteTable("camera_sources", {
 
 const cameraAssignments = sqliteTable("camera_assignments", {
   id: text("id").primaryKey(),
+  targetType: text("target_type").$type<CameraAssignmentTargetType>().notNull(),
   printerId: text("printer_id").notNull(),
   sourceId: text("source_id")
     .notNull()
@@ -266,12 +268,13 @@ export function createDatabase(databaseFile: string): DatabaseClient {
     );
     CREATE TABLE IF NOT EXISTS camera_assignments (
       id TEXT PRIMARY KEY,
+      target_type TEXT NOT NULL DEFAULT 'printer',
       printer_id TEXT NOT NULL,
       source_id TEXT NOT NULL REFERENCES camera_sources(id) ON DELETE CASCADE,
       feed_label TEXT NOT NULL,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      UNIQUE(printer_id, source_id, feed_label)
+      UNIQUE(target_type, printer_id, source_id, feed_label)
     );
   `);
 
@@ -285,6 +288,17 @@ export function createDatabase(databaseFile: string): DatabaseClient {
   ) {
     sqlite.exec(
       "ALTER TABLE printer_connections ADD COLUMN connection_mode TEXT NOT NULL DEFAULT 'lan';",
+    );
+  }
+
+  const cameraAssignmentColumns = sqlite
+    .prepare("PRAGMA table_info(camera_assignments)")
+    .all() as Array<{ name: string }>;
+  if (
+    !cameraAssignmentColumns.some((column) => column.name === "target_type")
+  ) {
+    sqlite.exec(
+      "ALTER TABLE camera_assignments ADD COLUMN target_type TEXT NOT NULL DEFAULT 'printer';",
     );
   }
 
@@ -370,7 +384,8 @@ function cameraProxyUrls(
 
   return {
     snapshotUrl:
-      row.streamKind === "snapshot" || row.provider === "frigate"
+      row.streamKind === "snapshot" ||
+      (row.provider === "frigate" && row.frigateBaseUrl && row.frigateCamera)
         ? `/api/cameras/sources/${row.id}/snapshot`
         : null,
     streamUrl: canProxy
@@ -607,7 +622,7 @@ export async function listCameraSources(
   const assignedBySource = new Map<string, string[]>();
   for (const assignment of assignments) {
     const existing = assignedBySource.get(assignment.sourceId) ?? [];
-    existing.push(assignment.printerId);
+    existing.push(assignment.targetId);
     assignedBySource.set(assignment.sourceId, existing);
   }
 
@@ -625,7 +640,7 @@ export async function listCameraSourceSecrets(
   const assignedBySource = new Map<string, string[]>();
   for (const assignment of assignments) {
     const existing = assignedBySource.get(assignment.sourceId) ?? [];
-    existing.push(assignment.printerId);
+    existing.push(assignment.targetId);
     assignedBySource.set(assignment.sourceId, existing);
   }
 
@@ -698,6 +713,7 @@ export async function listCameraAssignments(
       printerId: cameraAssignments.printerId,
       sourceId: cameraAssignments.sourceId,
       sourceName: cameraSources.name,
+      targetType: cameraAssignments.targetType,
     })
     .from(cameraAssignments)
     .leftJoin(cameraSources, eq(cameraAssignments.sourceId, cameraSources.id))
@@ -709,9 +725,18 @@ export async function listCameraAssignments(
     feedId: row.feedId,
     feedLabel: row.feedLabel,
     printerId: row.printerId,
-    printerName: printerById.get(row.printerId)?.name ?? row.printerId,
+    printerName:
+      row.targetType === "fleet"
+        ? "Fleet Overview"
+        : (printerById.get(row.printerId)?.name ?? row.printerId),
     sourceId: row.sourceId,
     sourceName: row.sourceName ?? row.sourceId,
+    targetId: row.printerId,
+    targetName:
+      row.targetType === "fleet"
+        ? "Fleet Overview"
+        : (printerById.get(row.printerId)?.name ?? row.printerId),
+    targetType: row.targetType,
   }));
 }
 
@@ -720,8 +745,10 @@ export async function upsertCameraAssignment(
   input: CameraAssignmentInput,
 ): Promise<CameraAssignment> {
   const timestamp = nowIso();
+  const targetType = input.targetType ?? "printer";
   const existing = await db.query.cameraAssignments.findFirst({
     where: and(
+      eq(cameraAssignments.targetType, targetType),
       eq(cameraAssignments.printerId, input.printerId),
       eq(cameraAssignments.sourceId, input.sourceId),
       eq(cameraAssignments.feedLabel, input.feedLabel.trim()),
@@ -730,6 +757,7 @@ export async function upsertCameraAssignment(
 
   const row: typeof cameraAssignments.$inferInsert = {
     id: existing?.id ?? randomUUID(),
+    targetType,
     printerId: input.printerId,
     sourceId: input.sourceId,
     feedLabel: input.feedLabel.trim(),
@@ -758,9 +786,13 @@ export async function upsertCameraAssignment(
       feedId: row.id,
       feedLabel: row.feedLabel,
       printerId: row.printerId,
-      printerName: row.printerId,
+      printerName:
+        row.targetType === "fleet" ? "Fleet Overview" : row.printerId,
       sourceId: row.sourceId,
       sourceName: row.sourceId,
+      targetId: row.printerId,
+      targetName: row.targetType === "fleet" ? "Fleet Overview" : row.printerId,
+      targetType: row.targetType,
     }
   );
 }
