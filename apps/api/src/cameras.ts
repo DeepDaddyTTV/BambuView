@@ -140,10 +140,6 @@ export function inferCameraStreamKind(
     return "bambu-native";
   }
 
-  if (provider === "bambu-connect") {
-    return "unknown";
-  }
-
   const normalized = streamUrl.toLowerCase();
   if (normalized.endsWith(".m3u8")) {
     return "hls";
@@ -189,11 +185,17 @@ export function normalizeCameraSourceInput(
     details:
       provider === "frigate"
         ? "Frigate restream URL saved. BambuView proxies the MJPEG feed for browser playback and assignment."
-        : streamKind === "rtsp"
-          ? "RTSP source saved. Add it through Frigate/go2rtc or another HTTP restreamer to embed it in the browser."
-          : streamKind === "bambu-native"
-            ? "Native Bambu source saved. BambuView can detect it, but browser playback needs a compatible restream."
-            : "Camera source is browser-renderable through BambuView's proxy.",
+        : provider === "bambu-connect"
+          ? "BambuConnect Direct source saved. This must be a browser-compatible stream or bridge URL; the desktop plugin itself is not exposed directly to the web container."
+          : provider === "network-plugin"
+            ? "Bambu Network Plugin bridge saved. Use a local bridge endpoint that exposes MJPEG, HLS, or snapshot output to BambuView."
+            : provider === "bambuview-companion"
+              ? "BambuView Companion endpoint saved. Companion should expose a browser-compatible local stream back to BambuView."
+              : streamKind === "rtsp"
+                ? "RTSP source saved. Add it through Frigate/go2rtc or another HTTP restreamer to embed it in the browser."
+                : streamKind === "bambu-native"
+                  ? "Native Bambu source saved. BambuView can detect it, but browser playback needs a compatible restream."
+                  : "Camera source is browser-renderable through BambuView's proxy.",
     frigateBaseUrl,
     frigateCamera,
     password: input.password?.trim() ?? "",
@@ -201,6 +203,73 @@ export function normalizeCameraSourceInput(
     streamKind,
     streamUrl: rawStreamUrl,
     username: input.username?.trim() ?? "",
+  };
+}
+
+function contentTypeIsRenderable(
+  kind: CameraStreamKind,
+  contentType: string | null,
+): boolean {
+  const normalized = contentType?.toLowerCase() ?? "";
+  if (kind === "mjpeg") {
+    return (
+      normalized.includes("multipart") ||
+      normalized.includes("image/") ||
+      normalized.includes("octet-stream")
+    );
+  }
+
+  if (kind === "snapshot") {
+    return normalized.includes("image/");
+  }
+
+  if (kind === "hls") {
+    return (
+      normalized.includes("mpegurl") ||
+      normalized.includes("application/vnd.apple") ||
+      normalized.includes("text/plain")
+    );
+  }
+
+  if (kind === "unknown") {
+    return (
+      normalized.includes("multipart") ||
+      normalized.includes("image/") ||
+      normalized.includes("video/") ||
+      normalized.includes("mpegurl")
+    );
+  }
+
+  return false;
+}
+
+function httpCameraResult(
+  response: Response,
+  kind: CameraStreamKind,
+  okDetail: string,
+): CameraTestResult {
+  const now = checkedAt();
+  const contentType = response.headers.get("content-type");
+  const renderable = response.ok && contentTypeIsRenderable(kind, contentType);
+
+  if (renderable) {
+    return {
+      checkedAt: now,
+      detail: okDetail,
+      kind,
+      reachable: true,
+      status: "online",
+    };
+  }
+
+  return {
+    checkedAt: now,
+    detail: response.ok
+      ? `The endpoint responded, but its content type (${contentType ?? "unknown"}) does not look browser-renderable. Use an MJPEG, HLS, JPEG snapshot, or Frigate/go2rtc restream URL.`
+      : `The camera endpoint responded with HTTP ${response.status}.`,
+    kind,
+    reachable: response.ok,
+    status: response.ok ? "degraded" : "offline",
   };
 }
 
@@ -234,15 +303,11 @@ export async function testCameraSource(
             )
           : await fetchWithTimeout(normalized.streamUrl, normalized);
 
-      return {
-        checkedAt: now,
-        detail: response.ok
-          ? "Frigate returned a camera response for this restream URL."
-          : `Frigate responded with HTTP ${response.status}.`,
-        kind: "mjpeg",
-        reachable: response.ok,
-        status: response.ok ? "online" : "offline",
-      };
+      return httpCameraResult(
+        response,
+        "mjpeg",
+        "Frigate returned a browser-renderable camera response for this restream URL.",
+      );
     } catch {
       return {
         checkedAt: now,
@@ -287,15 +352,11 @@ export async function testCameraSource(
   try {
     const response = await fetchWithTimeout(normalized.streamUrl, normalized);
 
-    return {
-      checkedAt: now,
-      detail: response.ok
-        ? "The camera endpoint responded through HTTP."
-        : `The camera endpoint responded with HTTP ${response.status}.`,
-      kind: normalized.streamKind,
-      reachable: response.ok,
-      status: response.ok ? "online" : "offline",
-    };
+    return httpCameraResult(
+      response,
+      normalized.streamKind,
+      "The camera endpoint responded with browser-renderable media.",
+    );
   } catch {
     return {
       checkedAt: now,

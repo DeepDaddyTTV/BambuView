@@ -522,11 +522,11 @@ function integrationCopyForConnection(
   connection: PrinterConnectionRecord,
 ): string {
   if (connection.connectionMode === "bambu-connect") {
-    return "Bambu Connect handles authorized camera, monitoring, controls, and sliced-file handoff.";
+    return "Bambu Connect profile saved for slicer handoff. Live telemetry and cameras need LAN/Developer telemetry or an assigned browser-compatible restream.";
   }
 
   if (connection.connectionMode === "cloud") {
-    return "Cloud / Normal keeps the printer in Bambu's normal account workflow and uses Bambu Connect for secure job handoff.";
+    return "Cloud / Normal profile saved. Use LAN/Developer telemetry for live progress, or assign a Frigate/go2rtc/direct camera source.";
   }
 
   if (connection.connectionMode === "developer") {
@@ -534,6 +534,45 @@ function integrationCopyForConnection(
   }
 
   return "LAN Mode uses local MQTT for status telemetry and Bambu Connect for restricted commands.";
+}
+
+function telemetryStateForConnection(
+  connection: PrinterConnectionRecord,
+  telemetry: BambuPrinterTelemetry | null,
+): NonNullable<PrinterDetail["telemetryState"]> {
+  if (telemetry) {
+    return "live";
+  }
+
+  if (
+    connection.connectionMode === "bambu-connect" ||
+    connection.connectionMode === "cloud"
+  ) {
+    return "limited";
+  }
+
+  return connection.connectionStatus === "offline" ? "offline" : "pending";
+}
+
+function telemetryLabelForConnection(
+  connection: PrinterConnectionRecord,
+  telemetry: BambuPrinterTelemetry | null,
+): string {
+  if (telemetry) {
+    return telemetry.statusLabel;
+  }
+
+  if (connection.connectionMode === "bambu-connect") {
+    return "BambuConnect Handoff Saved";
+  }
+
+  if (connection.connectionMode === "cloud") {
+    return "Cloud / Normal Saved";
+  }
+
+  return connection.connectionStatus === "online"
+    ? "Waiting For Telemetry"
+    : "Offline";
 }
 
 function formatTemperature(
@@ -665,6 +704,7 @@ function detailForConnection(
   const modeLabel = modeLabelForConnection(connection);
   const integrationCopy = integrationCopyForConnection(connection);
   const status = telemetry?.printStatus ?? (isReachable ? "idle" : "offline");
+  const telemetryState = telemetryStateForConnection(connection, telemetry);
   const slots = telemetrySlots(telemetry);
   const selectedCameraFeeds = cameraFeedsForConnection(
     connection,
@@ -689,31 +729,31 @@ function detailForConnection(
     shortCode: shortCodeForConnection(connection),
     name: connection.name,
     status: isCloudMode || isBambuConnectMode ? "idle" : status,
-    statusLabel: telemetry
-      ? telemetry.statusLabel
-      : isReachable
-        ? `${modeLabel} Ready`
-        : isBambuConnectMode
-          ? "Bambu Connect Ready"
-          : isCloudMode
-            ? "Cloud / Normal Ready"
-            : "Offline",
+    statusLabel: telemetryLabelForConnection(connection, telemetry),
+    telemetryMessage: integrationCopy,
+    telemetryState,
     progress: telemetry?.progress ?? 0,
     layer: telemetry
       ? layerLabel(telemetry)
-      : isReachable
-        ? `Connected through Bambu ${modeLabel}`
-        : modeLabel,
+      : telemetryState === "limited"
+        ? "Live telemetry not connected"
+        : isReachable
+          ? `Connected through Bambu ${modeLabel}`
+          : modeLabel,
     eta: telemetry
       ? formatEta(telemetry.remainingMinutes)
-      : isReachable
+      : telemetryState === "limited"
+        ? "Assign telemetry"
+        : isReachable
         ? "Ready"
         : isBambuConnectMode || isCloudMode
           ? "Ready"
           : "Offline",
     elapsed: telemetry
       ? formatMinutes(telemetry.elapsedMinutes)
-      : isReachable
+      : telemetryState === "limited"
+        ? "Limited"
+        : isReachable
         ? "Idle"
         : isBambuConnectMode
           ? "Bridge"
@@ -722,11 +762,19 @@ function detailForConnection(
             : "No heartbeat",
     fileName:
       telemetry?.fileName ??
-      (isReachable ? "Waiting for live telemetry." : integrationCopy),
+      (telemetryState === "limited"
+        ? "Live progress unavailable through this profile."
+        : isReachable
+          ? "Waiting for live telemetry."
+          : integrationCopy),
     location: modeLabel,
     material: slots[0]?.material ?? "PLA",
-    materialColor: slots[0]?.colorName ?? "Unknown",
-    nozzleProfile: "Printer profile pending",
+    materialColor:
+      telemetryState === "limited"
+        ? "Use LAN telemetry"
+        : (slots[0]?.colorName ?? "Unknown"),
+    nozzleProfile:
+      telemetryState === "limited" ? "Telemetry not connected" : "Live profile",
     cameraLabel: primaryFeed?.label ?? "Printer Cam",
     previewKind: previewKindForConnection(connection),
     serial: connection.serial,

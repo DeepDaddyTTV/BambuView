@@ -239,27 +239,37 @@ function CameraFeedFrame({
   feed: PrinterDetail["cameraFeeds"][number] | null;
   printer: PrinterDetail;
 }) {
-  const sourceUrl = feed?.streamUrl ?? feed?.snapshotUrl;
+  const sourceUrl =
+    feed?.streamKind === "hls"
+      ? feed.streamUrl
+      : (feed?.snapshotUrl ?? feed?.streamUrl);
+  const [loadFailed, setLoadFailed] = useState(false);
   const canRender =
     feed && sourceUrl && ["mjpeg", "snapshot", "hls"].includes(feed.streamKind);
 
-  if (canRender && feed.streamKind === "hls") {
+  useEffect(() => {
+    setLoadFailed(false);
+  }, [sourceUrl]);
+
+  if (canRender && feed.streamKind === "hls" && !loadFailed) {
     return (
       <video
         className={`h-full w-full bg-black object-cover ${className}`}
         controls
         muted
+        onError={() => setLoadFailed(true)}
         playsInline
         src={sourceUrl}
       />
     );
   }
 
-  if (canRender) {
+  if (canRender && !loadFailed) {
     return (
       <img
         alt={`${printer.name} ${feed.label}`}
         className={`h-full w-full bg-black object-cover ${className}`}
+        onError={() => setLoadFailed(true)}
         src={sourceUrl}
       />
     );
@@ -273,12 +283,15 @@ function CameraFeedFrame({
         <div>
           <Camera className="mx-auto mb-4 h-10 w-10 text-zinc-500" />
           <div className="text-base font-semibold text-white">
-            No Camera Detected
+            {loadFailed ? "Camera Preview Unavailable" : "No Camera Detected"}
           </div>
           <div className="mt-2 max-w-md text-xs leading-5 text-zinc-300">
-            {feed?.streamKind === "rtsp" || feed?.streamKind === "bambu-native"
-              ? "If this is in error, configure cameras in Cameras with a Frigate/go2rtc restream."
-              : "If this is in error, configure cameras in Cameras and assign one to this printer."}
+            {loadFailed
+              ? "The source is assigned, but the browser could not render the feed. Check the stream URL or use a Frigate/go2rtc MJPEG, HLS, or snapshot restream."
+              : feed?.streamKind === "rtsp" ||
+                  feed?.streamKind === "bambu-native"
+                ? "If this is in error, configure cameras in Cameras with a Frigate/go2rtc restream."
+                : "If this is in error, configure cameras in Cameras and assign one to this printer."}
           </div>
         </div>
       </div>
@@ -386,6 +399,7 @@ function StandardPrinterCard({
   printer: PrinterSummary;
 }) {
   const tone = printerTone(printer);
+  const hasLimitedTelemetry = printer.telemetryState === "limited";
   const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
@@ -435,6 +449,29 @@ function StandardPrinterCard({
             </div>
             <div className="fleet-console-card__offline-body">
               Check the connection and power.
+            </div>
+          </div>
+        ) : hasLimitedTelemetry ? (
+          <div className="fleet-console-card__idle-copy">
+            <div className="fleet-console-card__idle-topline">
+              <div className="fleet-console-card__idle-body">
+                <div className="fleet-console-card__idle-title">
+                  Live data not connected
+                </div>
+                <div className="fleet-console-card__idle-subtitle">
+                  {printer.telemetryMessage ??
+                    "Use LAN/Developer telemetry or assign a camera restream."}
+                </div>
+              </div>
+              <div className="fleet-console-card__time">
+                <div>Limited</div>
+                <div>Profile</div>
+              </div>
+            </div>
+            <div className="fleet-console-card__meta-line">
+              <span>{printer.location}</span>
+              <span>&bull;</span>
+              <span>{printer.nozzleProfile}</span>
             </div>
           </div>
         ) : printer.status === "idle" ? (
@@ -670,21 +707,21 @@ const bambuConnectionModes: Array<{
     label: "Cloud / Normal",
     summary: "Normal Bambu account workflow.",
     description:
-      "Uses Bambu Connect for authorized file handoff, camera, status, and controls without switching the printer to LAN-only.",
+      "Keeps normal Bambu behavior and creates a saved profile for import-link handoff without claiming live telemetry.",
   },
   {
     key: "bambu-connect",
     label: "Bambu Connect",
-    summary: "Authorized Bambu integration path.",
+    summary: "Import-link handoff profile.",
     description:
-      "Launches Bambu Connect for sliced-file import and uses Bambu's supported network-plugin path for restricted functions.",
+      "Launches Bambu Connect for sliced-file import and stays limited until LAN telemetry or a bridge endpoint is configured.",
   },
   {
     key: "lan",
     label: "LAN Mode",
-    summary: "Local status plus authorized actions.",
+    summary: "Local status telemetry.",
     description:
-      "Uses local MQTT for status telemetry and Bambu Connect for camera, print start, and restricted control actions.",
+      "Uses local MQTT for print progress, temperatures, layers, file names, and AMS state.",
   },
   {
     key: "developer",
@@ -1487,6 +1524,7 @@ function DetailPanel({
   const tone = printerTone(printer);
   const fans = fanMetrics(printer);
   const activeFeed = selectedCameraFeed(printer, selectedFeedId);
+  const hasLimitedTelemetry = printer.telemetryState === "limited";
 
   useEffect(() => {
     startTransition(() => {
@@ -1574,35 +1612,62 @@ function DetailPanel({
               <span>{printer.statusLabel}</span>
             </div>
             <div className="fleet-console-status__rows">
-              <div>
-                <span>File</span>
-                <span>{printer.fileName}</span>
-              </div>
-              <div>
-                <span>Layer</span>
-                <span>{printer.layer}</span>
-              </div>
-              <div>
-                <span>Progress</span>
-                <span>{printer.progress}%</span>
-              </div>
-              <div>
-                <span>Print Time</span>
-                <span>{printer.elapsed}</span>
-              </div>
-              <div>
-                <span>ETA</span>
-                <span>{printer.eta}</span>
-              </div>
+              {hasLimitedTelemetry ? (
+                <>
+                  <div>
+                    <span>Mode</span>
+                    <span>{printer.location}</span>
+                  </div>
+                  <div>
+                    <span>Live Data</span>
+                    <span>Not connected</span>
+                  </div>
+                  <div>
+                    <span>Camera</span>
+                    <span>
+                      {activeFeed?.sourceId ? "Assigned" : "Unassigned"}
+                    </span>
+                  </div>
+                  <div>
+                    <span>Next Step</span>
+                    <span>Use LAN/Developer or assign a restream</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <span>File</span>
+                    <span>{printer.fileName}</span>
+                  </div>
+                  <div>
+                    <span>Layer</span>
+                    <span>{printer.layer}</span>
+                  </div>
+                  <div>
+                    <span>Progress</span>
+                    <span>{printer.progress}%</span>
+                  </div>
+                  <div>
+                    <span>Print Time</span>
+                    <span>{printer.elapsed}</span>
+                  </div>
+                  <div>
+                    <span>ETA</span>
+                    <span>{printer.eta}</span>
+                  </div>
+                </>
+              )}
             </div>
-            <div className="fleet-console-status__progress">
-              <div className="fleet-console-meter">
-                <div
-                  className={`fleet-console-meter__bar ${tone.progressClass}`}
-                  style={{ width: `${printer.progress}%` }}
-                />
+            {!hasLimitedTelemetry ? (
+              <div className="fleet-console-status__progress">
+                <div className="fleet-console-meter">
+                  <div
+                    className={`fleet-console-meter__bar ${tone.progressClass}`}
+                    style={{ width: `${printer.progress}%` }}
+                  />
+                </div>
               </div>
-            </div>
+            ) : null}
           </div>
           <FleetPreview large printer={printer} />
         </div>

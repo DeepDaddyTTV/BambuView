@@ -40,6 +40,8 @@ import {
   createInvite,
   createPrinterConnection,
   createUser,
+  deleteCameraAssignment,
+  deleteCameraSource,
   findActiveInviteByTokenHash,
   findInviteById,
   getCameraSourceSecretById,
@@ -52,6 +54,7 @@ import {
   listPrinterConnections,
   listUsers,
   markInviteUsed,
+  updateCameraSource,
   upsertCameraAssignment,
   type AppDatabase,
   upsertAppearance,
@@ -166,7 +169,9 @@ const cameraSourceSchema = z
       "direct-mjpeg",
       "bambu",
       "bambu-connect",
+      "bambuview-companion",
       "farm-overview",
+      "network-plugin",
     ]),
     streamUrl: z.string().trim().max(2048).optional(),
     username: z.string().trim().max(160).optional(),
@@ -728,6 +733,54 @@ export async function registerRoutes(
     });
   });
 
+  app.put("/api/cameras/sources/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const body: CameraSourceInput = cameraSourceSchema.parse(request.body);
+    const normalized = normalizeCameraSourceInput(body);
+    const test = await testCameraSource(body);
+    const source = await updateCameraSource(dependencies.db, params.id, {
+      ...body,
+      details: test.detail || normalized.details,
+      frigateBaseUrl: normalized.frigateBaseUrl ?? undefined,
+      frigateCamera: normalized.frigateCamera ?? undefined,
+      lastTestedAt: test.checkedAt,
+      password: normalized.password,
+      status: test.status,
+      streamKind: normalized.streamKind,
+      streamUrl: normalized.streamUrl,
+      username: normalized.username,
+    });
+
+    if (!source) {
+      return reply.code(404).send({ message: "Camera source not found." });
+    }
+
+    return {
+      source,
+      test,
+    };
+  });
+
+  app.delete("/api/cameras/sources/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const deleted = await deleteCameraSource(dependencies.db, params.id);
+    if (!deleted) {
+      return reply.code(404).send({ message: "Camera source not found." });
+    }
+
+    return reply.code(204).send();
+  });
+
   app.post("/api/cameras/assignments", async (request, reply) => {
     const session = await requireAdmin(request, reply, dependencies);
     if (!session || "statusCode" in session) {
@@ -762,6 +815,21 @@ export async function registerRoutes(
     return {
       assignment: await upsertCameraAssignment(dependencies.db, body),
     };
+  });
+
+  app.delete("/api/cameras/assignments/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const deleted = await deleteCameraAssignment(dependencies.db, params.id);
+    if (!deleted) {
+      return reply.code(404).send({ message: "Camera assignment not found." });
+    }
+
+    return reply.code(204).send();
   });
 
   async function proxyCamera(

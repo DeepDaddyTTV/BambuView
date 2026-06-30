@@ -9,8 +9,8 @@ BambuView supports four Bambu printer connection profiles. Each profile maps to 
 
 | Profile              | Best for                                                                               | What to expect                                                                                                                                        |
 | -------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Cloud / Normal`     | Keeping Bambu Handy, Bambu Studio cloud workflows, and normal printer behavior active. | BambuView keeps the printer in normal Bambu account flow and uses Bambu Connect for authorized file handoff and restricted functions.                 |
-| `Bambu Connect`      | Camera/live view, printer status, controls, and slicer job handoff through Bambu.      | BambuView generates Bambu Connect import links and treats Bambu Connect/network plugin as the authorized path for restricted commands.                |
+| `Cloud / Normal`     | Keeping Bambu Handy, Bambu Studio cloud workflows, and normal printer behavior active. | BambuView keeps the printer in normal Bambu account flow and generates Bambu Connect import links for file handoff.                                   |
+| `Bambu Connect`      | Bambu Connect import-link handoff and future bridge support.                           | BambuView saves the profile as limited until a LAN/Developer telemetry path or browser-compatible camera bridge is configured.                        |
 | `LAN Mode`           | Local status telemetry from the BambuView container to the printer.                    | Requires the printer's local host/IP and LAN access code. BambuView reads local MQTT print progress and uses Bambu Connect for restricted operations. |
 | `LAN-only Developer` | Direct local telemetry, camera, file transfer, and printer-control work.               | Requires LAN-only and Developer Mode on the printer. Bambu cloud/Handy access for that printer should be treated as off while this is enabled.        |
 
@@ -37,11 +37,11 @@ Use this when you want the printer saved in BambuView but do not want to interru
 6. Leave the host/IP and LAN access code blank unless you already have them.
 7. Save the printer.
 
-The printer appears in the live Fleet view with Bambu Connect capability checks. This keeps normal Bambu behavior intact while still giving BambuView a secure job-handoff path.
+The printer appears in the live Fleet view as a limited handoff profile. This keeps normal Bambu behavior intact while still giving BambuView a secure job-handoff path.
 
 ## Use Bambu Connect
 
-Use this when you want BambuView to target Bambu's supported path for camera/live view, print status, controls, and sending jobs from slicer workflows.
+Use this when you want BambuView to generate Bambu Connect import links and keep a saved profile ready for future bridge support.
 
 1. Install and configure Bambu Connect on a machine that can reach your printer.
 2. In BambuView, open `Fleet`.
@@ -97,7 +97,7 @@ If you do not see Developer Mode, update the printer firmware if appropriate for
 5. Select `Test Connection`.
 6. Save the printer.
 
-BambuView tests raw LAN and Developer profiles with local MQTT capability checks, then uses the same MQTT report path for live print progress, temperatures, layers, file names, and AMS slots when the printer is reachable. Bambu Connect and Cloud / Normal profiles expose Bambu Connect capability checks and the Prepare page can generate the official import-file URL for sliced jobs.
+BambuView tests raw LAN and Developer profiles with local MQTT capability checks, then uses the same MQTT report path for live print progress, temperatures, layers, file names, and AMS slots when the printer is reachable. Bambu Connect and Cloud / Normal profiles stay limited in Fleet until a LAN/Developer telemetry path or camera bridge is configured, and the Prepare page can generate the official import-file URL for sliced jobs.
 
 ## If The Test Fails
 

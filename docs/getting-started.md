@@ -93,8 +93,8 @@ Your appearance settings are saved to your local account.
 1. Open `Fleet`.
 2. Select `Add Printer or Farm`.
 3. Choose the connection profile:
-   - `Cloud / Normal` if you want to keep Bambu Handy and cloud behavior active while using Bambu Connect for authorized actions.
-   - `Bambu Connect` if you want Bambu's supported camera, monitoring, controls, and slicer job-handoff path.
+   - `Cloud / Normal` if you want to keep Bambu Handy and cloud behavior active while saving the printer in BambuView.
+   - `Bambu Connect` if you want Bambu Connect import-link handoff and future bridge support without claiming live web telemetry yet.
    - `LAN Mode` if you have the printer IP or hostname and LAN access code and want local MQTT status checks.
    - `LAN-only Developer` if LAN-only and Developer Mode are enabled on the printer and you want direct local protocols.
 4. Pick the printer model. Current H2, X2, P2, A2, X1, P1, and A1 family options are included.
@@ -111,22 +111,26 @@ For a full printer-side walkthrough, read [Bambu Connection Modes](./lan-mode.md
 1. Open `Cameras`.
 2. Choose the camera type:
    - `Frigate` for a Frigate MJPEG restream URL, such as `http://frigate:5000/api/workbench_left`.
+   - `BambuConnect Direct` for a browser-compatible bridge URL from a Bambu Connect workflow.
+   - `Bambu Network Plugin` for a local Network Plugin bridge endpoint that exposes MJPEG, HLS, or snapshot output.
+   - `BambuView Companion` for a future local helper endpoint.
    - `Direct MJPEG` for a browser-renderable MJPEG endpoint.
-   - `Direct HTTP/JPEG/HLS` for a still image, MJPEG-like HTTP endpoint, or HLS playlist.
+   - `Direct Snapshot / HLS` for a still image, MJPEG-like HTTP endpoint, or HLS playlist.
    - `Direct RTSP` for a raw RTSP source you plan to restream through Frigate, go2rtc, or another bridge.
 3. Enter credentials only if the upstream camera requires them.
 4. Select `Test` to check whether BambuView can reach the source.
-5. Save the source.
-6. Use `Assign Feed` to attach that source to a saved printer or to `Fleet Overview` as `Printer Cam`, `AMS Cam`, `Enclosure Cam`, `Studio Overview`, or `Fleet Overview`.
+5. Optionally choose a printer or `Fleet Overview` in `Assign When Saved`.
+6. Save the source.
+7. If you did not assign it while saving, use `Assign Feed` to attach that source to a saved printer or to `Fleet Overview` as `Printer Cam`, `AMS Cam`, `Enclosure Cam`, `Studio Overview`, or `Fleet Overview`.
 
-Frigate and HTTP-compatible feeds are proxied through BambuView so the browser does not receive upstream credentials. RTSP and native Bambu streams need a restreamer such as Frigate or go2rtc before a browser can play them.
+Frigate and HTTP-compatible feeds are proxied through BambuView so the browser does not receive upstream credentials. RTSP and native Bambu streams need a restreamer such as Frigate, go2rtc, a Network Plugin bridge, or BambuView Companion before a browser can play them.
 
 If a printer has no assigned browser-compatible camera, its camera panel shows `No Camera Detected`. If that is wrong, open `Cameras`, save a Frigate/go2rtc/HTTP-compatible feed, and assign it to the printer.
 
 For the full walkthrough, read [Camera Setup](./cameras.md).
 
-## What to expect in `0.0.27` alpha
+## What to expect in `0.0.28` alpha
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 
-Saved Bambu printers now persist locally and appear in Fleet when the Fleet page is set to `Live`. LAN and Developer profiles read local MQTT status reports for print progress, layers, temperatures, active file, and filament slots when the printer is reachable. Cloud / Normal and Bambu Connect profiles still use Bambu Connect as the supported path for restricted functions. `Prepare & Slice` can generate the official Bambu Connect import URL for a sliced G-code or 3MF file that exists on the computer where Bambu Connect is installed.
+Saved Bambu printers now persist locally and appear in Fleet when the Fleet page is set to `Live`. LAN and Developer profiles read local MQTT status reports for print progress, layers, temperatures, active file, and filament slots when the printer is reachable. Cloud / Normal and Bambu Connect profiles are shown as limited handoff profiles instead of fake live telemetry. `Prepare & Slice` can generate the official Bambu Connect import URL for a sliced G-code or 3MF file that exists on the computer where Bambu Connect is installed.

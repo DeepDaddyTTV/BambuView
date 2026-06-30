@@ -5,22 +5,23 @@ description: Beginner-friendly camera setup for direct feeds, Frigate restreams,
 
 # Camera Setup
 
-BambuView can show camera feeds in two easy ways right now:
+BambuView can show camera feeds in a few practical ways right now:
 
 1. A direct browser-compatible camera URL.
 2. A Frigate or go2rtc restream URL.
+3. A browser-compatible bridge endpoint exposed by BambuConnect Direct, the Bambu Network Plugin, or a future BambuView Companion helper.
 
-The future companion app will be the fallback for Bambu native camera streams that a normal browser cannot play directly.
+The future companion app will be the beginner-friendly fallback for Bambu native camera streams that a normal browser cannot play directly.
 
 ## Why Bambu Studio And Orca Can See Bambu Cameras
 
 Bambu Studio, OrcaSlicer, and Bambu Connect run as desktop software. That gives them access to native printer networking, local plugins, and video decoders that browsers do not have.
 
-BambuView is a web app, so the browser needs a normal web video format. That usually means MJPEG, JPEG snapshot, HLS, or a stream that BambuView can proxy safely.
+BambuView is a web app running in a browser and container, so it needs a normal web video format. That usually means MJPEG, JPEG snapshot, HLS, or a bridge endpoint that BambuView can proxy safely.
 
 For Bambu printer cameras, the practical setup is:
 
-- Use Frigate or go2rtc to restream the printer camera into a browser-friendly URL.
+- Use Frigate, go2rtc, a Network Plugin bridge, or a companion endpoint to restream the printer camera into a browser-friendly URL.
 - Add that restream URL to BambuView.
 - Assign the camera to a printer or to Fleet Overview.
 
@@ -43,7 +44,7 @@ Steps:
 1. Open BambuView.
 2. Go to `Cameras`.
 3. Choose `Direct MJPEG` for an MJPEG stream.
-4. Choose `Direct HTTP/JPEG/HLS` for a snapshot URL, HTTP video URL, or `.m3u8` HLS playlist.
+4. Choose `Direct Snapshot / HLS` for a snapshot URL, HTTP video URL, or `.m3u8` HLS playlist.
 5. Paste the camera URL into `Stream URL`.
 6. Add a username and password only if the camera requires them.
 7. Select `Test`.
@@ -83,7 +84,7 @@ Example Frigate configuration:
 go2rtc:
   streams:
     workbench_left:
-      - rtsp://username:password@192.168.1.50:554/stream1
+      - rtsp://camera.example.local/stream1
 
 cameras:
   workbench_left:
@@ -118,7 +119,22 @@ If you are restreaming a Bambu printer camera, use the working input supported b
 
 BambuView proxies the Frigate stream so browser clients do not receive the upstream credentials directly.
 
-## Option 3: BambuView Companion Later
+## Option 3: BambuConnect Direct Or Network Plugin Bridge
+
+Use this when another local tool exposes a browser-friendly URL for a Bambu camera or printer view.
+
+1. Open BambuView.
+2. Go to `Cameras`.
+3. Choose `BambuConnect Direct` or `Bambu Network Plugin`.
+4. Enter a friendly name.
+5. Paste the bridge URL. It should return MJPEG, HLS, or a JPEG snapshot that a browser can render.
+6. Select `Test`.
+7. If the test says `Online`, save the source.
+8. Assign it to the printer or to `Fleet Overview`.
+
+If the test says `Degraded`, the endpoint responded but did not look browser-renderable. That usually means the bridge is returning a control page, JSON, or a native stream instead of MJPEG/HLS/snapshot media.
+
+## Option 4: BambuView Companion Later
 
 The companion app is planned as the beginner-friendly fallback for cameras that are hard to restream manually.
 
@@ -136,5 +152,6 @@ This is not required for direct MJPEG/HLS cameras or Frigate/go2rtc restreams.
 - If `Test` fails, make sure the BambuView container can reach the camera URL.
 - If the camera works from your laptop but not in BambuView, the container may be on a different network.
 - If the URL starts with `rtsp://`, use Frigate/go2rtc first. Browsers cannot play raw RTSP by themselves.
+- If the camera card says `Online` but the preview is black or unavailable, check whether the endpoint returns MJPEG, HLS, or a JPEG image instead of an HTML page or API response.
 - If the source saves but the Fleet page says `No Camera Detected`, assign the source to that printer from `Cameras`.
 - If you use HTTPS for BambuView, avoid plain HTTP camera feeds exposed across the internet. Keep camera traffic local or proxy it safely.

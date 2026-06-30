@@ -8,16 +8,16 @@ Start here:
 - [Bambu connection modes](./lan-mode.md)
 - [Camera setup](./cameras.md)
 
-What BambuView `0.0.27` alpha includes:
+What BambuView `0.0.28` alpha includes:
 
 - A local first-run admin setup flow
 - Invite-only account creation after bootstrap
 - A fleet dashboard with a mockup-aligned shell, connected sidebar utility stack, tighter spacing, fullscreen printer focus mode, and temporary live/placeholder data switching
 - Bambu printer setup with Cloud / Normal, Bambu Connect, LAN Mode, and LAN-only Developer Mode profiles
 - Current Bambu model options for H2, X2, P2, A2, X1, P1, and A1 families
-- Bambu Connect import-link generation for sliced G-code and 3MF handoff
+- Bambu Connect import-link generation for sliced G-code and 3MF handoff, with limited Fleet state instead of fake live telemetry
 - Local MQTT status polling for Bambu LAN and Developer profiles
-- Camera source setup for Frigate restream URLs, direct HTTP/MJPEG/HLS feeds, and raw RTSP feeds that will be restreamed before browser playback
+- Camera source setup for Frigate restream URLs, BambuConnect Direct bridge URLs, Bambu Network Plugin bridge URLs, BambuView Companion endpoints, direct HTTP/MJPEG/HLS feeds, and raw RTSP feeds that will be restreamed before browser playback
 - Printer and Fleet Overview camera assignment with proxied playback for browser-renderable camera sources
 - Docker Compose-first setup with persistent SQLite state
 - Appearance controls that let each user tune light mode, dark mode, background art, and the shared highlight color used across the UI

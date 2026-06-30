@@ -473,6 +473,9 @@ describe("auth and settings flows", () => {
     expect(cameraCreate.statusCode).toBe(201);
     expect(cameraCreate.json().source.name).toBe("Workbench MJPEG");
     expect(JSON.stringify(cameraCreate.json())).not.toContain("camera-secret");
+    expect(cameraCreate.json().source.displayUrl).not.toContain(
+      "camera-secret",
+    );
 
     const cameraSourceId = cameraCreate.json().source.id;
     const assignCamera = await app.inject({
@@ -538,6 +541,64 @@ describe("auth and settings flows", () => {
     expect(fleetCamera.statusCode).toBe(200);
     expect(fleetCamera.json().assignment.targetName).toBe("Fleet Overview");
     expect(fleetCamera.json().assignment.targetType).toBe("fleet");
+
+    const cameraUpdate = await app.inject({
+      method: "PUT",
+      url: `/api/cameras/sources/${cameraSourceId}`,
+      headers: {
+        cookie,
+      },
+      payload: {
+        name: "Workbench Network Bridge",
+        provider: "network-plugin",
+        streamUrl: "http://127.0.0.1:1/network-plugin.mjpg",
+      },
+    });
+
+    expect(cameraUpdate.statusCode).toBe(200);
+    expect(cameraUpdate.json().source.name).toBe("Workbench Network Bridge");
+    expect(cameraUpdate.json().source.provider).toBe("network-plugin");
+
+    const deleteFleetAssignment = await app.inject({
+      method: "DELETE",
+      url: `/api/cameras/assignments/${fleetCamera.json().assignment.feedId}`,
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(deleteFleetAssignment.statusCode).toBe(204);
+
+    const deleteCameraSource = await app.inject({
+      method: "DELETE",
+      url: `/api/cameras/sources/${cameraSourceId}`,
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(deleteCameraSource.statusCode).toBe(204);
+
+    const camerasAfterDelete = await app.inject({
+      method: "GET",
+      url: "/api/cameras",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(
+      camerasAfterDelete
+        .json()
+        .sources.map((source: { id: string }) => source.id),
+    ).not.toContain(cameraSourceId);
+    expect(
+      camerasAfterDelete
+        .json()
+        .assignments.some(
+          (item: { sourceId: string }) => item.sourceId === cameraSourceId,
+        ),
+    ).toBe(false);
 
     const duplicate = await app.inject({
       method: "POST",

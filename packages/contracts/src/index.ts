@@ -67,6 +67,8 @@ export interface PrinterSummary {
   name: string;
   status: "printing" | "paused" | "idle" | "offline";
   statusLabel: string;
+  telemetryMessage?: string;
+  telemetryState?: "live" | "pending" | "limited" | "offline";
   progress: number;
   layer: string;
   eta: string;
@@ -230,6 +232,8 @@ export type CameraProviderType =
   | "direct-mjpeg"
   | "bambu"
   | "bambu-connect"
+  | "bambuview-companion"
+  | "network-plugin"
   | "farm-overview";
 
 export type CameraStreamKind =
@@ -241,6 +245,7 @@ export type CameraStreamKind =
   | "unknown";
 
 export interface CameraSource {
+  displayUrl: string;
   id: string;
   name: string;
   provider: CameraProviderType;

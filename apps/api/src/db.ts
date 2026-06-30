@@ -401,6 +401,7 @@ function mapCameraSource(
   const proxyUrls = cameraProxyUrls(row);
 
   return {
+    displayUrl: redactUrl(row.streamUrl),
     id: row.id,
     name: row.name,
     provider: row.provider,
@@ -687,6 +688,67 @@ export async function createCameraSource(
   return mapCameraSource(row as typeof cameraSources.$inferSelect);
 }
 
+export async function updateCameraSource(
+  db: AppDatabase,
+  sourceId: string,
+  input: CreateCameraSourceInput,
+): Promise<CameraSource | null> {
+  const existing = await db.query.cameraSources.findFirst({
+    where: eq(cameraSources.id, sourceId),
+  });
+  if (!existing) {
+    return null;
+  }
+
+  const row: typeof cameraSources.$inferInsert = {
+    id: sourceId,
+    name: input.name.trim(),
+    provider: input.provider,
+    streamUrl: input.streamUrl.trim(),
+    streamKind: input.streamKind,
+    frigateBaseUrl: input.frigateBaseUrl?.trim() || null,
+    frigateCamera: input.frigateCamera?.trim() || null,
+    username: input.username?.trim() || existing.username,
+    password: input.password?.trim() || existing.password,
+    status: input.status,
+    details: input.details,
+    lastTestedAt: input.lastTestedAt,
+    createdAt: existing.createdAt,
+    updatedAt: nowIso(),
+  };
+
+  await db
+    .update(cameraSources)
+    .set({
+      name: row.name,
+      provider: row.provider,
+      streamUrl: row.streamUrl,
+      streamKind: row.streamKind,
+      frigateBaseUrl: row.frigateBaseUrl,
+      frigateCamera: row.frigateCamera,
+      username: row.username,
+      password: row.password,
+      status: row.status,
+      details: row.details,
+      lastTestedAt: row.lastTestedAt,
+      updatedAt: row.updatedAt,
+    })
+    .where(eq(cameraSources.id, sourceId));
+
+  return mapCameraSource(row as typeof cameraSources.$inferSelect);
+}
+
+export async function deleteCameraSource(
+  db: AppDatabase,
+  sourceId: string,
+): Promise<boolean> {
+  const result = await db
+    .delete(cameraSources)
+    .where(eq(cameraSources.id, sourceId));
+
+  return result.changes > 0;
+}
+
 export async function updateCameraSourceStatus(
   db: AppDatabase,
   sourceId: string,
@@ -795,6 +857,17 @@ export async function upsertCameraAssignment(
       targetType: row.targetType,
     }
   );
+}
+
+export async function deleteCameraAssignment(
+  db: AppDatabase,
+  assignmentId: string,
+): Promise<boolean> {
+  const result = await db
+    .delete(cameraAssignments)
+    .where(eq(cameraAssignments.id, assignmentId));
+
+  return result.changes > 0;
 }
 
 export async function getAppearance(

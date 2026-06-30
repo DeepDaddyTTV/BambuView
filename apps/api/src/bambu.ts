@@ -743,9 +743,9 @@ export async function testBambuLanConnection(
   const statusTelemetry = rawLanMode
     ? await testMqttTelemetry(input)
     : isBambuConnectBackedMode(connectionMode)
-      ? availableCheck(
-          "Status telemetry",
-          "Bambu Connect exposes printer status and print progress through Bambu's supported integration path.",
+      ? actionRequiredCheck(
+          "Live telemetry",
+          "BambuView does not receive live status through this profile yet. Use LAN/Developer telemetry for print progress in the web app.",
         )
       : notSupportedCheck(
           "Status telemetry",
@@ -767,13 +767,13 @@ export async function testBambuLanConnection(
           }),
         )
       : connectionMode === "bambu-connect" || connectionMode === "cloud"
-        ? availableCheck(
-            "Bambu Connect camera",
-            "Bambu Connect is the supported path for authorized camera/live-view access when Bambu exposes it through the network plugin.",
+        ? actionRequiredCheck(
+            "Camera bridge",
+            "Assign a browser-compatible Frigate/go2rtc/direct feed, Network Plugin bridge URL, or future Companion endpoint for camera playback.",
           )
         : actionRequiredCheck(
             "Camera stream",
-            "Normal LAN Mode can report status, but authorized camera access requires Bambu Connect or LAN-only Developer Mode.",
+            "Normal LAN Mode can report status. Camera playback needs an assigned browser-compatible feed or LAN-only Developer Mode native stream routed through a restreamer.",
           );
 
   const bambuConnectBridge = isBambuConnectBackedMode(connectionMode)
@@ -793,7 +793,7 @@ export async function testBambuLanConnection(
         )
       : actionRequiredCheck(
           "Developer Mode",
-          "Direct local machine controls require LAN-only Developer Mode. Use Bambu Connect for authorized controls without switching the printer to Developer Mode.",
+          "Direct local machine controls require LAN-only Developer Mode.",
         );
   const printJobHandoff = isBambuConnectBackedMode(connectionMode)
     ? availableCheck(
@@ -811,9 +811,9 @@ export async function testBambuLanConnection(
           "Developer Mode is the direct local-control path for movement, temperature, fan, AMS, and calibration commands.",
         )
       : isBambuConnectBackedMode(connectionMode)
-        ? availableCheck(
+        ? actionRequiredCheck(
             "Printer controls",
-            "Bambu Connect is the authorized control path for movement, temperature, fan, AMS, and calibration commands.",
+            "BambuView is not sending machine controls through Bambu Connect yet. Use Developer Mode when direct controls are required.",
           )
         : notSupportedCheck(
             "Printer controls",

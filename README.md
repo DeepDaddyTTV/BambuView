@@ -32,9 +32,9 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.27` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
+The `0.0.28` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
 
-The Bambu connection profiles now expose real capability states. Cloud / Normal and Bambu Connect use Bambu Connect for authorized file handoff and restricted functions, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers or the Fleet Overview target; RTSP and native Bambu feeds should be routed through Frigate/go2rtc or a future BambuView Companion restream before browser playback.
+The Bambu connection profiles now expose honest capability states. Cloud / Normal and Bambu Connect are saved as handoff profiles for Bambu Connect import links and future bridge work, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers or the Fleet Overview target; RTSP and native Bambu feeds should be routed through Frigate/go2rtc, a Network Plugin bridge endpoint, or a future BambuView Companion restream before browser playback.
 
 Printers without an assigned browser-compatible camera show a black `No Camera Detected` view in the camera panel and point you back to `Cameras` for setup.
 
@@ -86,14 +86,14 @@ The first time you open the app, BambuView walks you through creating the first 
 
 BambuView lets you save a Bambu printer in four ways:
 
-| Profile              | Use it when                                                                        | Result                                                                                                   |
-| -------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `Cloud / Normal`     | You want normal Bambu behavior while still using Bambu Connect for secure actions. | BambuView keeps the printer in normal Bambu account flow and generates Bambu Connect file handoff links. |
-| `Bambu Connect`      | You want Bambu's supported camera, monitoring, controls, and job-handoff path.     | BambuView treats Bambu Connect as the authorized integration layer for restricted printer functions.     |
-| `LAN Mode`           | You want local status telemetry with IP/hostname and access code.                  | BambuView tests MQTT status access locally and uses Bambu Connect for restricted actions.                |
-| `LAN-only Developer` | You want direct local protocols and are willing to secure that network yourself.   | BambuView targets MQTT, native camera stream, file transfer, and machine-control paths directly.         |
+| Profile              | Use it when                                                                      | Result                                                                                                                |
+| -------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `Cloud / Normal`     | You want normal Bambu behavior while still saving the printer in BambuView.      | BambuView keeps the printer in normal Bambu account flow and generates Bambu Connect file handoff links.              |
+| `Bambu Connect`      | You want Bambu Connect import-link handoff and future bridge support.            | BambuView saves the profile without pretending live telemetry or cameras are available through the web container yet. |
+| `LAN Mode`           | You want local status telemetry with IP/hostname and access code.                | BambuView tests MQTT status access locally and reads progress, layers, temperatures, and AMS state.                   |
+| `LAN-only Developer` | You want direct local protocols and are willing to secure that network yourself. | BambuView targets MQTT, native camera stream, file transfer, and machine-control paths directly.                      |
 
-Use `Bambu Connect` when your goal is camera/live view, status monitoring, and sending jobs from slicer workflows through Bambu's supported bridge. Use `LAN-only Developer` when your goal is direct low-level local protocol control.
+Use `Bambu Connect` when your goal is file handoff through Bambu's supported desktop app. Use `LAN Mode` or `LAN-only Developer` when your goal is live print progress in BambuView. Use Frigate/go2rtc, a browser-compatible direct feed, a Network Plugin bridge endpoint, or later BambuView Companion when your goal is camera playback in the web app.
 
 To enable LAN-only on the printer:
 
@@ -136,7 +136,7 @@ http://frigate:5000/api/workbench_left
 
 Replace `workbench_left` with the camera name from Frigate. BambuView proxies the stream through `/api/cameras/sources/:id/stream` so the browser does not receive upstream credentials directly. If BambuView can infer a standard Frigate camera name from the URL, it also exposes `/api/cameras/sources/:id/snapshot` for still previews.
 
-Direct MJPEG, HTTP snapshot, and HLS sources can be displayed immediately after assignment. Raw RTSP and native Bambu camera sources need a Frigate/go2rtc/HTTP restream before a browser can play them inline. BambuView Companion is planned as the easier fallback for native camera streams later.
+Direct MJPEG, HTTP snapshot, HLS, Frigate, BambuConnect Direct bridge URLs, Network Plugin bridge URLs, and BambuView Companion endpoints can be saved as camera sources. Raw RTSP and native Bambu camera sources need a Frigate/go2rtc/HTTP restream before a browser can play them inline. BambuView Companion is planned as the easier fallback for native camera streams later.
 
 ## Documentation
 
@@ -190,7 +190,10 @@ Core routes currently include:
 - `GET /api/cameras`
 - `POST /api/cameras/sources/test`
 - `POST /api/cameras/sources`
+- `PUT /api/cameras/sources/:id`
+- `DELETE /api/cameras/sources/:id`
 - `POST /api/cameras/assignments`
+- `DELETE /api/cameras/assignments/:id`
 - `GET /api/cameras/sources/:id/snapshot`
 - `GET /api/cameras/sources/:id/stream`
 - `GET /api/settings/appearance`
