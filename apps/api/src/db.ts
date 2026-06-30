@@ -374,13 +374,45 @@ function redactUrl(value: string): string {
   }
 }
 
+function parseFrigateRestreamReference(value: string): boolean {
+  try {
+    const url = new URL(value);
+    if (url.hash) {
+      return false;
+    }
+
+    const parts = url.pathname.split("/").filter(Boolean);
+    const apiIndex = parts.findIndex((part) => part === "api");
+    return apiIndex >= 0 && Boolean(parts[apiIndex + 1]);
+  } catch {
+    return false;
+  }
+}
+
+function cameraSourcePlaybackIssue(
+  row: typeof cameraSources.$inferSelect,
+): string | null {
+  if (
+    row.provider === "frigate" &&
+    !row.frigateBaseUrl &&
+    !row.frigateCamera &&
+    !parseFrigateRestreamReference(row.streamUrl)
+  ) {
+    return "This Frigate source is not a restream endpoint. Use a Frigate/go2rtc camera URL such as http://frigate:5000/api/workbench_left instead of a dashboard page, web UI URL, or link with a # fragment.";
+  }
+
+  return null;
+}
+
 function cameraProxyUrls(
   row: typeof cameraSources.$inferSelect,
 ): Pick<CameraSource, "snapshotUrl" | "streamUrl"> {
+  const playbackIssue = cameraSourcePlaybackIssue(row);
   const canProxy =
-    row.streamKind === "mjpeg" ||
-    row.streamKind === "snapshot" ||
-    row.streamKind === "hls";
+    !playbackIssue &&
+    (row.streamKind === "mjpeg" ||
+      row.streamKind === "snapshot" ||
+      row.streamKind === "hls");
 
   return {
     snapshotUrl:
@@ -388,9 +420,7 @@ function cameraProxyUrls(
       (row.provider === "frigate" && row.frigateBaseUrl && row.frigateCamera)
         ? `/api/cameras/sources/${row.id}/snapshot`
         : null,
-    streamUrl: canProxy
-      ? `/api/cameras/sources/${row.id}/stream`
-      : redactUrl(row.streamUrl),
+    streamUrl: canProxy ? `/api/cameras/sources/${row.id}/stream` : "",
   };
 }
 
@@ -399,6 +429,7 @@ function mapCameraSource(
   assignedTo: string[] = [],
 ): CameraSource {
   const proxyUrls = cameraProxyUrls(row);
+  const playbackIssue = cameraSourcePlaybackIssue(row);
 
   return {
     displayUrl: redactUrl(row.streamUrl),
@@ -407,10 +438,10 @@ function mapCameraSource(
     provider: row.provider,
     snapshotUrl: proxyUrls.snapshotUrl,
     streamUrl: proxyUrls.streamUrl,
-    streamKind: row.streamKind,
-    status: row.status,
+    streamKind: playbackIssue ? "unknown" : row.streamKind,
+    status: playbackIssue ? "degraded" : row.status,
     assignedTo,
-    details: row.details,
+    details: playbackIssue ?? row.details,
     lastTestedAt: row.lastTestedAt,
   };
 }
@@ -593,6 +624,77 @@ export async function createPrinterConnection(
   await db.insert(printerConnections).values(row);
 
   return mapPrinterConnection(row as typeof printerConnections.$inferSelect);
+}
+
+export async function updatePrinterConnection(
+  db: AppDatabase,
+  connectionId: string,
+  input: CreatePrinterConnectionInput,
+): Promise<PrinterConnectionRecord | null> {
+  const existing = await db.query.printerConnections.findFirst({
+    where: eq(printerConnections.id, connectionId),
+  });
+  if (!existing) {
+    return null;
+  }
+
+  const accessCode = input.accessCode?.trim() || existing.accessCode;
+  const row: typeof printerConnections.$inferInsert = {
+    id: connectionId,
+    provider: "bambu-lan",
+    connectionMode: input.connectionMode,
+    name: input.name.trim(),
+    model: input.model.trim(),
+    host: input.host.trim(),
+    serial: input.serial.trim().toUpperCase(),
+    accessCode,
+    connectionStatus: input.connectionStatus,
+    lastTestedAt: input.lastTestedAt,
+    lastSeenAt:
+      input.connectionStatus === "online"
+        ? input.lastTestedAt
+        : existing.lastSeenAt,
+    createdAt: existing.createdAt,
+    updatedAt: nowIso(),
+  };
+
+  await db
+    .update(printerConnections)
+    .set({
+      accessCode: row.accessCode,
+      connectionMode: row.connectionMode,
+      connectionStatus: row.connectionStatus,
+      host: row.host,
+      lastSeenAt: row.lastSeenAt,
+      lastTestedAt: row.lastTestedAt,
+      model: row.model,
+      name: row.name,
+      serial: row.serial,
+      updatedAt: row.updatedAt,
+    })
+    .where(eq(printerConnections.id, connectionId));
+
+  return mapPrinterConnection(row as typeof printerConnections.$inferSelect);
+}
+
+export async function deletePrinterConnection(
+  db: AppDatabase,
+  connectionId: string,
+): Promise<boolean> {
+  await db
+    .delete(cameraAssignments)
+    .where(
+      and(
+        eq(cameraAssignments.targetType, "printer"),
+        eq(cameraAssignments.printerId, connectionId),
+      ),
+    );
+
+  const result = await db
+    .delete(printerConnections)
+    .where(eq(printerConnections.id, connectionId));
+
+  return result.changes > 0;
 }
 
 export async function updatePrinterConnectionStatus(

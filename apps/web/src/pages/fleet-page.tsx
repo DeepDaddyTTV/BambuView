@@ -29,6 +29,7 @@ import {
   Star,
   SunMedium,
   Thermometer,
+  Trash2,
   Users2,
   X,
 } from "lucide-react";
@@ -60,6 +61,10 @@ import { BAMBU_PRINTER_MODELS } from "@bambuview/contracts";
 import { useAppearance } from "../app/appearance";
 import { APP_VERSION } from "../app/version";
 import { BrandLogo, PrinterPreviewArt } from "../components/art";
+import {
+  StyledSelect,
+  type StyledSelectOption,
+} from "../components/styled-select";
 import { apiFetch } from "../lib/api";
 
 const navigationItems = [
@@ -89,6 +94,16 @@ const controlTabs = [
   ["print-options", "Print Options"],
   ["calibration", "Calibration"],
 ] as const;
+const sortOptions: Array<StyledSelectOption<"name-asc" | "progress-desc">> = [
+  {
+    label: "Name (A-Z)",
+    value: "name-asc",
+  },
+  {
+    label: "Progress",
+    value: "progress-desc",
+  },
+];
 
 function initials(name: string) {
   return name
@@ -100,7 +115,17 @@ function initials(name: string) {
     .toUpperCase();
 }
 
-function printerTone(printer: Pick<PrinterSummary, "status">) {
+function printerTone(
+  printer: Pick<PrinterSummary, "status" | "telemetryState">,
+) {
+  if (printer.telemetryState === "limited") {
+    return {
+      dotClass: "fleet-console-dot--green",
+      progressClass: "fleet-console-meter__bar--green",
+      textClass: "fleet-console-text--green",
+    };
+  }
+
   if (printer.status === "paused") {
     return {
       dotClass: "fleet-console-dot--amber",
@@ -245,7 +270,9 @@ function CameraFeedFrame({
       : (feed?.snapshotUrl ?? feed?.streamUrl);
   const [loadFailed, setLoadFailed] = useState(false);
   const canRender =
-    feed && sourceUrl && ["mjpeg", "snapshot", "hls"].includes(feed.streamKind);
+    feed?.status === "online" &&
+    sourceUrl &&
+    ["mjpeg", "snapshot", "hls"].includes(feed.streamKind);
 
   useEffect(() => {
     setLoadFailed(false);
@@ -283,15 +310,21 @@ function CameraFeedFrame({
         <div>
           <Camera className="mx-auto mb-4 h-10 w-10 text-zinc-500" />
           <div className="text-base font-semibold text-white">
-            {loadFailed ? "Camera Preview Unavailable" : "No Camera Detected"}
+            {loadFailed
+              ? "Camera Preview Unavailable"
+              : feed?.status === "degraded"
+                ? "Camera Source Needs Attention"
+                : "No Camera Detected"}
           </div>
           <div className="mt-2 max-w-md text-xs leading-5 text-zinc-300">
             {loadFailed
               ? "The source is assigned, but the browser could not render the feed. Check the stream URL or use a Frigate/go2rtc MJPEG, HLS, or snapshot restream."
-              : feed?.streamKind === "rtsp" ||
-                  feed?.streamKind === "bambu-native"
-                ? "If this is in error, configure cameras in Cameras with a Frigate/go2rtc restream."
-                : "If this is in error, configure cameras in Cameras and assign one to this printer."}
+              : feed?.status === "degraded"
+                ? "If this is in error, configure cameras in Cameras with a browser-compatible restream URL."
+                : feed?.streamKind === "rtsp" ||
+                    feed?.streamKind === "bambu-native"
+                  ? "If this is in error, configure cameras in Cameras with a Frigate/go2rtc restream."
+                  : "If this is in error, configure cameras in Cameras and assign one to this printer."}
           </div>
         </div>
       </div>
@@ -438,7 +471,13 @@ function StandardPrinterCard({
       </div>
 
       <div
-        className={`fleet-console-card__content ${printer.status === "offline" ? "fleet-console-card__content--offline" : ""}`}
+        className={`fleet-console-card__content ${
+          printer.status === "offline"
+            ? "fleet-console-card__content--offline"
+            : hasLimitedTelemetry
+              ? "fleet-console-card__content--limited"
+              : ""
+        }`}
       >
         <FleetPreview printer={printer} />
 
@@ -452,26 +491,29 @@ function StandardPrinterCard({
             </div>
           </div>
         ) : hasLimitedTelemetry ? (
-          <div className="fleet-console-card__idle-copy">
-            <div className="fleet-console-card__idle-topline">
-              <div className="fleet-console-card__idle-body">
-                <div className="fleet-console-card__idle-title">
-                  Live data not connected
-                </div>
-                <div className="fleet-console-card__idle-subtitle">
-                  {printer.telemetryMessage ??
-                    "Use LAN/Developer telemetry or assign a camera restream."}
-                </div>
-              </div>
-              <div className="fleet-console-card__time">
-                <div>Limited</div>
-                <div>Profile</div>
-              </div>
+          <div className="fleet-console-card__metrics">
+            <div className={`fleet-console-card__percent ${tone.textClass}`}>
+              {printer.progress}%
+            </div>
+            <div className="fleet-console-card__time">
+              <div>{printer.elapsed}</div>
+              <div>{printer.eta}</div>
+            </div>
+            <div className="fleet-console-card__file">
+              Live data not connected
             </div>
             <div className="fleet-console-card__meta-line">
+              <span>{printer.material}</span>
+              <span>&bull;</span>
               <span>{printer.location}</span>
               <span>&bull;</span>
-              <span>{printer.nozzleProfile}</span>
+              <span>Use LAN/Developer telemetry</span>
+            </div>
+            <div className="fleet-console-meter">
+              <div
+                className={`fleet-console-meter__bar ${tone.progressClass}`}
+                style={{ width: "12%" }}
+              />
             </div>
           </div>
         ) : printer.status === "idle" ? (
@@ -687,6 +729,14 @@ const bambuModelsByFamily = bambuModelFamilies.map((family) => ({
   label: bambuModelFamilyLabels[family],
   models: bambuModelOptions.filter((model) => model.family === family),
 }));
+const bambuModelSelectOptions: Array<StyledSelectOption<string>> =
+  bambuModelsByFamily.flatMap((group) =>
+    group.models.map((model) => ({
+      description: group.label,
+      label: model.label,
+      value: model.value,
+    })),
+  );
 
 const connectionCheckLabels = {
   "action-required": "Action required",
@@ -753,25 +803,46 @@ function AddCard({ onClick }: { onClick: () => void }) {
   );
 }
 
+function printerConnectionToForm(
+  connection?: PrinterConnectionRecord | null,
+): BambuPrinterConnectionInput {
+  return {
+    accessCode: "",
+    connectionMode: connection?.connectionMode ?? "cloud",
+    host: connection?.host ?? "",
+    model: connection?.model ?? "H2D",
+    name: connection?.name ?? "",
+    serial: connection?.serial ?? "",
+  };
+}
+
 function AddPrinterDialog({
+  initialConnection = null,
   onClose,
+  onDeleted,
   onSaved,
 }: {
+  initialConnection?: PrinterConnectionRecord | null;
   onClose: () => void;
+  onDeleted?: () => void;
   onSaved: (printerId: string) => void;
 }) {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<BambuPrinterConnectionInput>({
-    accessCode: "",
-    connectionMode: "cloud",
-    host: "",
-    model: "H2D",
-    name: "",
-    serial: "",
-  });
+  const [form, setForm] = useState<BambuPrinterConnectionInput>(
+    printerConnectionToForm(initialConnection),
+  );
   const [testResult, setTestResult] =
     useState<BambuConnectionTestResult | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const isEditing = Boolean(initialConnection);
+
+  useEffect(() => {
+    setForm(printerConnectionToForm(initialConnection));
+    setTestResult(null);
+    setConfirmDelete(false);
+    setErrorMessage(null);
+  }, [initialConnection]);
 
   const testMutation = useMutation({
     mutationFn: (payload: BambuPrinterConnectionInput) =>
@@ -788,10 +859,26 @@ function AddPrinterDialog({
       apiFetch<{
         printer: PrinterConnectionRecord;
         test: BambuConnectionTestResult;
-      }>("/api/printers/bambu", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
+      }>(
+        initialConnection
+          ? `/api/printers/bambu/${initialConnection.id}`
+          : "/api/printers/bambu",
+        {
+          method: initialConnection ? "PUT" : "POST",
+          body: JSON.stringify(payload),
+        },
+      ),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: () =>
+      apiFetch(
+        initialConnection
+          ? `/api/printers/bambu/${initialConnection.id}`
+          : "/api/printers/bambu",
+        {
+          method: "DELETE",
+        },
+      ),
   });
 
   function updateField(
@@ -842,7 +929,33 @@ function AddPrinterDialog({
     }
   }
 
-  const isBusy = testMutation.isPending || saveMutation.isPending;
+  async function deletePrinter() {
+    if (!initialConnection) {
+      return;
+    }
+
+    setErrorMessage(null);
+    try {
+      await deleteMutation.mutateAsync();
+      await invalidatePrinterData();
+      onDeleted?.();
+      onClose();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not delete this printer.",
+      );
+    }
+  }
+
+  const isBusy =
+    testMutation.isPending ||
+    saveMutation.isPending ||
+    deleteMutation.isPending;
+  const accessCodeRequired =
+    requiresRawLanDetails(form.connectionMode) &&
+    !(isEditing && initialConnection?.accessCodeSet && !form.accessCode);
   const hasAvailableIntegration = testResult
     ? Object.values(testResult.checks).some(
         (check) => check.status === "available" || check.status === "passed",
@@ -860,7 +973,9 @@ function AddPrinterDialog({
         <div className="fleet-console-modal__header">
           <div>
             <div className="fleet-console-modal__kicker">Bambu printer</div>
-            <h2 id="add-bambu-printer-title">Add Bambu Printer</h2>
+            <h2 id="add-bambu-printer-title">
+              {isEditing ? "Edit Bambu Printer" : "Add Bambu Printer"}
+            </h2>
           </div>
           <button
             aria-label="Close add printer dialog"
@@ -873,10 +988,10 @@ function AddPrinterDialog({
         </div>
 
         <p className="fleet-console-modal__copy">
-          Choose how BambuView should treat this printer today. Cloud / Normal
-          uses Bambu Connect for authorized actions without changing Bambu
-          behavior, LAN Mode adds local MQTT status, and LAN-only Developer Mode
-          uses direct local protocols.
+          Choose how BambuView should treat this printer today. Use Bambu
+          Connect for handoff-only profiles, or switch an existing profile to
+          LAN / Developer mode when you have the host and access code ready for
+          live progress.
         </p>
 
         <form className="fleet-console-printer-form" onSubmit={savePrinter}>
@@ -911,20 +1026,11 @@ function AddPrinterDialog({
 
           <label>
             <span>Model</span>
-            <select
-              onChange={(event) => updateField("model", event.target.value)}
+            <StyledSelect
+              onChange={(model) => updateField("model", model)}
+              options={bambuModelSelectOptions}
               value={form.model}
-            >
-              {bambuModelsByFamily.map((group) => (
-                <optgroup key={group.family} label={group.label}>
-                  {group.models.map((model) => (
-                    <option key={model.value} value={model.value}>
-                      {model.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
+            />
           </label>
 
           <label>
@@ -960,7 +1066,11 @@ function AddPrinterDialog({
           <label className="fleet-console-printer-form__wide">
             <span>
               LAN access code
-              {requiresRawLanDetails(form.connectionMode) ? "" : " (optional)"}
+              {accessCodeRequired
+                ? ""
+                : isEditing && initialConnection?.accessCodeSet
+                  ? " (saved - leave blank to keep)"
+                  : " (optional)"}
             </span>
             <input
               autoCapitalize="off"
@@ -973,7 +1083,7 @@ function AddPrinterDialog({
                   ? "Local access code"
                   : "Optional unless your bridge requires it"
               }
-              required={requiresRawLanDetails(form.connectionMode)}
+              required={accessCodeRequired}
               type="password"
               value={form.accessCode}
             />
@@ -1003,6 +1113,50 @@ function AddPrinterDialog({
             <div className="fleet-console-form-error">{errorMessage}</div>
           ) : null}
 
+          {isEditing ? (
+            <div className="fleet-console-printer-form__danger">
+              {confirmDelete ? (
+                <div>
+                  <strong>Delete this printer profile?</strong>
+                  <p>
+                    This removes its camera assignments from BambuView. It does
+                    not change the printer itself.
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      className="fleet-console-controls__button"
+                      disabled={isBusy}
+                      onClick={() => setConfirmDelete(false)}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="fleet-console-controls__button fleet-console-controls__button--danger"
+                      disabled={isBusy}
+                      onClick={() => {
+                        void deletePrinter();
+                      }}
+                      type="button"
+                    >
+                      Delete Printer
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  className="fleet-console-controls__button fleet-console-controls__button--danger"
+                  disabled={isBusy}
+                  onClick={() => setConfirmDelete(true)}
+                  type="button"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Delete Printer</span>
+                </button>
+              )}
+            </div>
+          ) : null}
+
           <div className="fleet-console-modal__actions">
             <button
               className="fleet-console-controls__button"
@@ -1019,7 +1173,7 @@ function AddPrinterDialog({
               disabled={isBusy}
               type="submit"
             >
-              Save Printer
+              {isEditing ? "Update Printer" : "Save Printer"}
             </button>
           </div>
         </form>
@@ -1497,11 +1651,13 @@ function FocusWorkspace({
 
 function DetailPanel({
   focusMode,
+  onEditConnection,
   onClose,
   onToggleFocus,
   printer,
 }: {
   focusMode: boolean;
+  onEditConnection: () => void;
   onClose: () => void;
   onToggleFocus: () => void;
   printer: PrinterDetail;
@@ -1574,6 +1730,14 @@ function DetailPanel({
       <div className="fleet-console-detail__header">
         <div className="fleet-console-detail__title">{printer.name}</div>
         <div className="fleet-console-detail__actions">
+          <button
+            aria-label="Edit printer connection"
+            className="fleet-console-detail__icon-button"
+            onClick={onEditConnection}
+            type="button"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
           <button
             className="fleet-console-detail__icon-button fleet-console-detail__icon-button--focus"
             onClick={onToggleFocus}
@@ -1851,6 +2015,13 @@ export function FleetPage({ user }: { user: UserProfile }) {
     queryFn: () =>
       apiFetch<FleetOverview>(`/api/fleet/overview?mode=${fleetDataMode}`),
   });
+  const printerConnectionsQuery = useQuery({
+    queryKey: ["printer-connections"],
+    queryFn: () =>
+      apiFetch<{ printers: PrinterConnectionRecord[] }>(
+        "/api/printers/connections",
+      ),
+  });
   const [selectedPrinterId, setSelectedPrinterId] = useState<string | null>(
     null,
   );
@@ -1863,6 +2034,7 @@ export function FleetPage({ user }: { user: UserProfile }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [addPrinterOpen, setAddPrinterOpen] = useState(false);
+  const [editingPrinterId, setEditingPrinterId] = useState<string | null>(null);
   const deferredSearch = useDeferredValue(searchQuery.trim().toLowerCase());
 
   const overview = overviewQuery.data;
@@ -1920,6 +2092,10 @@ export function FleetPage({ user }: { user: UserProfile }) {
         );
 
   const detailPrinter = printerDetailQuery.data;
+  const editingConnection =
+    printerConnectionsQuery.data?.printers.find(
+      (printer) => printer.id === editingPrinterId,
+    ) ?? null;
   const liveModeIsEmpty =
     fleetDataMode === "live" && overview.printers.length === 0;
 
@@ -2105,18 +2281,13 @@ export function FleetPage({ user }: { user: UserProfile }) {
             </button>
           </div>
 
-          <label className="fleet-console-select">
-            <select
-              onChange={(event) =>
-                setSortMode(event.target.value as typeof sortMode)
-              }
+          <div className="fleet-console-select fleet-console-select--styled">
+            <StyledSelect
+              onChange={(nextSortMode) => setSortMode(nextSortMode)}
+              options={sortOptions}
               value={sortMode}
-            >
-              <option value="name-asc">Name (A-Z)</option>
-              <option value="progress-desc">Progress</option>
-            </select>
-            <ChevronDown className="h-4 w-4" />
-          </label>
+            />
+          </div>
         </div>
 
         <FleetStats overview={overview} />
@@ -2163,6 +2334,7 @@ export function FleetPage({ user }: { user: UserProfile }) {
       {detailOpen && detailPrinter ? (
         <DetailPanel
           focusMode={focusMode}
+          onEditConnection={() => setEditingPrinterId(detailPrinter.id)}
           onClose={() => {
             setDetailOpen(false);
             setFocusMode(false);
@@ -2181,6 +2353,30 @@ export function FleetPage({ user }: { user: UserProfile }) {
               setSelectedPrinterId(printerId);
               setDetailOpen(true);
               setFocusMode(false);
+            });
+          }}
+        />
+      ) : null}
+
+      {editingPrinterId && editingConnection ? (
+        <AddPrinterDialog
+          initialConnection={editingConnection}
+          onClose={() => setEditingPrinterId(null)}
+          onDeleted={() => {
+            startTransition(() => {
+              setSelectedPrinterId(null);
+              setDetailOpen(false);
+              setFocusMode(false);
+              setEditingPrinterId(null);
+            });
+          }}
+          onSaved={(printerId) => {
+            startTransition(() => {
+              setFleetDataMode("live");
+              setSelectedPrinterId(printerId);
+              setDetailOpen(true);
+              setFocusMode(false);
+              setEditingPrinterId(null);
             });
           }}
         />

@@ -42,12 +42,14 @@ import {
   createUser,
   deleteCameraAssignment,
   deleteCameraSource,
+  deletePrinterConnection,
   findActiveInviteByTokenHash,
   findInviteById,
   getCameraSourceSecretById,
   getAppearance,
   getPrinterConnectionById,
   getPrinterConnectionBySerial,
+  getPrinterConnectionSecretById,
   getUserByEmail,
   getUserById,
   listInvites,
@@ -55,6 +57,7 @@ import {
   listUsers,
   markInviteUsed,
   updateCameraSource,
+  updatePrinterConnection,
   upsertCameraAssignment,
   type AppDatabase,
   upsertAppearance,
@@ -651,6 +654,77 @@ export async function registerRoutes(
       printer,
       test,
     });
+  });
+
+  app.put("/api/printers/bambu/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const existingById = await getPrinterConnectionSecretById(
+      dependencies.db,
+      params.id,
+    );
+    if (!existingById) {
+      return reply.code(404).send({ message: "Printer connection not found." });
+    }
+    const rawBody =
+      typeof request.body === "object" && request.body !== null
+        ? (request.body as Partial<BambuPrinterConnectionInput>)
+        : {};
+    const body: BambuPrinterConnectionInput = bambuPrinterSchema.parse({
+      ...rawBody,
+      accessCode:
+        rawBody.accessCode?.trim() || existingById.accessCode || undefined,
+    });
+
+    const existingBySerial = await getPrinterConnectionBySerial(
+      dependencies.db,
+      body.serial,
+    );
+    if (existingBySerial && existingBySerial.id !== params.id) {
+      return reply
+        .code(409)
+        .send({ message: "That printer serial is already connected." });
+    }
+
+    const test = await testBambuLanConnection(body);
+    const printer = await updatePrinterConnection(dependencies.db, params.id, {
+      ...body,
+      connectionStatus:
+        body.connectionMode === "cloud" ||
+        body.connectionMode === "bambu-connect"
+          ? "unverified"
+          : test.reachable
+            ? "online"
+            : "offline",
+      lastTestedAt: test.checkedAt,
+    });
+    if (!printer) {
+      return reply.code(404).send({ message: "Printer connection not found." });
+    }
+
+    return {
+      printer,
+      test,
+    };
+  });
+
+  app.delete("/api/printers/bambu/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const deleted = await deletePrinterConnection(dependencies.db, params.id);
+    if (!deleted) {
+      return reply.code(404).send({ message: "Printer connection not found." });
+    }
+
+    return reply.code(204).send();
   });
 
   app.get("/api/fleet/overview", async (request, reply) => {

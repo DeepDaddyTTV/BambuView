@@ -320,6 +320,31 @@ describe("auth and settings flows", () => {
     expect(createdPayload.test.checks.developerMode.status).toBe("available");
     expect(JSON.stringify(createdPayload)).not.toContain("test-access-code");
 
+    const updateWithoutNewAccessCode = await app.inject({
+      method: "PUT",
+      url: `/api/printers/bambu/${createdPayload.printer.id}`,
+      headers: {
+        cookie,
+      },
+      payload: {
+        accessCode: "",
+        connectionMode: "developer",
+        host: "127.0.0.1",
+        model: "X1 Carbon",
+        name: "Office X1 Carbon Updated",
+        serial: "00M09A000000001",
+      },
+    });
+
+    expect(updateWithoutNewAccessCode.statusCode).toBe(200);
+    expect(updateWithoutNewAccessCode.json().printer.name).toBe(
+      "Office X1 Carbon Updated",
+    );
+    expect(updateWithoutNewAccessCode.json().printer.accessCodeSet).toBe(true);
+    expect(JSON.stringify(updateWithoutNewAccessCode.json())).not.toContain(
+      "test-access-code",
+    );
+
     const connections = await app.inject({
       method: "GET",
       url: "/api/printers/connections",
@@ -343,7 +368,7 @@ describe("auth and settings flows", () => {
     });
 
     expect(fleet.statusCode).toBe(200);
-    expect(fleet.json().printers[0].name).toBe("Office X1 Carbon");
+    expect(fleet.json().printers[0].name).toBe("Office X1 Carbon Updated");
 
     const liveFleet = await app.inject({
       method: "GET",
@@ -407,6 +432,16 @@ describe("auth and settings flows", () => {
       bambuConnectCreate.json().test.checks.bambuConnectBridge.status,
     ).toBe("available");
 
+    const deleteBambuConnect = await app.inject({
+      method: "DELETE",
+      url: `/api/printers/bambu/${bambuConnectCreate.json().printer.id}`,
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(deleteBambuConnect.statusCode).toBe(204);
+
     const models = await app.inject({
       method: "GET",
       url: "/api/printers/bambu/models",
@@ -454,6 +489,26 @@ describe("auth and settings flows", () => {
 
     expect(cameraTest.statusCode).toBe(200);
     expect(cameraTest.json().test.kind).toBe("mjpeg");
+
+    const invalidFrigateTest = await app.inject({
+      method: "POST",
+      url: "/api/cameras/sources/test",
+      headers: {
+        cookie,
+      },
+      payload: {
+        name: "Frigate Dashboard Link",
+        provider: "frigate",
+        streamUrl: "https://frigate.example/#the-forge",
+      },
+    });
+
+    expect(invalidFrigateTest.statusCode).toBe(200);
+    expect(invalidFrigateTest.json().test.status).toBe("degraded");
+    expect(invalidFrigateTest.json().test.kind).toBe("unknown");
+    expect(invalidFrigateTest.json().test.detail).toContain(
+      "Frigate restream URL",
+    );
 
     const cameraCreate = await app.inject({
       method: "POST",

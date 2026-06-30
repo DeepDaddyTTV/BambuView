@@ -415,13 +415,15 @@ html[data-theme="light"] .section-title {
 .fleet-console-detail {
   position: relative;
   z-index: 1;
+  min-height: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .fleet-console-sidebar {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  overflow-y: auto;
   border-right: 1px solid var(--fleet-console-border);
   padding: 14px 12px;
   background: var(--fleet-console-surface-soft);
@@ -6877,7 +6879,8 @@ html[data-theme="light"] .fleet-console-shell {
 }
 
 .fleet-console-printer-form input,
-.fleet-console-printer-form select {
+.fleet-console-printer-form select,
+.fleet-console-printer-form .styled-select__button {
   min-height: 48px;
   border: 1px solid var(--fleet-console-border);
   border-radius: 0;
@@ -6897,10 +6900,25 @@ html[data-theme="light"] .fleet-console-shell {
 }
 
 .fleet-console-printer-form__wide,
+.fleet-console-printer-form__danger,
 .fleet-console-connection-result,
 .fleet-console-form-error,
 .fleet-console-modal__actions {
   grid-column: 1 / -1;
+}
+
+.fleet-console-printer-form__danger {
+  border: 1px solid rgba(255, 116, 109, 0.32);
+  background: rgba(255, 116, 109, 0.08);
+  padding: 14px;
+  color: #ffd3d0;
+}
+
+.fleet-console-printer-form__danger p {
+  margin: 6px 0 0;
+  color: #d6a6a2;
+  font-size: 0.9rem;
+  line-height: 1.55;
 }
 
 .fleet-console-connection-result {
@@ -6969,7 +6987,8 @@ html[data-theme="light"] .fleet-console-modal {
 }
 
 html[data-theme="light"] .fleet-console-printer-form input,
-html[data-theme="light"] .fleet-console-printer-form select {
+html[data-theme="light"] .fleet-console-printer-form select,
+html[data-theme="light"] .fleet-console-printer-form .styled-select__button {
   background: rgba(10, 14, 18, 0.035);
   color: #111827;
 }
@@ -7565,7 +7584,7 @@ html[data-theme="light"] .live-fleet-preview__stat em {
   }
 }
 
-/* v0.0.28 camera management and fullscreen square-edge pass. */
+/* v0.0.29 camera management and fullscreen square-edge pass. */
 .panel--dense {
   padding: 18px;
 }
@@ -7632,10 +7651,9 @@ html[data-theme="light"] .live-fleet-preview__stat em {
 
 .camera-assign-form {
   align-items: end;
-  grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(
-      220px,
-      1fr
-    ) minmax(180px, 0.75fr);
+  grid-template-columns:
+    minmax(220px, 1fr) minmax(220px, 1fr) minmax(220px, 1fr)
+    minmax(180px, 0.75fr);
 }
 
 .camera-source-grid {
@@ -7689,6 +7707,21 @@ html[data-theme="light"] .live-fleet-preview__stat em {
   font-size: 1rem;
   padding: 0 18px;
   text-align: left;
+}
+
+.fleet-console-select--styled {
+  padding: 3px;
+}
+
+.fleet-console-select--styled .styled-select {
+  min-width: 170px;
+}
+
+.fleet-console-select--styled .styled-select__button {
+  min-height: 100%;
+  border: 0;
+  background: transparent;
+  padding: 9px 12px;
 }
 
 .styled-select__button:hover,
@@ -7758,8 +7791,35 @@ html[data-theme="light"] .live-fleet-preview__stat em {
   background: rgba(255, 116, 109, 0.12);
 }
 
+.fleet-console-controls__button--danger {
+  border-color: rgba(255, 116, 109, 0.42) !important;
+  background: rgba(255, 116, 109, 0.12) !important;
+  color: #ffd3d0 !important;
+}
+
+.camera-source-card__delete-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  border: 1px solid rgba(255, 116, 109, 0.34);
+  background: rgba(255, 116, 109, 0.1);
+  padding: 14px;
+  color: #f4b8b4;
+}
+
+.camera-source-card__delete-confirm p {
+  margin: 4px 0 0;
+  color: #cfa7a5;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
 .detail-panel--focus {
+  position: fixed !important;
   inset: 0 !important;
+  width: 100dvw;
   height: 100dvh;
   max-height: 100dvh;
   overflow: hidden;
@@ -7768,6 +7828,7 @@ html[data-theme="light"] .live-fleet-preview__stat em {
 }
 
 .detail-panel--focus > .mt-8 {
+  display: grid;
   height: calc(100dvh - 132px);
   overflow: hidden;
 }
@@ -7775,6 +7836,7 @@ html[data-theme="light"] .live-fleet-preview__stat em {
 .detail-panel--focus .panel,
 .detail-panel--focus .camera-stage,
 .detail-panel--focus .camera-stage__viewport,
+.detail-panel--focus .fleet-console-focus-extruder-button,
 .detail-panel--focus .fleet-console-focus-surface,
 .detail-panel--focus .fleet-console-focus-toggle,
 .detail-panel--focus .fleet-console-focus-lamp,
@@ -7787,7 +7849,8 @@ html[data-theme="light"] .live-fleet-preview__stat em {
 }
 
 .detail-panel--focus .camera-stage__viewport--full {
-  height: clamp(420px, 58dvh, 720px);
+  height: min(62dvh, calc(100dvh - 290px));
+  min-height: 360px;
   margin: 0;
 }
 
@@ -7838,5 +7901,165 @@ html[data-theme="light"] .camera-field small {
   .detail-panel--focus > .mt-8 {
     height: auto;
     overflow: visible;
+  }
+
+  .camera-source-card__delete-confirm {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* v0.0.29 repair pass: final square-edge layout authority for shipped chrome. */
+.fleet-console-shell {
+  height: 100vh;
+}
+
+.fleet-console-shell
+  :is(
+    .fleet-console-sidebar__brand,
+    .fleet-console-sidebar__link,
+    .fleet-console-sidebar-card,
+    .fleet-console-stats,
+    .fleet-console-card,
+    .fleet-console-add-card,
+    .fleet-console-empty,
+    .fleet-console-toolbar__group,
+    .fleet-console-toolbar__button,
+    .fleet-console-toolbar__mode,
+    .fleet-console-search,
+    .fleet-console-select,
+    .fleet-console-view-toggle,
+    .fleet-console-view-toggle__button,
+    .fleet-console-segmented,
+    .fleet-console-segmented__button,
+    .fleet-console-preview,
+    .fleet-console-card__code,
+    .fleet-console-card__farm-icon,
+    .fleet-console-card__slot-swatch,
+    .fleet-console-meter,
+    .fleet-console-meter__bar,
+    .fleet-console-camera-tabs,
+    .fleet-console-camera-tabs__button,
+    .fleet-console-camera-stage,
+    .fleet-console-camera-stage__nav,
+    .fleet-console-detail,
+    .fleet-console-detail__section,
+    .fleet-console-detail__icon-button,
+    .fleet-console-controls__button,
+    .fleet-console-data-toggle,
+    .fleet-console-data-toggle__button,
+    .styled-select__button,
+    .styled-select__menu,
+    .styled-select__option
+  ),
+.app-shell-console__body
+  :is(
+    .panel,
+    .input-field,
+    .status-pill,
+    .camera-stage,
+    .camera-stage__viewport,
+    .camera-source-card__delete-confirm,
+    .styled-select__button,
+    .styled-select__menu,
+    .styled-select__option,
+    [class*="rounded-"],
+    [class~="rounded-full"]
+  ) {
+  border-radius: 0 !important;
+}
+
+.fleet-console-card {
+  display: flex;
+  min-height: 230px;
+  flex-direction: column;
+}
+
+.fleet-console-card__content,
+.fleet-console-card__farm-layout {
+  min-height: 120px;
+}
+
+.fleet-console-card__metrics {
+  min-width: 0;
+}
+
+.fleet-console-card__file,
+.fleet-console-card__meta-line {
+  min-width: 0;
+}
+
+.fleet-console-card__file {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fleet-console-card__footer {
+  margin-top: auto;
+}
+
+.fleet-console-card__content--limited .fleet-console-card__file {
+  color: #f3f5f8;
+  font-weight: 700;
+}
+
+.camera-source-form .input-field,
+.camera-assign-form .input-field,
+.camera-source-form .styled-select__button,
+.camera-assign-form .styled-select__button,
+.camera-source-form__actions .fleet-console-controls__button,
+.camera-assign-form .fleet-console-controls__button {
+  min-height: 58px;
+}
+
+.camera-source-form__actions .fleet-console-controls__button,
+.camera-assign-form .fleet-console-controls__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.camera-source-card .camera-stage__viewport--wide {
+  min-height: clamp(260px, 26vw, 430px);
+}
+
+.camera-source-card__source {
+  margin-top: 10px;
+}
+
+.detail-panel--focus {
+  z-index: 60;
+  border: 0 !important;
+  background: var(--fleet-console-bg) !important;
+}
+
+.detail-panel--focus .panel {
+  overflow: hidden;
+}
+
+.detail-panel--focus .space-y-6,
+.detail-panel--focus .mt-5.grid {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.detail-panel--focus .camera-stage__viewport--full {
+  height: clamp(360px, 58dvh, 680px);
+  min-height: 0;
+}
+
+.detail-panel--focus .camera-stage__viewport :is(img, video, div) {
+  border-radius: 0 !important;
+}
+
+@media (max-width: 760px), (display-mode: standalone) and (max-width: 760px) {
+  .fleet-console-card {
+    min-height: auto;
+  }
+
+  .fleet-console-card__content,
+  .fleet-console-card__farm-layout {
+    min-height: 0;
   }
 }

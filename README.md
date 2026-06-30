@@ -32,9 +32,11 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.28` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
+The `0.0.29` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
 
 The Bambu connection profiles now expose honest capability states. Cloud / Normal and Bambu Connect are saved as handoff profiles for Bambu Connect import links and future bridge work, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers or the Fleet Overview target; RTSP and native Bambu feeds should be routed through Frigate/go2rtc, a Network Plugin bridge endpoint, or a future BambuView Companion restream before browser playback.
+
+Saved printer profiles can be edited from the Fleet detail panel. Use that when a printer was first added as Cloud / Normal or Bambu Connect and you are ready to add LAN/Developer host and access-code details for live telemetry.
 
 Printers without an assigned browser-compatible camera show a black `No Camera Detected` view in the camera panel and point you back to `Cameras` for setup.
 
@@ -136,6 +138,8 @@ http://frigate:5000/api/workbench_left
 
 Replace `workbench_left` with the camera name from Frigate. BambuView proxies the stream through `/api/cameras/sources/:id/stream` so the browser does not receive upstream credentials directly. If BambuView can infer a standard Frigate camera name from the URL, it also exposes `/api/cameras/sources/:id/snapshot` for still previews.
 
+Do not paste a Frigate dashboard URL, shared page, or URL with a `#` camera fragment. Those pages can load in a browser, but they are not a restream endpoint BambuView can embed.
+
 Direct MJPEG, HTTP snapshot, HLS, Frigate, BambuConnect Direct bridge URLs, Network Plugin bridge URLs, and BambuView Companion endpoints can be saved as camera sources. Raw RTSP and native Bambu camera sources need a Frigate/go2rtc/HTTP restream before a browser can play them inline. BambuView Companion is planned as the easier fallback for native camera streams later.
 
 ## Documentation
@@ -185,6 +189,8 @@ Core routes currently include:
 - `GET /api/printers/bambu/models`
 - `POST /api/printers/bambu/test`
 - `POST /api/printers/bambu`
+- `PUT /api/printers/bambu/:id`
+- `DELETE /api/printers/bambu/:id`
 - `POST /api/bambu-connect/import-url`
 - `GET /api/printers/:id`
 - `GET /api/cameras`

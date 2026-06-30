@@ -105,6 +105,10 @@ export function parseFrigateRestreamUrl(
 ): { baseUrl: string; camera: string } | null {
   try {
     const url = new URL(value);
+    if (url.hash) {
+      return null;
+    }
+
     const parts = url.pathname.split("/").filter(Boolean);
     const apiIndex = parts.findIndex((part) => part === "api");
     const encodedCamera = parts[apiIndex + 1];
@@ -124,11 +128,19 @@ export function parseFrigateRestreamUrl(
   }
 }
 
+export function isFrigateRestreamUrl(value: string): boolean {
+  return parseFrigateRestreamUrl(value) !== null;
+}
+
 export function inferCameraStreamKind(
   provider: CameraProviderType,
   streamUrl: string,
 ): CameraStreamKind {
-  if (provider === "frigate" || provider === "direct-mjpeg") {
+  if (provider === "frigate") {
+    return isFrigateRestreamUrl(streamUrl) ? "mjpeg" : "unknown";
+  }
+
+  if (provider === "direct-mjpeg") {
     return "mjpeg";
   }
 
@@ -180,11 +192,15 @@ export function normalizeCameraSourceInput(
         ? frigateStreamUrl(frigateBaseUrl, frigateCamera)
         : explicitStreamUrl;
   const streamKind = inferCameraStreamKind(provider, rawStreamUrl);
+  const frigateIsRestream =
+    provider !== "frigate" || isFrigateRestreamUrl(rawStreamUrl);
 
   return {
     details:
       provider === "frigate"
-        ? "Frigate restream URL saved. BambuView proxies the MJPEG feed for browser playback and assignment."
+        ? frigateIsRestream
+          ? "Frigate restream URL saved. BambuView proxies the MJPEG feed for browser playback and assignment."
+          : "This is not a Frigate restream URL. Use a Frigate/go2rtc restream endpoint such as http://frigate:5000/api/workbench_left, not the Frigate web UI or a shared dashboard page."
         : provider === "bambu-connect"
           ? "BambuConnect Direct source saved. This must be a browser-compatible stream or bridge URL; the desktop plugin itself is not exposed directly to the web container."
           : provider === "network-plugin"
@@ -291,6 +307,17 @@ export async function testCameraSource(
       };
     }
 
+    if (!isFrigateRestreamUrl(normalized.streamUrl)) {
+      return {
+        checkedAt: now,
+        detail:
+          "This does not look like a Frigate restream URL. Use the camera restream endpoint, for example http://frigate:5000/api/workbench_left, instead of the Frigate UI, a dashboard share link, or a URL with a # fragment.",
+        kind: "unknown",
+        reachable: false,
+        status: "degraded",
+      };
+    }
+
     try {
       const response =
         normalized.frigateBaseUrl && normalized.frigateCamera
@@ -373,6 +400,10 @@ export function cameraProxyTarget(
   mode: "snapshot" | "stream",
 ): string | null {
   if (source.provider === "frigate") {
+    if (!parseFrigateRestreamUrl(source.rawStreamUrl)) {
+      return null;
+    }
+
     if (mode === "stream") {
       return source.rawStreamUrl || null;
     }

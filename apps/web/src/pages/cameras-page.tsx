@@ -122,7 +122,9 @@ function CameraPreview({ source }: { source: CameraSource }) {
       ? source.streamUrl
       : (source.snapshotUrl ?? source.streamUrl);
   const canRender =
-    sourceUrl && ["mjpeg", "snapshot", "hls"].includes(source.streamKind);
+    source.status === "online" &&
+    sourceUrl &&
+    ["mjpeg", "snapshot", "hls"].includes(source.streamKind);
 
   useEffect(() => {
     setLoadFailed(false);
@@ -159,10 +161,12 @@ function CameraPreview({ source }: { source: CameraSource }) {
         <div className="text-sm uppercase tracking-[0.22em] text-zinc-500">
           {loadFailed
             ? "Preview Unavailable"
-            : source.streamKind === "rtsp" ||
-                source.streamKind === "bambu-native"
-              ? "Restream Needed"
-              : "No Preview"}
+            : source.status === "degraded"
+              ? "Source Needs Attention"
+              : source.streamKind === "rtsp" ||
+                  source.streamKind === "bambu-native"
+                ? "Restream Needed"
+                : "No Preview"}
         </div>
         <p className="mt-3 text-sm leading-6 text-zinc-300">
           {loadFailed
@@ -183,6 +187,7 @@ export function CamerasPage() {
   const [assignment, setAssignment] =
     useState<CameraAssignmentInput>(emptyAssignment);
   const [lastTest, setLastTest] = useState<CameraTestResult | null>(null);
+  const [deleteSourceId, setDeleteSourceId] = useState<string | null>(null);
 
   const camerasQuery = useQuery({
     queryKey: ["cameras"],
@@ -273,6 +278,7 @@ export function CamerasPage() {
         method: "DELETE",
       }),
     onSuccess: () => {
+      setDeleteSourceId(null);
       void queryClient.invalidateQueries({ queryKey: ["cameras"] });
       void queryClient.invalidateQueries({ queryKey: ["fleet-overview"] });
       void queryClient.invalidateQueries({ queryKey: ["printer-detail"] });
@@ -715,21 +721,43 @@ export function CamerasPage() {
                     aria-label={`Delete ${source.name}`}
                     className="icon-button icon-button--square icon-button--danger"
                     disabled={deleteSourceMutation.isPending}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `Delete ${source.name}? Assignments using this source will be removed.`,
-                        )
-                      ) {
-                        deleteSourceMutation.mutate(source.id);
-                      }
-                    }}
+                    onClick={() => setDeleteSourceId(source.id)}
                     type="button"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
+              {deleteSourceId === source.id ? (
+                <div className="camera-source-card__delete-confirm">
+                  <div>
+                    <div className="font-semibold text-white">
+                      Delete this camera source?
+                    </div>
+                    <p>
+                      Assignments using {source.name} will be removed from
+                      printers and fleets.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      className="fleet-console-controls__button"
+                      onClick={() => setDeleteSourceId(null)}
+                      type="button"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      className="fleet-console-controls__button fleet-console-controls__button--danger"
+                      disabled={deleteSourceMutation.isPending}
+                      onClick={() => deleteSourceMutation.mutate(source.id)}
+                      type="button"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <div className="camera-stage mt-4">
                 <div className="camera-stage__top">
                   <div className="text-sm text-zinc-300">Live Preview</div>

@@ -54,6 +54,8 @@ Use this when you want BambuView to generate Bambu Connect import links and keep
 
 Bambu Connect must be installed on the computer that opens the generated link. Bambu Connect then imports the sliced G-code or 3MF file and handles printer selection and secure sending.
 
+When you are ready to turn that saved profile into live telemetry, open the printer in `Fleet`, choose the connection/settings button in the detail panel, then switch the same profile to `LAN Mode` or `LAN-only Developer`. You do not need to create a duplicate printer.
+
 ## Enable LAN-only Mode
 
 Use this when you are ready to test local Bambu access.

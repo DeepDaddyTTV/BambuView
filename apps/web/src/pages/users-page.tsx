@@ -4,12 +4,34 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { InviteRecord, UserProfile, UserRole } from "@bambuview/contracts";
 
+import {
+  StyledSelect,
+  type StyledSelectOption,
+} from "../components/styled-select";
 import { ApiError, apiFetch } from "../lib/api";
 
 interface UsersPayload {
   currentUserId: string;
   users: UserProfile[];
 }
+
+const roleOptions: Array<StyledSelectOption<UserRole>> = [
+  {
+    description: "Can view fleet and camera status.",
+    label: "Viewer",
+    value: "viewer",
+  },
+  {
+    description: "Can operate printers without managing users.",
+    label: "Operator",
+    value: "operator",
+  },
+  {
+    description: "Can manage users, settings, printers, and cameras.",
+    label: "Admin",
+    value: "admin",
+  },
+];
 
 export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
   const queryClient = useQueryClient();
@@ -81,7 +103,7 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
           <span className="font-medium">Admin access required</span>
         </div>
         <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-400">
-          Invite creation and role management are real in `0.0.28` alpha, but
+          Invite creation and role management are real in `0.0.29` alpha, but
           they stay locked behind the local admin model you approved for
           first-run bootstrap.
         </p>
@@ -119,17 +141,11 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
             </label>
             <label className="block">
               <span className="mb-2 block text-sm text-zinc-400">Role</span>
-              <select
-                className="input-field"
-                onChange={(event) =>
-                  setInviteRole(event.target.value as UserRole)
-                }
+              <StyledSelect
+                onChange={(role) => setInviteRole(role)}
+                options={roleOptions}
                 value={inviteRole}
-              >
-                <option value="viewer">Viewer</option>
-                <option value="operator">Operator</option>
-                <option value="admin">Admin</option>
-              </select>
+              />
             </label>
             {errorMessage ? (
               <div className="rounded-2xl border border-red-500/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">
@@ -200,24 +216,22 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
                     <td className="py-4 font-medium text-white">{user.name}</td>
                     <td className="py-4 text-zinc-400">{user.email}</td>
                     <td className="py-4">
-                      <select
-                        className="rounded-full border border-white/8 bg-white/[0.03] px-3 py-2 text-sm text-white"
-                        disabled={
-                          updateRole.isPending ||
-                          usersQuery.data?.currentUserId === user.id
-                        }
-                        onChange={(event) =>
-                          updateRole.mutate({
-                            role: event.target.value as UserRole,
-                            userId: user.id,
-                          })
-                        }
-                        value={user.role}
-                      >
-                        <option value="viewer">Viewer</option>
-                        <option value="operator">Operator</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                      <div className="max-w-[220px]">
+                        <StyledSelect
+                          disabled={
+                            updateRole.isPending ||
+                            usersQuery.data?.currentUserId === user.id
+                          }
+                          onChange={(role) =>
+                            updateRole.mutate({
+                              role,
+                              userId: user.id,
+                            })
+                          }
+                          options={roleOptions}
+                          value={user.role}
+                        />
+                      </div>
                     </td>
                     <td className="py-4 capitalize text-zinc-300">
                       {user.status}

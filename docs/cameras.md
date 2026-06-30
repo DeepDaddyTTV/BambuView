@@ -70,6 +70,8 @@ http://frigate:5000/api/workbench_left
 
 Replace `workbench_left` with your Frigate camera name.
 
+Use the restream endpoint itself. Do not use the Frigate dashboard, a shared camera page, or a URL with a `#` camera fragment. Those pages are meant for humans, not for embedding as a raw camera feed.
+
 ### Add The Camera To Frigate
 
 1. Open your Frigate configuration.
@@ -151,6 +153,7 @@ This is not required for direct MJPEG/HLS cameras or Frigate/go2rtc restreams.
 
 - If `Test` fails, make sure the BambuView container can reach the camera URL.
 - If the camera works from your laptop but not in BambuView, the container may be on a different network.
+- If a Frigate source shows `Degraded`, confirm you pasted a restream URL like `http://frigate:5000/api/workbench_left`, not the Frigate web UI or a shared dashboard link.
 - If the URL starts with `rtsp://`, use Frigate/go2rtc first. Browsers cannot play raw RTSP by themselves.
 - If the camera card says `Online` but the preview is black or unavailable, check whether the endpoint returns MJPEG, HLS, or a JPEG image instead of an HTML page or API response.
 - If the source saves but the Fleet page says `No Camera Detected`, assign the source to that printer from `Cameras`.
