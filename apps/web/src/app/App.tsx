@@ -7,6 +7,7 @@ import { AppearanceProvider } from "./appearance";
 import { AppShell } from "../components/shell";
 import { AuthPage } from "../pages/auth-page";
 import { CamerasPage } from "../pages/cameras-page";
+import { CompanionPage } from "../pages/companion-page";
 import { FleetPage } from "../pages/fleet-page";
 import { PreparePage } from "../pages/prepare-page";
 import { SettingsPage } from "../pages/settings-page";
@@ -52,6 +53,17 @@ function ProtectedRoutes() {
               user={sessionQuery.data.user}
             >
               <CamerasPage />
+            </AppShell>
+          }
+        />
+        <Route
+          path="/companion"
+          element={
+            <AppShell
+              title="Companion"
+              user={sessionQuery.data.user}
+            >
+              <CompanionPage />
             </AppShell>
           }
         />

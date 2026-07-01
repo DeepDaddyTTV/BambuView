@@ -7,3 +7,5 @@ onlyBuiltDependencies:
 allowBuilds:
   better-sqlite3: true
   esbuild: true
+minimumReleaseAgeExclude:
+  - electron@43.0.0

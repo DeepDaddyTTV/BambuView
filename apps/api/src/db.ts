@@ -16,6 +16,13 @@ import {
   type CameraSource,
   type CameraSourceInput,
   type CameraStreamKind,
+  type CompanionCapabilityFlags,
+  type CompanionCapabilityNotes,
+  type CompanionHealthResponse,
+  type CompanionPairingCode,
+  type CompanionPrinter,
+  type CompanionRegistration,
+  type CompanionStream,
   DEFAULT_APPEARANCE,
   type InviteRecord,
   type PrinterConnectionProvider,
@@ -124,9 +131,43 @@ const cameraAssignments = sqliteTable("camera_assignments", {
   updatedAt: text("updated_at").notNull(),
 });
 
+const companionPairingCodes = sqliteTable("companion_pairing_codes", {
+  id: text("id").primaryKey(),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdByUserId: text("created_by_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: text("created_at").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+});
+
+const companions = sqliteTable("companions", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  baseUrl: text("base_url").notNull().unique(),
+  bridgeUsername: text("bridge_username").notNull(),
+  bridgeToken: text("bridge_token").notNull(),
+  status: text("status")
+    .$type<CompanionRegistration["status"]>()
+    .notNull(),
+  lastHealthAt: text("last_health_at"),
+  lastError: text("last_error"),
+  capabilitiesJson: text("capabilities_json").notNull(),
+  capabilityNotesJson: text("capability_notes_json").notNull(),
+  healthJson: text("health_json"),
+  printersJson: text("printers_json"),
+  streamsJson: text("streams_json"),
+  pairedAt: text("paired_at").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const schema = {
   cameraAssignments,
   cameraSources,
+  companionPairingCodes,
+  companions,
   invites,
   printerConnections,
   sessions,
@@ -185,6 +226,35 @@ export interface CameraSourceSecretRecord extends CameraSource {
 
 export interface PrinterConnectionSecretRecord extends PrinterConnectionRecord {
   accessCode: string;
+}
+
+export interface CreateCompanionPairingCodeInput {
+  createdByUserId: string;
+  expiresAt: string;
+  tokenHash: string;
+}
+
+export interface CreateCompanionRegistrationInput {
+  baseUrl: string;
+  bridgeToken: string;
+  bridgeUsername: string;
+  capabilities: CompanionCapabilityFlags;
+  capabilityNotes: CompanionCapabilityNotes;
+  health: CompanionHealthResponse | null;
+  name: string;
+  pairedAt: string;
+  printers: CompanionPrinter[];
+  status: CompanionRegistration["status"];
+  streams: CompanionStream[];
+}
+
+export interface CompanionSecretRecord extends CompanionRegistration {
+  bridgeToken: string;
+  bridgeUsername: string;
+  capabilityNotes: CompanionCapabilityNotes;
+  health: CompanionHealthResponse | null;
+  printers: CompanionPrinter[];
+  streams: CompanionStream[];
 }
 
 function nowIso(): string {
@@ -276,6 +346,32 @@ export function createDatabase(databaseFile: string): DatabaseClient {
       updated_at TEXT NOT NULL,
       UNIQUE(target_type, printer_id, source_id, feed_label)
     );
+    CREATE TABLE IF NOT EXISTS companion_pairing_codes (
+      id TEXT PRIMARY KEY,
+      token_hash TEXT NOT NULL UNIQUE,
+      created_by_user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT
+    );
+    CREATE TABLE IF NOT EXISTS companions (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      base_url TEXT NOT NULL UNIQUE,
+      bridge_username TEXT NOT NULL,
+      bridge_token TEXT NOT NULL,
+      status TEXT NOT NULL,
+      last_health_at TEXT,
+      last_error TEXT,
+      capabilities_json TEXT NOT NULL,
+      capability_notes_json TEXT NOT NULL,
+      health_json TEXT,
+      printers_json TEXT,
+      streams_json TEXT,
+      paired_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
 
   const printerConnectionColumns = sqlite
@@ -355,6 +451,58 @@ function mapPrinterConnection(
     lastTestedAt: row.lastTestedAt,
     lastSeenAt: row.lastSeenAt,
     createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+}
+
+function parseJson<T>(value: string | null | undefined, fallback: T): T {
+  if (!value) {
+    return fallback;
+  }
+
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function mapCompanion(
+  row: typeof companions.$inferSelect,
+): CompanionSecretRecord {
+  const printers = parseJson<CompanionPrinter[]>(row.printersJson, []);
+  const streams = parseJson<CompanionStream[]>(row.streamsJson, []);
+
+  return {
+    baseUrl: row.baseUrl,
+    bridgeToken: row.bridgeToken,
+    bridgeUsername: row.bridgeUsername,
+    capabilities: parseJson<CompanionCapabilityFlags>(row.capabilitiesJson, {
+      ams: "unavailable",
+      camera: "unavailable",
+      controls: "unavailable",
+      discovery: "unavailable",
+      fileUpload: "unavailable",
+      slicingAssist: "future",
+      telemetry: "unavailable",
+    }),
+    capabilityNotes: parseJson<CompanionCapabilityNotes>(
+      row.capabilityNotesJson,
+      {},
+    ),
+    createdAt: row.createdAt,
+    health: parseJson<CompanionHealthResponse | null>(row.healthJson, null),
+    id: row.id,
+    lastError: row.lastError ?? null,
+    lastHealthAt: row.lastHealthAt ?? null,
+    name: row.name,
+    pairedAt: row.pairedAt,
+    printerCount: printers.length,
+    printers,
+    status: row.status,
+    streamCount: streams.length,
+    streams,
+    tokenSet: row.bridgeToken.length > 0,
     updatedAt: row.updatedAt,
   };
 }
@@ -1126,4 +1274,222 @@ export async function deleteSessionByTokenHash(
   tokenHash: string,
 ): Promise<void> {
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
+}
+
+export async function createCompanionPairingCode(
+  db: AppDatabase,
+  input: CreateCompanionPairingCodeInput,
+): Promise<typeof companionPairingCodes.$inferSelect> {
+  const row: typeof companionPairingCodes.$inferInsert = {
+    id: randomUUID(),
+    tokenHash: input.tokenHash,
+    createdByUserId: input.createdByUserId,
+    createdAt: nowIso(),
+    expiresAt: input.expiresAt,
+    usedAt: null,
+  };
+
+  await db.insert(companionPairingCodes).values(row);
+  return row as typeof companionPairingCodes.$inferSelect;
+}
+
+export async function findActiveCompanionPairingCodeByTokenHash(
+  db: AppDatabase,
+  tokenHash: string,
+): Promise<typeof companionPairingCodes.$inferSelect | undefined> {
+  const now = nowIso();
+  return db.query.companionPairingCodes.findFirst({
+    where: and(
+      eq(companionPairingCodes.tokenHash, tokenHash),
+      gt(companionPairingCodes.expiresAt, now),
+    ),
+  });
+}
+
+export async function markCompanionPairingCodeUsed(
+  db: AppDatabase,
+  pairingCodeId: string,
+): Promise<void> {
+  await db
+    .update(companionPairingCodes)
+    .set({ usedAt: nowIso() })
+    .where(eq(companionPairingCodes.id, pairingCodeId));
+}
+
+export async function listCompanions(
+  db: AppDatabase,
+): Promise<CompanionRegistration[]> {
+  const rows = await db
+    .select()
+    .from(companions)
+    .orderBy(desc(companions.updatedAt));
+
+  return rows.map((row) => {
+    const companion = mapCompanion(row);
+    return {
+      baseUrl: companion.baseUrl,
+      capabilities: companion.capabilities,
+      createdAt: companion.createdAt,
+      id: companion.id,
+      lastError: companion.lastError,
+      lastHealthAt: companion.lastHealthAt,
+      name: companion.name,
+      pairedAt: companion.pairedAt,
+      printerCount: companion.printerCount,
+      status: companion.status,
+      streamCount: companion.streamCount,
+      tokenSet: companion.tokenSet,
+      updatedAt: companion.updatedAt,
+    };
+  });
+}
+
+export async function getCompanionSecretById(
+  db: AppDatabase,
+  companionId: string,
+): Promise<CompanionSecretRecord | undefined> {
+  const row = await db.query.companions.findFirst({
+    where: eq(companions.id, companionId),
+  });
+
+  return row ? mapCompanion(row) : undefined;
+}
+
+export async function findCompanionByBaseUrl(
+  db: AppDatabase,
+  baseUrl: string,
+): Promise<CompanionSecretRecord | undefined> {
+  const row = await db.query.companions.findFirst({
+    where: eq(companions.baseUrl, baseUrl),
+  });
+
+  return row ? mapCompanion(row) : undefined;
+}
+
+export async function upsertCompanionRegistration(
+  db: AppDatabase,
+  input: CreateCompanionRegistrationInput,
+): Promise<CompanionRegistration> {
+  const timestamp = nowIso();
+  const existing = await db.query.companions.findFirst({
+    where: eq(companions.baseUrl, input.baseUrl),
+  });
+  const row: typeof companions.$inferInsert = {
+    id: existing?.id ?? randomUUID(),
+    name: input.name,
+    baseUrl: input.baseUrl,
+    bridgeUsername: input.bridgeUsername,
+    bridgeToken: input.bridgeToken,
+    status: input.status,
+    lastHealthAt: input.health?.bridge.baseUrl ? timestamp : null,
+    lastError: null,
+    capabilitiesJson: JSON.stringify(input.capabilities),
+    capabilityNotesJson: JSON.stringify(input.capabilityNotes),
+    healthJson: JSON.stringify(input.health),
+    printersJson: JSON.stringify(input.printers),
+    streamsJson: JSON.stringify(input.streams),
+    pairedAt: input.pairedAt,
+    createdAt: existing?.createdAt ?? timestamp,
+    updatedAt: timestamp,
+  };
+
+  if (existing) {
+    await db
+      .update(companions)
+      .set({
+        name: row.name,
+        bridgeUsername: row.bridgeUsername,
+        bridgeToken: row.bridgeToken,
+        status: row.status,
+        lastHealthAt: row.lastHealthAt,
+        lastError: row.lastError,
+        capabilitiesJson: row.capabilitiesJson,
+        capabilityNotesJson: row.capabilityNotesJson,
+        healthJson: row.healthJson,
+        printersJson: row.printersJson,
+        streamsJson: row.streamsJson,
+        pairedAt: row.pairedAt,
+        updatedAt: row.updatedAt,
+      })
+      .where(eq(companions.id, existing.id));
+  } else {
+    await db.insert(companions).values(row);
+  }
+
+  const companion = mapCompanion(row as typeof companions.$inferSelect);
+  return {
+    baseUrl: companion.baseUrl,
+    capabilities: companion.capabilities,
+    createdAt: companion.createdAt,
+    id: companion.id,
+    lastError: companion.lastError,
+    lastHealthAt: companion.lastHealthAt,
+    name: companion.name,
+    pairedAt: companion.pairedAt,
+    printerCount: companion.printerCount,
+    status: companion.status,
+    streamCount: companion.streamCount,
+    tokenSet: companion.tokenSet,
+    updatedAt: companion.updatedAt,
+  };
+}
+
+export async function updateCompanionSnapshot(
+  db: AppDatabase,
+  companionId: string,
+  input: Omit<CreateCompanionRegistrationInput, "baseUrl" | "bridgeToken" | "bridgeUsername" | "name" | "pairedAt"> & {
+    lastError: string | null;
+  },
+): Promise<CompanionRegistration | null> {
+  const existing = await db.query.companions.findFirst({
+    where: eq(companions.id, companionId),
+  });
+  if (!existing) {
+    return null;
+  }
+
+  const updatedAt = nowIso();
+  await db
+    .update(companions)
+    .set({
+      capabilitiesJson: JSON.stringify(input.capabilities),
+      capabilityNotesJson: JSON.stringify(input.capabilityNotes),
+      healthJson: JSON.stringify(input.health),
+      lastError: input.lastError,
+      lastHealthAt: updatedAt,
+      printersJson: JSON.stringify(input.printers),
+      status: input.status,
+      streamsJson: JSON.stringify(input.streams),
+      updatedAt,
+    })
+    .where(eq(companions.id, companionId));
+
+  const next = await getCompanionSecretById(db, companionId);
+  if (!next) {
+    return null;
+  }
+
+  return {
+    baseUrl: next.baseUrl,
+    capabilities: next.capabilities,
+    createdAt: next.createdAt,
+    id: next.id,
+    lastError: next.lastError,
+    lastHealthAt: next.lastHealthAt,
+    name: next.name,
+    pairedAt: next.pairedAt,
+    printerCount: next.printerCount,
+    status: next.status,
+    streamCount: next.streamCount,
+    tokenSet: next.tokenSet,
+    updatedAt: next.updatedAt,
+  };
+}
+
+export async function deleteCompanion(
+  db: AppDatabase,
+  companionId: string,
+): Promise<boolean> {
+  const result = await db.delete(companions).where(eq(companions.id, companionId));
+  return result.changes > 0;
 }

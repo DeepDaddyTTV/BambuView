@@ -1,0 +1,18 @@
+export const companionChannels = {
+  copyBridgeUrl: "companion:copy-bridge-url",
+  createPrinter: "companion:create-printer",
+  createStream: "companion:create-stream",
+  deletePrinter: "companion:delete-printer",
+  deleteStream: "companion:delete-stream",
+  fileHandoff: "companion:file-handoff",
+  getSnapshot: "companion:get-snapshot",
+  openExternal: "companion:open-external",
+  pair: "companion:pair",
+  readTelemetry: "companion:read-telemetry",
+  regenerateBridgeToken: "companion:regenerate-bridge-token",
+  resetPairing: "companion:reset-pairing",
+  saveSettings: "companion:save-settings",
+  testPrinter: "companion:test-printer",
+  updatePrinter: "companion:update-printer",
+  updateStream: "companion:update-stream",
+} as const;

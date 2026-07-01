@@ -1,11 +1,11 @@
 {
   "name": "bambuview",
-  "version": "0.0.29",
+  "version": "0.0.30",
   "private": true,
   "packageManager": "pnpm@11.5.3",
   "scripts": {
     "dev": "concurrently -n api,web \"pnpm --filter @bambuview/api dev\" \"pnpm --filter @bambuview/web dev\"",
-    "clean": "node -e \"const fs=require('node:fs'); ['apps/api/dist','apps/web/dist','packages/contracts/dist'].forEach((dir)=>fs.rmSync(dir,{recursive:true,force:true}));\"",
+    "clean": "node -e \"const fs=require('node:fs'); ['apps/api/dist','apps/web/dist','apps/companion/out','apps/companion/release','packages/contracts/dist'].forEach((dir)=>fs.rmSync(dir,{recursive:true,force:true}));\"",
     "build": "pnpm clean && pnpm -r build",
     "lint": "pnpm -r lint",
     "postinstall": "pnpm --filter @bambuview/contracts build",

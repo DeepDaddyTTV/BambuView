@@ -1,4 +1,5 @@
 import { mkdtempSync, rmSync } from "node:fs";
+import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
 
@@ -672,6 +673,208 @@ describe("auth and settings flows", () => {
     });
 
     expect(duplicate.statusCode).toBe(409);
+    await app.close();
+  });
+});
+
+describe("companion integration", () => {
+  it("pairs a companion, tests the connection, and imports a stream as a camera source", async () => {
+    const app = await buildApp({
+      appOrigin: "http://localhost:4173",
+      databaseFile: createTestDbPath(),
+    });
+
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap",
+      payload: {
+        email: "admin@example.com",
+        name: "Admin User",
+        password: "supersecure",
+      },
+    });
+    const cookie = bootstrap.headers["set-cookie"];
+
+    const pairingCodeResponse = await app.inject({
+      method: "POST",
+      url: "/api/companions/pairing-codes",
+      headers: {
+        cookie,
+      },
+    });
+    expect(pairingCodeResponse.statusCode).toBe(201);
+    const pairingCode = pairingCodeResponse.json().pairingCode.code as string;
+
+    const bridgeToken = "bridge-token-1234567890";
+    const companionServer = createServer((request, response) => {
+      if (
+        request.headers.authorization !==
+        `Basic ${Buffer.from(`companion:${bridgeToken}`).toString("base64")}`
+      ) {
+        response.statusCode = 401;
+        response.end(JSON.stringify({ message: "Unauthorized" }));
+        return;
+      }
+
+      response.setHeader("content-type", "application/json");
+      if (request.url === "/health") {
+        response.end(
+          JSON.stringify({
+            appName: "BambuView Companion",
+            appVersion: "0.0.30",
+            bridge: {
+              baseUrl: "http://127.0.0.1:41738",
+              bindMode: "localhost",
+              host: "localhost",
+              port: 41738,
+              suggestedPort: null,
+            },
+            pairing: {
+              paired: true,
+              companionId: "companion-1",
+              companionName: "Studio Bridge",
+              pairedAt: new Date().toISOString(),
+              serverUrl: "http://localhost:4173",
+            },
+            status: "paired",
+            capabilities: {
+              discovery: "unavailable",
+              telemetry: "available",
+              camera: "available",
+              controls: "unavailable",
+              fileUpload: "unavailable",
+              ams: "available",
+              slicingAssist: "future",
+            },
+            capabilityNotes: {},
+            warnings: [],
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/capabilities") {
+        response.end(
+          JSON.stringify({
+            capabilities: {
+              discovery: "unavailable",
+              telemetry: "available",
+              camera: "available",
+              controls: "unavailable",
+              fileUpload: "unavailable",
+              ams: "available",
+              slicingAssist: "future",
+            },
+            capabilityNotes: {
+              telemetry: "Local telemetry is available.",
+            },
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/printers") {
+        response.end(
+          JSON.stringify({
+            printers: [],
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/streams") {
+        response.end(
+          JSON.stringify({
+            streams: [
+              {
+                id: "stream-1",
+                name: "Printer Cam",
+                sourceKind: "mjpeg",
+                outputKind: "mjpeg",
+                upstreamUrl: "http://camera.local/live.mjpg",
+                linkedPrinterId: null,
+                status: "online",
+                details: "Browser-compatible stream ready.",
+                snapshotPath: null,
+                mjpegPath: "/streams/stream-1/mjpeg",
+                hlsPath: null,
+                lastTestedAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ],
+          }),
+        );
+        return;
+      }
+
+      response.statusCode = 404;
+      response.end(JSON.stringify({ message: "Not found" }));
+    });
+
+    await new Promise<void>((resolve) =>
+      companionServer.listen(0, "127.0.0.1", resolve),
+    );
+    const address = companionServer.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Expected companion server address.");
+    }
+
+    const pair = await app.inject({
+      method: "POST",
+      url: "/api/companions/pair",
+      payload: {
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        bridgeToken,
+        capabilities: {
+          discovery: "unavailable",
+          telemetry: "available",
+          camera: "available",
+          controls: "unavailable",
+          fileUpload: "unavailable",
+          ams: "available",
+          slicingAssist: "future",
+        },
+        capabilityNotes: {},
+        companionName: "Studio Bridge",
+        pairingToken: pairingCode,
+      },
+    });
+
+    expect(pair.statusCode).toBe(201);
+    const pairedCompanionId = pair.json().companion.id as string;
+
+    const test = await app.inject({
+      method: "POST",
+      url: `/api/companions/${pairedCompanionId}/test`,
+      headers: {
+        cookie,
+      },
+    });
+    expect(test.statusCode).toBe(200);
+    expect(test.json().snapshot.streams).toHaveLength(1);
+
+    const imported = await app.inject({
+      method: "POST",
+      url: `/api/companions/${pairedCompanionId}/import-streams/stream-1`,
+      headers: {
+        cookie,
+      },
+      payload: {},
+    });
+    expect(imported.statusCode).toBe(201);
+
+    const cameras = await app.inject({
+      method: "GET",
+      url: "/api/cameras",
+      headers: {
+        cookie,
+      },
+    });
+    expect(cameras.statusCode).toBe(200);
+    expect(cameras.json().sources[0].provider).toBe("bambuview-companion");
+
+    companionServer.close();
     await app.close();
   });
 });
