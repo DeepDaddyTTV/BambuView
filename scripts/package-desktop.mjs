@@ -6,6 +6,7 @@ import {
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -27,6 +28,10 @@ const skipBuild = process.argv.includes("--skip-build");
 const passthroughArgs = process.argv
   .slice(2)
   .filter((arg) => arg !== "--skip-build" && arg !== "--");
+const manualWindowsPortableZip = passthroughArgs.includes("--portable-zip");
+const electronBuilderArgs = passthroughArgs.filter(
+  (arg) => arg !== "--portable-zip",
+);
 const pnpmCli = process.env.npm_execpath ?? process.env.PNPM_EXECUTABLE ?? null;
 
 function resolveElectronBuilderCli() {
@@ -123,6 +128,58 @@ function runWebBuild() {
   run(viteBinary, ["build"], webDir);
 }
 
+function getTargetArch() {
+  if (electronBuilderArgs.includes("--arm64")) {
+    return "arm64";
+  }
+
+  if (electronBuilderArgs.includes("--ia32")) {
+    return "ia32";
+  }
+
+  return "x64";
+}
+
+function createWindowsPortableZip() {
+  if (process.platform !== "win32") {
+    throw new Error("--portable-zip is only supported on Windows runners.");
+  }
+
+  const packageData = JSON.parse(
+    readFileSync(path.join(desktopDir, "package.json"), "utf8"),
+  );
+  const arch = getTargetArch();
+  const productName = packageData.productName ?? packageData.name;
+  const portableName = `${productName}-${packageData.version}-Portable-${arch}`;
+  const unpackedDir = path.join(outputDir, "win-unpacked");
+  const portableDir = path.join(outputDir, portableName);
+  const portableZip = path.join(outputDir, `${portableName}.zip`);
+
+  if (!existsSync(unpackedDir)) {
+    throw new Error("Expected win-unpacked output before portable zip creation.");
+  }
+
+  rmSync(portableDir, { force: true, recursive: true });
+  rmSync(portableZip, { force: true });
+  renameSync(unpackedDir, portableDir);
+
+  run(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-Command",
+      "$ErrorActionPreference = 'Stop'; Compress-Archive -LiteralPath $env:BAMBUVIEW_PORTABLE_SOURCE -DestinationPath $env:BAMBUVIEW_PORTABLE_DEST -Force",
+    ],
+    repoRoot,
+    {
+      BAMBUVIEW_PORTABLE_DEST: portableZip,
+      BAMBUVIEW_PORTABLE_SOURCE: portableDir,
+    },
+  );
+}
+
 const electronBuilderCli = resolveElectronBuilderCli();
 
 if (!skipBuild) {
@@ -199,7 +256,7 @@ run(
     "never",
     "--config.directories.output",
     outputDir,
-    ...passthroughArgs,
+    ...electronBuilderArgs,
   ],
   repoRoot,
   {
@@ -210,6 +267,10 @@ run(
     PNPM_CONFIG_CONFIRM_MODULES_PURGE: "false",
   },
 );
+
+if (manualWindowsPortableZip) {
+  createWindowsPortableZip();
+}
 
 rmSync(stageDir, { force: true, recursive: true });
 

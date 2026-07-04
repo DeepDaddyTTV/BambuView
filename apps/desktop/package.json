@@ -87,16 +87,9 @@
     },
     "win": {
       "signExecutable": false,
-      "artifactName": "${productName}-${version}-Portable-${arch}.${ext}",
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
           "arch": [
             "x64"
           ]
