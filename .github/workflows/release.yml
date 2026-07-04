@@ -151,7 +151,7 @@ jobs:
             build_args: --win nsis --x64
             os: windows-latest
           - artifact_name: desktop-windows-portable
-            build_args: --win portable --x64
+            build_args: --win zip --x64
             os: windows-latest
           - artifact_name: desktop-linux
             build_args: --linux AppImage deb rpm --x64

@@ -87,6 +87,7 @@
     },
     "win": {
       "signExecutable": false,
+      "artifactName": "${productName}-${version}-Portable-${arch}.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -95,7 +96,7 @@
           ]
         },
         {
-          "target": "portable",
+          "target": "zip",
           "arch": [
             "x64"
           ]
@@ -109,9 +110,6 @@
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "BambuView"
-    },
-    "portable": {
-      "artifactName": "${productName}-${version}-Portable-${arch}.${ext}"
     },
     "linux": {
       "category": "Utility",

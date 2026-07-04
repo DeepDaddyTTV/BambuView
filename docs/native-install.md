@@ -15,12 +15,12 @@ On each alpha release, look for two app families:
 
 | App                 | Use it for                                                                 | Installers                     | Portable options                     |
 | ------------------- | -------------------------------------------------------------------------- | ------------------------------ | ------------------------------------ |
-| BambuView           | Full local app with UI, API, and SQLite database                           | `.dmg`, `.exe`, `.deb`, `.rpm` | `.zip`, portable `.exe`, `.AppImage` |
+| BambuView           | Full local app with UI, API, and SQLite database                           | `.dmg`, `.exe`, `.deb`, `.rpm` | `.zip`, `.AppImage`                  |
 | BambuView Companion | Local bridge for printer telemetry, camera bridge output, and file handoff | `.dmg`, `.exe`, `.deb`, `.rpm` | Not published                        |
 
 Docker images are published to Docker Hub. Native installers are attached to GitHub Releases only.
 
-AppImage builds are portable app bundles, not installers. BambuView Desktop publishes AppImage as an optional portable server/app package, while Companion stays installer-only.
+Zip and AppImage builds are portable app bundles, not installers. BambuView Desktop publishes them as optional portable server/app packages, while Companion stays installer-only.
 
 ## Install BambuView Desktop
 
