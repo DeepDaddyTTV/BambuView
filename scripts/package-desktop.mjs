@@ -149,7 +149,11 @@ function createWindowsPortableZip() {
     readFileSync(path.join(desktopDir, "package.json"), "utf8"),
   );
   const arch = getTargetArch();
-  const productName = packageData.productName ?? packageData.name;
+  const productName = (
+    packageData.build?.productName ??
+    packageData.productName ??
+    packageData.name
+  ).replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
   const portableName = `${productName}-${packageData.version}-Portable-${arch}`;
   const unpackedDir = path.join(outputDir, "win-unpacked");
   const portableDir = path.join(outputDir, portableName);
