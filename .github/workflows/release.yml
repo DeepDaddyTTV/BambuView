@@ -139,6 +139,7 @@ jobs:
   desktop-artifacts:
     needs: verify
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -146,8 +147,11 @@ jobs:
           - artifact_name: desktop-macos
             build_args: --mac dmg zip --arm64
             os: macos-14
-          - artifact_name: desktop-windows
-            build_args: --win nsis portable --x64
+          - artifact_name: desktop-windows-installer
+            build_args: --win nsis --x64
+            os: windows-latest
+          - artifact_name: desktop-windows-portable
+            build_args: --win portable --x64
             os: windows-latest
           - artifact_name: desktop-linux
             build_args: --linux AppImage deb rpm --x64
