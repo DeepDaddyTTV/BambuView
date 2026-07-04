@@ -2,7 +2,11 @@
   "name": "@bambuview/desktop",
   "version": "0.0.30",
   "description": "Native desktop wrapper for the self-hosted BambuView web app.",
-  "author": "BambuView",
+  "author": {
+    "name": "BambuView Maintainers",
+    "email": "noreply@github.com"
+  },
+  "homepage": "https://github.com/DeepDaddyTTV/BambuView",
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {
@@ -27,6 +31,7 @@
   "build": {
     "appId": "com.deepdaddyttv.bambuview.desktop",
     "productName": "BambuView",
+    "executableName": "bambuview",
     "electronVersion": "43.0.0",
     "asar": true,
     "asarUnpack": [
@@ -103,6 +108,7 @@
     "linux": {
       "category": "Utility",
       "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "maintainer": "BambuView Maintainers <noreply@github.com>",
       "target": [
         {
           "target": "AppImage",
