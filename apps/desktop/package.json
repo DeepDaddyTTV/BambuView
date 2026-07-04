@@ -86,6 +86,7 @@
       ]
     },
     "win": {
+      "signExecutable": false,
       "target": [
         {
           "target": "nsis",
