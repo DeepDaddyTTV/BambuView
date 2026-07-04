@@ -34,6 +34,7 @@
     "productName": "BambuView",
     "executableName": "bambuview",
     "electronVersion": "43.0.0",
+    "compression": "store",
     "npmRebuild": false,
     "asar": true,
     "asarUnpack": [

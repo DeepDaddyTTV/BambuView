@@ -3,9 +3,11 @@ import {
   cpSync,
   existsSync,
   mkdirSync,
+  readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -94,6 +96,17 @@ function resolvePnpmInvocation(args) {
   };
 }
 
+function removePackagedAppDependencies() {
+  const packagePath = path.join(stageDir, "package.json");
+  const packageData = JSON.parse(readFileSync(packagePath, "utf8"));
+
+  // Runtime dependencies live under resources/node_modules for the bundled API.
+  delete packageData.dependencies;
+  delete packageData.optionalDependencies;
+
+  writeFileSync(packagePath, `${JSON.stringify(packageData, null, 2)}\n`);
+}
+
 function runWebBuild() {
   const tscBinary = path.join(
     repoRoot,
@@ -170,6 +183,8 @@ if (existsSync(path.join(repoRoot, ".npmrc"))) {
     force: true,
   });
 }
+
+removePackagedAppDependencies();
 
 rmSync(outputDir, { force: true, recursive: true });
 mkdirSync(outputDir, { recursive: true });
