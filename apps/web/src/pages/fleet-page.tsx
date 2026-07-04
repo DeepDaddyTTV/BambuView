@@ -21,6 +21,7 @@ import {
   Palette,
   Pause,
   Plus,
+  PlugZap,
   RefreshCcw,
   Search,
   Send,
@@ -71,6 +72,7 @@ const navigationItems = [
   { icon: Grid2x2, label: "Fleet", to: "/fleet" },
   { icon: FileCode2, label: "Prepare & Slice", to: "/prepare" },
   { icon: Camera, label: "Cameras", to: "/cameras" },
+  { icon: PlugZap, label: "Companion", to: "/companion" },
   { icon: Users2, label: "Users", to: "/users" },
   { icon: Settings, label: "Settings", to: "/settings" },
 ] as const;
@@ -255,7 +257,7 @@ function selectedCameraFeed(printer: PrinterDetail, selectedFeedId: string) {
   );
 }
 
-function CameraFeedFrame({
+export function CameraFeedFrame({
   className = "",
   feed,
   printer,
@@ -324,7 +326,7 @@ function CameraFeedFrame({
                 : feed?.streamKind === "rtsp" ||
                     feed?.streamKind === "bambu-native"
                   ? "If this is in error, configure cameras in Cameras with a Frigate/go2rtc restream."
-                  : "If this is in error, configure cameras in Cameras and assign one to this printer."}
+                  : "If this is in error, configure cameras in Cameras."}
           </div>
         </div>
       </div>

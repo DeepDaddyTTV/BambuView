@@ -9,7 +9,7 @@ BambuView can show camera feeds in a few practical ways right now:
 
 1. A direct browser-compatible camera URL.
 2. A Frigate or go2rtc restream URL.
-3. A browser-compatible bridge endpoint exposed by BambuConnect Direct, the Bambu Network Plugin, or a future BambuView Companion helper.
+3. A browser-compatible bridge endpoint exposed by BambuConnect Direct, the Bambu Network Plugin, or a paired BambuView Companion helper.
 
 The future companion app will be the beginner-friendly fallback for Bambu native camera streams that a normal browser cannot play directly.
 

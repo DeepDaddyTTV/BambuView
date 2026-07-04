@@ -5,6 +5,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 
 import {
   BAMBU_PRINTER_MODELS,
+  COMPANION_BRIDGE_USERNAME,
   FLEET_CAMERA_TARGET_ID,
   type AppearanceSettings,
   type AuthSession,
@@ -12,6 +13,8 @@ import {
   type CameraSourceInput,
   type BambuConnectImportRequest,
   type BambuPrinterConnectionInput,
+  type CompanionConnectionSnapshot,
+  type CompanionPairingRequest,
   type UserProfile,
 } from "@bambuview/contracts";
 
@@ -22,8 +25,10 @@ import {
   normalizeCameraSourceInput,
   testCameraSource,
 } from "./cameras.js";
+import { fetchCompanionSnapshot } from "./companion.js";
 import {
   clearSessionCookie,
+  createRawToken,
   createAuthenticatedSession,
   destroySession,
   getExpiry,
@@ -37,13 +42,17 @@ import {
   countAdmins,
   countUsers,
   createCameraSource,
+  createCompanionPairingCode,
   createInvite,
   createPrinterConnection,
+  deleteCompanion,
   createUser,
   deleteCameraAssignment,
   deleteCameraSource,
   deletePrinterConnection,
+  findActiveCompanionPairingCodeByTokenHash,
   findActiveInviteByTokenHash,
+  getCompanionSecretById,
   findInviteById,
   getCameraSourceSecretById,
   getAppearance,
@@ -53,9 +62,13 @@ import {
   getUserByEmail,
   getUserById,
   listInvites,
+  listCompanions,
   listPrinterConnections,
   listUsers,
+  markCompanionPairingCodeUsed,
   markInviteUsed,
+  upsertCompanionRegistration,
+  updateCompanionSnapshot,
   updateCameraSource,
   updatePrinterConnection,
   upsertCameraAssignment,
@@ -215,6 +228,49 @@ const cameraAssignmentSchema = z.object({
 
 const fleetModeSchema = z.object({
   mode: z.enum(["live", "placeholder"]).default("placeholder"),
+});
+
+const companionCapabilityStateSchema = z.enum([
+  "available",
+  "unavailable",
+  "requires_setup",
+  "requires_restream",
+  "requires_developer_mode",
+  "future",
+  "unsupported",
+]);
+
+const companionCapabilitiesSchema = z.object({
+  discovery: companionCapabilityStateSchema,
+  telemetry: companionCapabilityStateSchema,
+  camera: companionCapabilityStateSchema,
+  controls: companionCapabilityStateSchema,
+  fileUpload: companionCapabilityStateSchema,
+  ams: companionCapabilityStateSchema,
+  slicingAssist: companionCapabilityStateSchema,
+});
+
+const companionCapabilityNotesSchema = z.object({
+  discovery: z.string().optional(),
+  telemetry: z.string().optional(),
+  camera: z.string().optional(),
+  controls: z.string().optional(),
+  fileUpload: z.string().optional(),
+  ams: z.string().optional(),
+  slicingAssist: z.string().optional(),
+});
+
+const companionPairSchema = z.object({
+  baseUrl: z.url(),
+  bridgeToken: z.string().trim().min(16).max(256),
+  capabilities: companionCapabilitiesSchema,
+  capabilityNotes: companionCapabilityNotesSchema.default({}),
+  companionName: z.string().trim().min(2).max(120),
+  pairingToken: z.string().trim().min(16),
+});
+
+const companionImportSchema = z.object({
+  name: z.string().trim().min(2).max(120).optional(),
 });
 
 interface RouteDependencies {
@@ -722,6 +778,258 @@ export async function registerRoutes(
     const deleted = await deletePrinterConnection(dependencies.db, params.id);
     if (!deleted) {
       return reply.code(404).send({ message: "Printer connection not found." });
+    }
+
+    return reply.code(204).send();
+  });
+
+  app.get("/api/companions", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    return {
+      companions: await listCompanions(dependencies.db),
+    };
+  });
+
+  app.get("/api/companions/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const companion = await getCompanionSecretById(dependencies.db, params.id);
+    if (!companion) {
+      return reply.code(404).send({ message: "Companion not found." });
+    }
+
+    const snapshot: CompanionConnectionSnapshot = {
+      companion: {
+        baseUrl: companion.baseUrl,
+        bridgeUsername: companion.bridgeUsername,
+        capabilities: companion.capabilities,
+        capabilityNotes: companion.capabilityNotes,
+        createdAt: companion.createdAt,
+        id: companion.id,
+        lastError: companion.lastError,
+        lastHealthAt: companion.lastHealthAt,
+        name: companion.name,
+        pairedAt: companion.pairedAt,
+        printerCount: companion.printerCount,
+        status: companion.status,
+        streamCount: companion.streamCount,
+        tokenSet: companion.tokenSet,
+        updatedAt: companion.updatedAt,
+      },
+      health: companion.health,
+      printers: companion.printers,
+      streams: companion.streams,
+    };
+
+    return {
+      snapshot,
+    };
+  });
+
+  app.post("/api/companions/pairing-codes", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const rawToken = createRawToken();
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    const pairingCode = await createCompanionPairingCode(dependencies.db, {
+      createdByUserId: session.user.id,
+      expiresAt,
+      tokenHash: hashToken(rawToken),
+    });
+
+    return reply.code(201).send({
+      pairingCode: {
+        code: rawToken,
+        createdAt: pairingCode.createdAt,
+        expiresAt: pairingCode.expiresAt,
+        id: pairingCode.id,
+      },
+    });
+  });
+
+  app.post("/api/companions/pair", async (request, reply) => {
+    const body: CompanionPairingRequest = companionPairSchema.parse(request.body);
+    const pairingCode = await findActiveCompanionPairingCodeByTokenHash(
+      dependencies.db,
+      hashToken(body.pairingToken),
+    );
+    if (!pairingCode || pairingCode.usedAt) {
+      return reply.code(409).send({
+        message: "That pairing token is missing, expired, or already used.",
+      });
+    }
+
+    try {
+      const snapshot = await fetchCompanionSnapshot({
+        baseUrl: body.baseUrl.replace(/\/+$/, ""),
+        bridgeToken: body.bridgeToken,
+        bridgeUsername: COMPANION_BRIDGE_USERNAME,
+      });
+      const companion = await upsertCompanionRegistration(dependencies.db, {
+        baseUrl: body.baseUrl.replace(/\/+$/, ""),
+        bridgeToken: body.bridgeToken,
+        bridgeUsername: COMPANION_BRIDGE_USERNAME,
+        capabilities: snapshot.capabilities,
+        capabilityNotes: snapshot.capabilityNotes,
+        health: snapshot.health,
+        name: body.companionName,
+        pairedAt: new Date().toISOString(),
+        printers: snapshot.printers,
+        status: snapshot.streams.some((stream) => stream.status === "online")
+          ? "online"
+          : "degraded",
+        streams: snapshot.streams,
+      });
+      await markCompanionPairingCodeUsed(dependencies.db, pairingCode.id);
+
+      return reply.code(201).send({
+        companion,
+      });
+    } catch (error) {
+      return reply.code(502).send({
+        message:
+          error instanceof Error
+            ? error.message
+            : "BambuView could not reach the Companion bridge.",
+      });
+    }
+  });
+
+  app.post("/api/companions/:id/test", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const companion = await getCompanionSecretById(dependencies.db, params.id);
+    if (!companion) {
+      return reply.code(404).send({ message: "Companion not found." });
+    }
+
+    try {
+      const live = await fetchCompanionSnapshot(companion);
+      const updated = await updateCompanionSnapshot(dependencies.db, params.id, {
+        capabilities: live.capabilities,
+        capabilityNotes: live.capabilityNotes,
+        health: live.health,
+        lastError: null,
+        printers: live.printers,
+        status: live.streams.some((stream) => stream.status === "online")
+          ? "online"
+          : "degraded",
+        streams: live.streams,
+      });
+      if (!updated) {
+        return reply.code(404).send({ message: "Companion not found." });
+      }
+
+      return {
+        snapshot: {
+          companion: updated,
+          health: live.health,
+          printers: live.printers,
+          streams: live.streams,
+        },
+      };
+    } catch (error) {
+      await updateCompanionSnapshot(dependencies.db, params.id, {
+        capabilities: companion.capabilities,
+        capabilityNotes: companion.capabilityNotes,
+        health: companion.health,
+        lastError:
+          error instanceof Error
+            ? error.message
+            : "Companion connection failed.",
+        printers: companion.printers,
+        status: "offline",
+        streams: companion.streams,
+      });
+
+      return reply.code(502).send({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Companion connection failed.",
+      });
+    }
+  });
+
+  app.post(
+    "/api/companions/:id/import-streams/:streamId",
+    async (request, reply) => {
+      const session = await requireAdmin(request, reply, dependencies);
+      if (!session || "statusCode" in session) {
+        return session;
+      }
+
+      const params = z
+        .object({ id: z.uuid(), streamId: z.string().trim().min(1) })
+        .parse(request.params);
+      const body = companionImportSchema.parse(request.body ?? {});
+      const companion = await getCompanionSecretById(dependencies.db, params.id);
+      if (!companion) {
+        return reply.code(404).send({ message: "Companion not found." });
+      }
+
+      const stream = companion.streams.find((item) => item.id === params.streamId);
+      if (!stream) {
+        return reply.code(404).send({ message: "Companion stream not found." });
+      }
+
+      const streamPath =
+        stream.mjpegPath ?? stream.snapshotPath ?? stream.hlsPath ?? null;
+      if (!streamPath) {
+        return reply.code(409).send({
+          message:
+            "This Companion stream does not expose a browser-compatible output yet.",
+        });
+      }
+
+      const input: CameraSourceInput = {
+        name: body.name ?? `${companion.name} • ${stream.name}`,
+        password: companion.bridgeToken,
+        provider: "bambuview-companion",
+        streamUrl: `${companion.baseUrl}${streamPath}`,
+        username: companion.bridgeUsername,
+      };
+      const normalized = normalizeCameraSourceInput(input);
+      const source = await createCameraSource(dependencies.db, {
+        ...input,
+        details: stream.details || normalized.details,
+        lastTestedAt: stream.lastTestedAt,
+        password: companion.bridgeToken,
+        status: stream.status,
+        streamKind: normalized.streamKind,
+        streamUrl: normalized.streamUrl,
+        username: companion.bridgeUsername,
+      });
+
+      return reply.code(201).send({ source });
+    },
+  );
+
+  app.delete("/api/companions/:id", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const deleted = await deleteCompanion(dependencies.db, params.id);
+    if (!deleted) {
+      return reply.code(404).send({ message: "Companion not found." });
     }
 
     return reply.code(204).send();

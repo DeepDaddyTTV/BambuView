@@ -61,7 +61,7 @@ const providerOptions: Array<StyledSelectOption<CameraProviderType>> = [
     value: "network-plugin",
   },
   {
-    description: "Future local helper / fallback endpoint",
+    description: "Native local bridge paired through BambuView Companion",
     label: "BambuView Companion",
     value: "bambuview-companion",
   },

@@ -304,11 +304,61 @@ export interface CameraTestResult {
   status: CameraSource["status"];
 }
 
+export type PrepareWorkspaceStatus = "planned" | "scaffolded" | "available";
+
+export type PrepareWorkflowKind = "filament" | "resin";
+
+export type PrepareSlicerId = "orcaslicer" | "prusaslicer";
+
+export interface PrepareWorkflow {
+  id: PrepareWorkflowKind;
+  label: string;
+  summary: string;
+  printerClass: string;
+  delivery: string;
+  acceptedInputs: string[];
+  activeSlicerId: PrepareSlicerId;
+}
+
+export interface PrepareSlicerWorkspace {
+  id: PrepareSlicerId;
+  label: string;
+  summary: string;
+  status: PrepareWorkspaceStatus;
+  upstreamName: string;
+  upstreamUrl: string;
+  license: string;
+  workflowKinds: PrepareWorkflowKind[];
+  defaultFor: PrepareWorkflowKind[];
+  notes: string[];
+  plannedCapabilities: string[];
+}
+
+export interface PreparePipelineStage {
+  id: string;
+  label: string;
+  summary: string;
+  status: PrepareWorkspaceStatus;
+  slicerIds: PrepareSlicerId[];
+}
+
+export interface PrepareHandoffAction {
+  id: string;
+  label: string;
+  description: string;
+  availableFor: PrepareWorkflowKind[];
+  requirement: string;
+}
+
 export interface PrepareStatus {
-  status: "planned";
+  status: PrepareWorkspaceStatus;
   headline: string;
   description: string;
   capabilities: string[];
+  workflows: PrepareWorkflow[];
+  slicers: PrepareSlicerWorkspace[];
+  pipeline: PreparePipelineStage[];
+  handoffActions: PrepareHandoffAction[];
 }
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {
@@ -338,3 +388,5 @@ export const LIGHT_BACKGROUND_SWATCHES = [
   "#f7f8fa",
   "#eef1f5",
 ] as const;
+
+export * from "./companion.js";

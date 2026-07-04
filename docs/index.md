@@ -7,8 +7,10 @@ Start here:
 - [First-time setup](./getting-started.md)
 - [Bambu connection modes](./lan-mode.md)
 - [Camera setup](./cameras.md)
+- [BambuView Companion](./companion.md)
+- [Prepare & Slice](./prepare-slice.md)
 
-What BambuView `0.0.29` alpha includes:
+What BambuView `0.0.31` alpha includes:
 
 - A local first-run admin setup flow
 - Invite-only account creation after bootstrap
@@ -16,8 +18,10 @@ What BambuView `0.0.29` alpha includes:
 - Bambu printer setup with Cloud / Normal, Bambu Connect, LAN Mode, and LAN-only Developer Mode profiles
 - Edit and delete actions for saved Bambu printer profiles, including switching an existing profile into LAN or Developer mode when you are ready for live telemetry
 - Current Bambu model options for H2, X2, P2, A2, X1, P1, and A1 families
+- A Prepare & Slice workspace that now splits Orca filament work from Prusa resin work
 - Bambu Connect import-link generation for sliced G-code and 3MF handoff, with limited Fleet state instead of fake live telemetry
 - Local MQTT status polling for Bambu LAN and Developer profiles
+- BambuView Companion pairing, Companion connection tests, cached capability reporting, cached local printer visibility, and importable Companion stream sources
 - Camera source setup for Frigate restream URLs, BambuConnect Direct bridge URLs, Bambu Network Plugin bridge URLs, BambuView Companion endpoints, direct HTTP/MJPEG/HLS feeds, and raw RTSP feeds that will be restreamed before browser playback
 - Printer and Fleet Overview camera assignment with proxied playback for browser-renderable camera sources
 - Clear degraded-state warnings when a saved camera source is reachable metadata or a dashboard URL instead of browser-renderable media
@@ -26,6 +30,5 @@ What BambuView `0.0.29` alpha includes:
 
 Still being built:
 
-- The in-browser prepare and slice workspace
-- Native desktop installers
-- BambuView Companion for easier native camera restreaming
+- Deep Orca and Prusa fork integration beyond the current scaffolded split-lane workspace
+- Broader Companion control, direct upload, and native video restream support

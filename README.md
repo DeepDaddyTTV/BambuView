@@ -5,7 +5,7 @@
   <img src="img/BambuView_Full_Logo_GitHub.png" alt="BambuView logo" width="580"/>
 </picture>
 
-**Self-hosted fleet, camera, and print-progress dashboard for Bambu Lab printers**
+**Self-hosted fleet, camera, Companion, and print-progress dashboard for Bambu Lab printers**
 
 [![Docker](https://img.shields.io/badge/docker-ready-brightgreen.svg)](https://www.docker.com/)
 [![Docker Hub](https://img.shields.io/badge/image-docker.io%2Fdeepdaddyttv%2Fbambuview-2496ED)](https://hub.docker.com/repository/docker/deepdaddyttv/bambuview/general)
@@ -24,7 +24,9 @@ It is being built for people who want a clean local-first printer console with i
 - **Fullscreen printer workspace** with camera, movement, temperature, fan, lamp, extruder, filament, and print-action controls mapped to each connection profile's supported path.
 - **Bambu printer setup** with Cloud / Normal, Bambu Connect, LAN Mode, and LAN-only Developer Mode profiles, MQTT/Bambu Connect capability checks, SQLite persistence, and redacted access-code handling.
 - **Current Bambu model catalog** covering H2, X2, P2, A2, X1, P1, and A1 families.
+- **Prepare & Slice workspace split** with OrcaSlicer positioned as the filament/FDM fork target and PrusaSlicer reserved for resin-only workflows.
 - **Camera source management** for direct browser-compatible HTTP/MJPEG/HLS feeds, Frigate/go2rtc restream URLs, and raw RTSP sources that can be restreamed before browser playback.
+- **BambuView Companion foundation** with native pairing, localhost bridge auth, manual printer profiles, honest capability reporting, local telemetry hooks, and importable Companion stream sources.
 - **Local first-run setup** that creates the first admin account before the app opens.
 - **Invite-only users** after bootstrap, with `admin`, `operator`, and `viewer` roles.
 - **Per-user appearance settings** for light mode, dark mode, highlight colors, background colors, and background styles.
@@ -35,13 +37,34 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.29` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, and selectable background styles.
+The `0.0.31` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, selectable background styles, and a first Companion management surface.
 
-The Bambu connection profiles now expose honest capability states. Cloud / Normal and Bambu Connect are saved as handoff profiles for Bambu Connect import links and future bridge work, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers or the Fleet Overview target; RTSP and native Bambu feeds should be routed through Frigate/go2rtc, a Network Plugin bridge endpoint, or a future BambuView Companion restream before browser playback.
+The Bambu connection profiles now expose honest capability states. Cloud / Normal and Bambu Connect are saved as handoff profiles for Bambu Connect import links and bridge-aware workflows, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers or the Fleet Overview target; RTSP and native Bambu feeds should still be routed through Frigate/go2rtc, a Network Plugin bridge endpoint, or a browser-compatible Companion stream before browser playback.
 
 Saved printer profiles can be edited from the Fleet detail panel. Use that when a printer was first added as Cloud / Normal or Bambu Connect and you are ready to add LAN/Developer host and access-code details for live telemetry.
 
 Printers without an assigned browser-compatible camera show a black `No Camera Detected` view in the camera panel and point you back to `Cameras` for setup.
+
+The Prepare & Slice tab now uses a real split-lane foundation instead of a single placeholder: Orca is the default filament workbench for Bambu and other FDM printers, while Prusa is held back for resin-only workflows so SLA tooling can evolve without polluting the Bambu path.
+
+## BambuView Companion
+
+BambuView Companion is the native/local bridge app inside this repo.
+
+Use it when BambuView needs a trusted desktop process for local printer telemetry, local camera bridge output, or local file handoff that the browser app cannot reach directly.
+
+The first Companion foundation in `0.0.31` includes:
+
+- Electron + TypeScript app inside `apps/companion`
+- bridge API on `http://localhost:<port>` by default
+- auth token required on Companion bridge endpoints
+- one-time pairing flow from the main BambuView app
+- Companion management page in the web UI
+- manual Bambu printer records with honest capability reporting
+- local Bambu MQTT telemetry reads when LAN details are present
+- importable Companion stream sources that land in `Cameras`
+
+See the full Companion guide in [docs/companion.md](docs/companion.md).
 
 ## Getting Started
 
@@ -143,7 +166,7 @@ Replace `workbench_left` with the camera name from Frigate. BambuView proxies th
 
 Do not paste a Frigate dashboard URL, shared page, or URL with a `#` camera fragment. Those pages can load in a browser, but they are not a restream endpoint BambuView can embed.
 
-Direct MJPEG, HTTP snapshot, HLS, Frigate, BambuConnect Direct bridge URLs, Network Plugin bridge URLs, and BambuView Companion endpoints can be saved as camera sources. Raw RTSP and native Bambu camera sources need a Frigate/go2rtc/HTTP restream before a browser can play them inline. BambuView Companion is planned as the easier fallback for native camera streams later.
+Direct MJPEG, HTTP snapshot, HLS, Frigate, BambuConnect Direct bridge URLs, Network Plugin bridge URLs, and imported BambuView Companion endpoints can be saved as camera sources. Raw RTSP and native Bambu camera sources still need a Frigate/go2rtc/HTTP restream before a browser can play them inline.
 
 ## Documentation
 
@@ -155,6 +178,8 @@ Human-facing setup docs live in the repo `docs/` folder and are published throug
 - [First-time setup](docs/getting-started.md)
 - [Bambu connection modes](docs/lan-mode.md)
 - [Camera setup](docs/cameras.md)
+- [BambuView Companion](docs/companion.md)
+- [Prepare & Slice](docs/prepare-slice.md)
 - [Docs home](docs/index.md)
 
 ## Public Deployment Notes
