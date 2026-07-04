@@ -14,6 +14,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const desktopDir = path.join(repoRoot, "apps/desktop");
@@ -110,6 +111,52 @@ function removePackagedAppDependencies() {
   delete packageData.optionalDependencies;
 
   writeFileSync(packagePath, `${JSON.stringify(packageData, null, 2)}\n`);
+}
+
+function materializeRuntimeDependencyTree(rootDependencyName) {
+  const sourceNodeModules = path.join(stageDir, "node_modules");
+  const cleanNodeModules = path.join(stageDir, "node_modules.clean");
+  const rootResolver = createRequire(path.join(stageDir, "package.json"));
+  const copiedDependencies = new Set();
+
+  function copyDependency(dependencyName, resolver) {
+    if (copiedDependencies.has(dependencyName)) {
+      return;
+    }
+
+    const packageJsonPath = realpathSync(
+      resolver.resolve(`${dependencyName}/package.json`),
+    );
+    const packageSource = path.dirname(packageJsonPath);
+    const packageTarget = path.join(cleanNodeModules, dependencyName);
+    const packageData = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+    const packageResolver = createRequire(packageJsonPath);
+
+    copiedDependencies.add(dependencyName);
+    mkdirSync(path.dirname(packageTarget), { recursive: true });
+    cpSync(packageSource, packageTarget, {
+      dereference: true,
+      force: true,
+      recursive: true,
+    });
+
+    for (const childDependencyName of Object.keys({
+      ...packageData.dependencies,
+      ...packageData.optionalDependencies,
+    })) {
+      copyDependency(childDependencyName, packageResolver);
+    }
+  }
+
+  if (!existsSync(sourceNodeModules)) {
+    throw new Error("Expected staged node_modules to exist.");
+  }
+
+  rmSync(cleanNodeModules, { force: true, recursive: true });
+  mkdirSync(cleanNodeModules, { recursive: true });
+  copyDependency(rootDependencyName, rootResolver);
+  rmSync(sourceNodeModules, { force: true, recursive: true });
+  renameSync(cleanNodeModules, sourceNodeModules);
 }
 
 function runWebBuild() {
@@ -209,6 +256,8 @@ run(pnpmInvocation.command, pnpmInvocation.args, repoRoot, {
   BAMBUVIEW_SKIP_POSTINSTALL: "1",
   CI: "true",
 });
+
+materializeRuntimeDependencyTree("better-sqlite3");
 
 for (const entry of ["release", "src", "tsconfig.json", "vitest.config.ts"]) {
   rmSync(path.join(stageDir, entry), { force: true, recursive: true });
