@@ -1,6 +1,9 @@
 <div align="center">
 
-<img src="img/BambuView_Full_Logo.svg" alt="BambuView logo" width="520"/>
+<picture>
+  <source srcset="img/BambuView_Full_Logo.webp" type="image/webp" />
+  <img src="img/BambuView_Full_Logo_GitHub.png" alt="BambuView logo" width="580"/>
+</picture>
 
 **Self-hosted fleet, camera, and print-progress dashboard for Bambu Lab printers**
 

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { clsx } from "clsx";
 
@@ -9,18 +9,25 @@ import bracketPreview from "../assets/mockup/bracket.png";
 import dinoPreview from "../assets/mockup/dino.png";
 import housingPreview from "../assets/mockup/housing.png";
 import logoMarkSvgRaw from "../../../../img/BambuView_Logo_Only.svg?raw";
+import logoTextWebp from "../../../../img/BambuView_Only_Text.webp";
 
 function themeLogoSvg(svg: string) {
   return svg
     .replace(/<\?xml[^>]*>\s*/i, "")
-    .replace(/fill:\s*#(?:000|000000|101317);/gi, "fill: var(--brand-logo-ink);")
+    .replace(
+      /fill:\s*#(?:000|000000|101317);/gi,
+      "fill: var(--brand-logo-ink);",
+    )
     .replace(/fill:\s*#13bf00;/gi, "fill: var(--brand-logo-green);")
     .replace(/fill:\s*#(?:fff|ffffff);/gi, "fill: var(--brand-logo-ink);")
-    .replace(/fill=\"#(?:000|000000|101317)\"/gi, 'fill="var(--brand-logo-ink)"')
+    .replace(
+      /fill=\"#(?:000|000000|101317)\"/gi,
+      'fill="var(--brand-logo-ink)"',
+    )
     .replace(/fill=\"#13bf00\"/gi, 'fill="var(--brand-logo-green)"')
     .replace(/fill=\"#(?:fff|ffffff)\"/gi, 'fill="var(--brand-logo-ink)"')
     .replace(/<path d="M54\.03,[^>]+\/>/i, (match) =>
-      match.replace("<path ", '<path fill="var(--brand-logo-ink)" ')
+      match.replace("<path ", '<path fill="var(--brand-logo-ink)" '),
     )
     .trim();
 }
@@ -29,7 +36,7 @@ const themedLogoMark = themeLogoSvg(logoMarkSvgRaw);
 
 function InlineLogo({
   className,
-  markup
+  markup,
 }: {
   className?: string;
   markup: string;
@@ -45,23 +52,17 @@ function InlineLogo({
 }
 
 export function BrandLogo({ className }: { className?: string }) {
+  const wordmarkStyle = {
+    "--brand-wordmark-image": `url(${logoTextWebp})`,
+  } as CSSProperties;
+
   return (
-    <span
-      aria-label="BambuView"
-      className={clsx("brand-lockup", className)}
-      role="img"
-    >
-      <span
-        aria-hidden="true"
-        className="brand-lockup__mark"
-        dangerouslySetInnerHTML={{ __html: themedLogoMark }}
-      />
-      <span
-        aria-hidden="true"
-        className="brand-lockup__wordmark"
-      >
-        <span className="brand-lockup__wordmark-main">Bambu</span>
-        <span className="brand-lockup__wordmark-accent">View</span>
+    <span aria-label="BambuView" className={clsx("brand-lockup", className)} role="img">
+      <InlineLogo className="brand-lockup__mark" markup={themedLogoMark} />
+      <span aria-hidden="true" className="brand-lockup__wordmark" style={wordmarkStyle}>
+        <img alt="" className="brand-lockup__wordmark-fallback" src={logoTextWebp} />
+        <span className="brand-lockup__wordmark-layer brand-lockup__wordmark-layer--ink" />
+        <span className="brand-lockup__wordmark-layer brand-lockup__wordmark-layer--accent" />
       </span>
     </span>
   );
@@ -75,26 +76,20 @@ function resolvePreviewColor(primaryColor?: string) {
   return primaryColor ?? "var(--accent)";
 }
 
-const mockupPreviewByKind: Partial<Record<PrinterSummary["previewKind"], string>> = {
+const mockupPreviewByKind: Partial<
+  Record<PrinterSummary["previewKind"], string>
+> = {
   benchy: benchyPreview,
   bracket: bracketPreview,
   dino: dinoPreview,
-  housing: housingPreview
+  housing: housingPreview,
 };
 
 export function FarmPreviewArt({ className }: { className?: string }) {
   return (
     <ArtFrame className={clsx("flex items-center justify-center", className)}>
-      <svg
-        className="h-full w-full"
-        fill="none"
-        viewBox="0 0 240 180"
-      >
-        <rect
-          width="240"
-          height="180"
-          fill="#14181d"
-        />
+      <svg className="h-full w-full" fill="none" viewBox="0 0 240 180">
+        <rect width="240" height="180" fill="#14181d" />
         <g transform="translate(58 34)">
           <path d="m58 0 26 14v28L58 56 32 42V14L58 0Z" fill="#50565e" />
           <path d="m58 12 14 8v16L58 44 44 36V20l14-8Z" fill="#69727c" />
@@ -109,7 +104,7 @@ export function FarmPreviewArt({ className }: { className?: string }) {
 
 function ArtFrame({
   children,
-  className
+  className,
 }: {
   children: ReactNode;
   className?: string;
@@ -118,7 +113,7 @@ function ArtFrame({
     <div
       className={clsx(
         "relative overflow-hidden rounded-[14px] border border-white/6 bg-[linear-gradient(180deg,#1e232a,#16191e)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] before:absolute before:inset-0 before:bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] before:bg-[size:28px_28px] before:opacity-35 before:content-['']",
-        className
+        className,
       )}
     >
       {children}
@@ -129,7 +124,7 @@ function ArtFrame({
 export function PrinterPreviewArt({
   kind,
   className,
-  primaryColor
+  primaryColor,
 }: {
   className?: string;
   kind: PrinterSummary["previewKind"];
@@ -141,11 +136,7 @@ export function PrinterPreviewArt({
   if (mockupPreview) {
     return (
       <ArtFrame className={className}>
-        <img
-          alt=""
-          className="mockup-preview-image"
-          src={mockupPreview}
-        />
+        <img alt="" className="mockup-preview-image" src={mockupPreview} />
       </ArtFrame>
     );
   }
@@ -153,18 +144,8 @@ export function PrinterPreviewArt({
   if (kind === "bracket") {
     return (
       <ArtFrame className={className}>
-        <svg
-          className="h-full w-full"
-          fill="none"
-          viewBox="0 0 240 180"
-        >
-          <rect
-            x="0"
-            y="0"
-            width="240"
-            height="180"
-            fill="#15191d"
-          />
+        <svg className="h-full w-full" fill="none" viewBox="0 0 240 180">
+          <rect x="0" y="0" width="240" height="180" fill="#15191d" />
           <path
             d="M58 133 42 114l12-56 28-9 38 18 46-13 31 19-22 56-28 11-17-19-31 10-15-18-26 10Z"
             fill={activeColor}
@@ -183,28 +164,14 @@ export function PrinterPreviewArt({
   if (kind === "benchy") {
     return (
       <ArtFrame className={className}>
-        <svg
-          className="h-full w-full"
-          fill="none"
-          viewBox="0 0 240 180"
-        >
-          <rect
-            width="240"
-            height="180"
-            fill="#161a1f"
-          />
+        <svg className="h-full w-full" fill="none" viewBox="0 0 240 180">
+          <rect width="240" height="180" fill="#161a1f" />
           <path
             d="M70 136c0-13 10-23 23-23h57c15 0 27 12 27 27H70v-4Z"
             fill="#9aa0aa"
           />
-          <path
-            d="M91 110 88 67h47V41h27l16 27v72H91v-30Z"
-            fill="#cdd1d7"
-          />
-          <path
-            d="M101 78h23v31h-23V78Z"
-            fill="#6f7580"
-          />
+          <path d="M91 110 88 67h47V41h27l16 27v72H91v-30Z" fill="#cdd1d7" />
+          <path d="M101 78h23v31h-23V78Z" fill="#6f7580" />
         </svg>
       </ArtFrame>
     );
@@ -213,26 +180,13 @@ export function PrinterPreviewArt({
   if (kind === "dino") {
     return (
       <ArtFrame className={className}>
-        <svg
-          className="h-full w-full"
-          fill="none"
-          viewBox="0 0 240 180"
-        >
-          <rect
-            width="240"
-            height="180"
-            fill="#14181d"
-          />
+        <svg className="h-full w-full" fill="none" viewBox="0 0 240 180">
+          <rect width="240" height="180" fill="#14181d" />
           <path
             d="m90 145-16-15 6-30 19-15 18 6 12-28 26-8 20 12-7 18 16 21-7 21-22 5-22-12-16 25H90Z"
             fill={activeColor}
           />
-          <circle
-            cx="160"
-            cy="72"
-            r="5"
-            fill="#101317"
-          />
+          <circle cx="160" cy="72" r="5" fill="#101317" />
         </svg>
       </ArtFrame>
     );
@@ -241,46 +195,13 @@ export function PrinterPreviewArt({
   if (kind === "housing") {
     return (
       <ArtFrame className={className}>
-        <svg
-          className="h-full w-full"
-          fill="none"
-          viewBox="0 0 240 180"
-        >
-          <rect
-            width="240"
-            height="180"
-            fill="#14171c"
-          />
-          <circle
-            cx="118"
-            cy="92"
-            r="54"
-            fill="#8f949c"
-          />
-          <circle
-            cx="118"
-            cy="92"
-            r="28"
-            fill="#1f2329"
-          />
-          <circle
-            cx="82"
-            cy="55"
-            r="10"
-            fill="#b1b6bd"
-          />
-          <circle
-            cx="156"
-            cy="56"
-            r="10"
-            fill="#b1b6bd"
-          />
-          <circle
-            cx="164"
-            cy="126"
-            r="10"
-            fill="#b1b6bd"
-          />
+        <svg className="h-full w-full" fill="none" viewBox="0 0 240 180">
+          <rect width="240" height="180" fill="#14171c" />
+          <circle cx="118" cy="92" r="54" fill="#8f949c" />
+          <circle cx="118" cy="92" r="28" fill="#1f2329" />
+          <circle cx="82" cy="55" r="10" fill="#b1b6bd" />
+          <circle cx="156" cy="56" r="10" fill="#b1b6bd" />
+          <circle cx="164" cy="126" r="10" fill="#b1b6bd" />
         </svg>
       </ArtFrame>
     );
