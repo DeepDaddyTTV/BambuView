@@ -167,20 +167,20 @@ function createWindowsPortableZip() {
   rmSync(portableZip, { force: true });
   renameSync(unpackedDir, portableDir);
 
+  const systemRoot = process.env.SystemRoot ?? "C:\\Windows";
+  const tarCommand = path.join(systemRoot, "System32", "tar.exe");
+
   run(
-    "powershell.exe",
+    existsSync(tarCommand) ? tarCommand : "tar.exe",
     [
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-Command",
-      "$ErrorActionPreference = 'Stop'; Compress-Archive -LiteralPath $env:BAMBUVIEW_PORTABLE_SOURCE -DestinationPath $env:BAMBUVIEW_PORTABLE_DEST -Force",
+      "-a",
+      "-cf",
+      portableZip,
+      "-C",
+      outputDir,
+      portableName,
     ],
     repoRoot,
-    {
-      BAMBUVIEW_PORTABLE_DEST: portableZip,
-      BAMBUVIEW_PORTABLE_SOURCE: portableDir,
-    },
   );
 }
 
