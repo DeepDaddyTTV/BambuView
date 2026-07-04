@@ -11,6 +11,8 @@ data
 apps/web/playwright-report
 apps/web/test-results
 apps/web/.vite
+apps/companion/out
+apps/companion/release
 .env
 .env.*
 !.env.example

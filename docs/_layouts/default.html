@@ -14,10 +14,16 @@
     <main class="docs-shell">
       <aside class="docs-rail" aria-label="Documentation navigation">
         <a class="docs-brand" href="{{ '/' | relative_url }}">
-          <img
-            alt="BambuView"
-            src="{{ '/assets/bambuview-full-logo.svg' | relative_url }}"
-          />
+          <picture>
+            <source
+              srcset="{{ '/assets/bambuview-full-logo.webp' | relative_url }}"
+              type="image/webp"
+            />
+            <img
+              alt="BambuView"
+              src="{{ '/assets/bambuview-full-logo.svg' | relative_url }}"
+            />
+          </picture>
         </a>
         <nav>
           <a href="{{ '/' | relative_url }}">Docs Home</a>

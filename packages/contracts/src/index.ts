@@ -389,4 +389,4 @@ export const LIGHT_BACKGROUND_SWATCHES = [
   "#eef1f5",
 ] as const;
 
-export * from "./companion";
+export * from "./companion.js";

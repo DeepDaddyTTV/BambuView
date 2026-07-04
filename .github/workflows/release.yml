@@ -123,7 +123,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build native Companion package
-        run: pnpm --filter @bambuview/companion package -- ${{ matrix.build_args }}
+        run: |
+          PNPM_EXECUTABLE="$(command -v pnpm)" \
+          node scripts/package-companion.mjs ${{ matrix.build_args }}
 
       - name: Upload Companion artifact
         uses: actions/upload-artifact@v4

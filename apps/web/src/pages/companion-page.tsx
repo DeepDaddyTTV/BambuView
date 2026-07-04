@@ -2,6 +2,7 @@ import {
   ArrowRight,
   CircleAlert,
   Copy,
+  ExternalLink,
   MonitorPlay,
   PlugZap,
   RefreshCcw,
@@ -17,6 +18,11 @@ import type {
 } from "@bambuview/contracts";
 
 import { apiFetch } from "../lib/api";
+
+const COMPANION_DOCS_URL =
+  "https://deepdaddyttv.github.io/BambuView/companion.html";
+const COMPANION_RELEASE_URL =
+  "https://github.com/DeepDaddyTTV/BambuView/releases/latest";
 
 function toneClasses(status: CompanionRegistration["status"]) {
   if (status === "online") {
@@ -134,6 +140,41 @@ export function CompanionPage() {
   return (
     <div className="grid gap-6 2xl:grid-cols-[0.72fr_1.28fr]">
       <div className="space-y-6">
+        <section className="panel">
+          <div className="section-title">Install Companion</div>
+          <p className="mt-3 text-sm leading-7 text-zinc-400">
+            Companion is the native bridge app for local telemetry, local
+            streams, and trusted-machine handoff. Install it on the machine
+            that can actually reach your printers or camera sources, then come
+            back here to pair it.
+          </p>
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
+            <a
+              className="fleet-console-toolbar__button justify-center"
+              href={COMPANION_RELEASE_URL}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink className="h-4 w-4" />
+              <span>Open Latest Release</span>
+            </a>
+            <a
+              className="fleet-console-toolbar__button justify-center"
+              href={COMPANION_DOCS_URL}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <ExternalLink className="h-4 w-4" />
+              <span>Open Setup Guide</span>
+            </a>
+          </div>
+          <div className="mt-5 border border-white/8 bg-white/[0.03] px-5 py-5 text-sm leading-7 text-zinc-300">
+            Companion release assets are published as macOS <strong>DMG</strong>
+            , Windows <strong>EXE</strong>, and Linux{" "}
+            <strong>AppImage</strong> and <strong>deb</strong> packages.
+          </div>
+        </section>
+
         <section className="panel">
           <div className="section-title">Pair Companion</div>
           <p className="mt-3 text-sm leading-7 text-zinc-400">

@@ -64,6 +64,10 @@ a:hover {
   padding: 0 4px 18px;
 }
 
+.docs-brand picture {
+  display: block;
+}
+
 .docs-brand img {
   display: block;
   width: 100%;

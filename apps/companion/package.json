@@ -1,16 +1,18 @@
 {
   "name": "@bambuview/companion",
-  "version": "0.0.30",
+  "version": "0.0.31",
+  "description": "Local bridge app for BambuView printers, cameras, telemetry, and file handoff.",
+  "author": "BambuView",
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
-    "build": "electron-vite build",
+    "build": "node build.mjs",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,html}\"",
-    "package": "electron-vite build && electron-builder"
+    "package": "node ../../scripts/package-companion.mjs"
   },
   "dependencies": {
     "@bambuview/contracts": "workspace:*",
@@ -27,16 +29,19 @@
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^5.1.0",
-    "electron": "^43.0.0",
+    "electron": "43.0.0",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",
+    "esbuild": "^0.28.1",
     "jsdom": "^27.0.1",
     "typescript": "^6.0.3",
+    "vite": "^7.3.5",
     "vitest": "^4.1.9"
   },
   "build": {
     "appId": "com.deepdaddyttv.bambuview.companion",
     "productName": "BambuView Companion",
+    "electronVersion": "43.0.0",
     "asar": true,
     "directories": {
       "buildResources": "buildResources",

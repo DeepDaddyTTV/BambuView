@@ -115,7 +115,7 @@ For a full printer-side walkthrough, read [Bambu Connection Modes](./lan-mode.md
    - `Frigate` for a Frigate MJPEG restream URL, such as `http://frigate:5000/api/workbench_left`.
    - `BambuConnect Direct` for a browser-compatible bridge URL from a Bambu Connect workflow.
    - `Bambu Network Plugin` for a local Network Plugin bridge endpoint that exposes MJPEG, HLS, or snapshot output.
-   - `BambuView Companion` for a future local helper endpoint.
+   - `BambuView Companion` for a paired local bridge endpoint.
    - `Direct MJPEG` for a browser-renderable MJPEG endpoint.
    - `Direct Snapshot / HLS` for a still image, MJPEG-like HTTP endpoint, or HLS playlist.
    - `Direct RTSP` for a raw RTSP source you plan to restream through Frigate, go2rtc, or another bridge.
@@ -135,4 +135,4 @@ For the full walkthrough, read [Camera Setup](./cameras.md).
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 
-Saved Bambu printers persist locally and appear in Fleet when the Fleet page is set to `Live`. LAN and Developer profiles read local MQTT status reports for print progress, layers, temperatures, active file, and filament slots when the printer is reachable. Cloud / Normal and Bambu Connect profiles are shown as limited handoff profiles instead of fake live telemetry, and you can edit an existing saved profile when you are ready to add LAN/Developer details. `Prepare & Slice` can generate the official Bambu Connect import URL for a sliced G-code or 3MF file that exists on the computer where Bambu Connect is installed.
+Saved Bambu printers persist locally and appear in Fleet when the Fleet page is set to `Live`. LAN and Developer profiles read local MQTT status reports for print progress, layers, temperatures, active file, and filament slots when the printer is reachable. Cloud / Normal and Bambu Connect profiles are shown as limited handoff profiles instead of fake live telemetry, and you can edit an existing saved profile when you are ready to add LAN/Developer details. `Prepare & Slice` now splits the workspace into an Orca filament lane and a Prusa resin lane, while keeping the official Bambu Connect import URL flow available for sliced filament jobs that exist on the computer where Bambu Connect is installed.

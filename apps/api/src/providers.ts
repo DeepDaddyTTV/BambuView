@@ -745,21 +745,21 @@ function detailForConnection(
       : telemetryState === "limited"
         ? "Assign telemetry"
         : isReachable
-        ? "Ready"
-        : isBambuConnectMode || isCloudMode
           ? "Ready"
-          : "Offline",
+          : isBambuConnectMode || isCloudMode
+            ? "Ready"
+            : "Offline",
     elapsed: telemetry
       ? formatMinutes(telemetry.elapsedMinutes)
       : telemetryState === "limited"
         ? "Limited"
         : isReachable
-        ? "Idle"
-        : isBambuConnectMode
-          ? "Bridge"
-          : isCloudMode
-            ? "Cloud"
-            : "No heartbeat",
+          ? "Idle"
+          : isBambuConnectMode
+            ? "Bridge"
+            : isCloudMode
+              ? "Cloud"
+              : "No heartbeat",
     fileName:
       telemetry?.fileName ??
       (telemetryState === "limited"
@@ -976,17 +976,143 @@ class DatabaseBackedCameraProvider implements CameraProvider {
 class MockSliceProvider implements SliceProvider {
   async getStatus(): Promise<PrepareStatus> {
     return {
-      status: "planned",
-      headline: "Prepare files and hand them to Bambu Connect.",
+      status: "scaffolded",
+      headline: "Build around Orca for filament and Prusa for resin.",
       description:
-        "BambuView can generate Bambu Connect import links for sliced Bambu G-code and 3MF files today. The in-browser editor remains the reserved workspace for future model editing and slicing.",
+        "The Prepare & Slice workspace is now split into two real fork targets. OrcaSlicer is the primary filament workbench for Bambu and other FDM printers, while PrusaSlicer is reserved for resin-only workflows so the UI and future engine adapters stay honest.",
       capabilities: [
-        "Bambu Connect import-file URL generation",
-        "Secure handoff to Bambu's authorized print flow",
-        "3mf upload planning",
-        "job queue planning",
-        "printer profile targeting",
-        "remote slice submission planning",
+        "OrcaSlicer fork target for filament and Bambu print prep",
+        "PrusaSlicer fork target for resin-only printer workflows",
+        "Bambu Connect import-file URL generation for sliced filament jobs",
+        "shared prepare pipeline for models, presets, slice jobs, and export handoff",
+        "future local CLI and native helper adapters without losing the web shell",
+        "printer-aware workspace routing instead of a single placeholder page",
+      ],
+      workflows: [
+        {
+          id: "filament",
+          label: "Filament / FDM",
+          summary:
+            "Use Orca as the default workbench for Bambu and other filament printers, with plate editing, printer presets, and Bambu Connect handoff.",
+          printerClass: "Bambu, farm, and FDM printers",
+          delivery:
+            "Slice to .3mf or Bambu-ready G-code, then hand off to Bambu Connect or future local upload.",
+          acceptedInputs: [".3mf", ".stl", ".step", ".obj", ".amf"],
+          activeSlicerId: "orcaslicer",
+        },
+        {
+          id: "resin",
+          label: "Resin / SLA",
+          summary:
+            "Reserve Prusa for resin printers only so supports, exposure presets, and SLA export stay isolated from the filament path.",
+          printerClass: "Resin and SLA printers only",
+          delivery:
+            "Prepare resin-specific jobs and export via the dedicated Prusa resin fork path.",
+          acceptedInputs: [".sl1", ".sl1s", ".stl", ".obj", ".3mf"],
+          activeSlicerId: "prusaslicer",
+        },
+      ],
+      slicers: [
+        {
+          id: "orcaslicer",
+          label: "Orca Workbench",
+          summary:
+            "Primary fork target for filament slicing, Bambu-centric presets, and multi-printer FDM preparation inside BambuView.",
+          status: "scaffolded",
+          upstreamName: "OrcaSlicer/OrcaSlicer",
+          upstreamUrl: "https://github.com/OrcaSlicer/OrcaSlicer",
+          license: "AGPL-3.0",
+          workflowKinds: ["filament"],
+          defaultFor: ["filament"],
+          notes: [
+            "Treat Orca as the first-class filament workspace.",
+            "Keep Bambu Connect handoff available until direct local send is ready.",
+            "Future adapters can target CLI or native helper surfaces without changing the web route.",
+          ],
+          plannedCapabilities: [
+            "plate layout and object transforms",
+            "printer and filament preset targeting",
+            "slice queue and export tracking",
+            "Bambu job handoff and future direct upload",
+          ],
+        },
+        {
+          id: "prusaslicer",
+          label: "Prusa Resin Workbench",
+          summary:
+            "Secondary fork target reserved for resin-only workflows so SLA tooling does not leak into the filament path.",
+          status: "scaffolded",
+          upstreamName: "prusa3d/PrusaSlicer",
+          upstreamUrl: "https://github.com/prusa3d/PrusaSlicer",
+          license: "AGPL-3.0",
+          workflowKinds: ["resin"],
+          defaultFor: ["resin"],
+          notes: [
+            "Only surface this workspace for resin workflows.",
+            "Do not present Prusa as a filament default inside BambuView.",
+            "Resin export and printer targeting stay separate from the Bambu handoff flow.",
+          ],
+          plannedCapabilities: [
+            "resin printer preset routing",
+            "support and exposure profile management",
+            "resin export staging",
+            "future resin queue and validation hooks",
+          ],
+        },
+      ],
+      pipeline: [
+        {
+          id: "import",
+          label: "Import Models",
+          summary:
+            "Bring in raw models and project containers before they are routed into the correct slicer workspace.",
+          status: "scaffolded",
+          slicerIds: ["orcaslicer", "prusaslicer"],
+        },
+        {
+          id: "prepare",
+          label: "Prepare Workspace",
+          summary:
+            "Apply printer presets, plate layout, transforms, and material context inside the workflow-specific slicer shell.",
+          status: "scaffolded",
+          slicerIds: ["orcaslicer", "prusaslicer"],
+        },
+        {
+          id: "slice",
+          label: "Slice Jobs",
+          summary:
+            "Run workflow-aware slicing so filament jobs stay in Orca and resin jobs stay in Prusa.",
+          status: "planned",
+          slicerIds: ["orcaslicer", "prusaslicer"],
+        },
+        {
+          id: "handoff",
+          label: "Export And Send",
+          summary:
+            "Keep Bambu Connect and future local upload targets available without mixing resin and filament delivery paths.",
+          status: "planned",
+          slicerIds: ["orcaslicer", "prusaslicer"],
+        },
+      ],
+      handoffActions: [
+        {
+          id: "bambu-connect-import",
+          label: "Bambu Connect import link",
+          description:
+            "Generate the official Bambu Connect import URL for sliced filament jobs that already exist on the computer running Bambu Connect.",
+          availableFor: ["filament"],
+          requirement:
+            "Requires an absolute local file path for a sliced .3mf or Bambu-ready G-code file.",
+        },
+        {
+          id: "resin-export-staging",
+          label: "Resin export staging",
+          description:
+            "Keep resin exports isolated for the future Prusa resin fork instead of forcing them through the Bambu Connect path.",
+          availableFor: ["resin"],
+          requirement:
+            "Resin printer delivery stays in the Prusa resin workspace until a dedicated upload path exists.",
+        },
       ],
     };
   }

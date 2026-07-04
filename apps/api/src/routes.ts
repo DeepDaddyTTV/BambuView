@@ -809,7 +809,9 @@ export async function registerRoutes(
     const snapshot: CompanionConnectionSnapshot = {
       companion: {
         baseUrl: companion.baseUrl,
+        bridgeUsername: companion.bridgeUsername,
         capabilities: companion.capabilities,
+        capabilityNotes: companion.capabilityNotes,
         createdAt: companion.createdAt,
         id: companion.id,
         lastError: companion.lastError,

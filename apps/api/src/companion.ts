@@ -76,7 +76,9 @@ export async function testCompanionConnection(
   return {
     companion: {
       baseUrl: companion.baseUrl,
+      bridgeUsername: companion.bridgeUsername,
       capabilities: snapshot.capabilities,
+      capabilityNotes: snapshot.capabilityNotes,
       createdAt: companion.createdAt,
       id: companion.id,
       lastError: null,

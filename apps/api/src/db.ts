@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
-
-import Database from "better-sqlite3";
-import { and, desc, eq, gt, sql } from "drizzle-orm";
-import { BetterSQLite3Database, drizzle } from "drizzle-orm/better-sqlite3";
-import { sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { createRequire } from "node:module";
+import path from "node:path";
 
 import {
   type AppearanceSettings,
@@ -19,7 +16,6 @@ import {
   type CompanionCapabilityFlags,
   type CompanionCapabilityNotes,
   type CompanionHealthResponse,
-  type CompanionPairingCode,
   type CompanionPrinter,
   type CompanionRegistration,
   type CompanionStream,
@@ -32,150 +28,149 @@ import {
   type UserRole,
 } from "@bambuview/contracts";
 
-const users = sqliteTable("users", {
-  id: text("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  name: text("name").notNull(),
-  passwordHash: text("password_hash").notNull(),
-  role: text("role").$type<UserRole>().notNull(),
-  status: text("status").$type<"active" | "invited">().notNull(),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+const sourceDirFromCwd =
+  path.basename(process.cwd()) === "api"
+    ? path.resolve(process.cwd(), "src")
+    : path.resolve(process.cwd(), "apps/api/src");
+const moduleDir =
+  typeof __dirname === "string" ? __dirname : sourceDirFromCwd;
+const moduleFilename =
+  typeof __filename === "string"
+    ? __filename
+    : path.join(moduleDir, "db.ts");
+const require = createRequire(moduleFilename);
+const Database = require(
+  path.join(moduleDir, "../node_modules/better-sqlite3/lib/index.js"),
+) as typeof import("better-sqlite3");
 
-const sessions = sqliteTable("sessions", {
-  id: text("id").primaryKey(),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  tokenHash: text("token_hash").notNull().unique(),
-  createdAt: text("created_at").notNull(),
-  expiresAt: text("expires_at").notNull(),
-  lastSeenAt: text("last_seen_at").notNull(),
-});
+type UserStatus = "active" | "invited";
 
-const invites = sqliteTable("invites", {
-  id: text("id").primaryKey(),
-  email: text("email").notNull(),
-  role: text("role").$type<UserRole>().notNull(),
-  tokenHash: text("token_hash").notNull().unique(),
-  createdByUserId: text("created_by_user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  createdAt: text("created_at").notNull(),
-  expiresAt: text("expires_at").notNull(),
-  usedAt: text("used_at"),
-});
+interface UserRow {
+  createdAt: string;
+  email: string;
+  id: string;
+  name: string;
+  passwordHash: string;
+  role: UserRole;
+  status: UserStatus;
+  updatedAt: string;
+}
 
-const userPreferences = sqliteTable("user_preferences", {
-  userId: text("user_id")
-    .primaryKey()
-    .references(() => users.id, { onDelete: "cascade" }),
-  mode: text("mode").$type<"dark" | "light">().notNull(),
-  darkHighlight: text("dark_highlight").notNull(),
-  darkBackground: text("dark_background").notNull(),
-  lightHighlight: text("light_highlight").notNull(),
-  lightBackground: text("light_background").notNull(),
-  backgroundStyle: text("background_style")
-    .$type<AppearanceSettings["backgroundStyle"]>()
-    .notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+interface SessionRow {
+  createdAt: string;
+  expiresAt: string;
+  id: string;
+  lastSeenAt: string;
+  tokenHash: string;
+  userId: string;
+}
 
-const printerConnections = sqliteTable("printer_connections", {
-  id: text("id").primaryKey(),
-  provider: text("provider").$type<PrinterConnectionProvider>().notNull(),
-  connectionMode: text("connection_mode")
-    .$type<BambuConnectionMode>()
-    .notNull(),
-  name: text("name").notNull(),
-  model: text("model").notNull(),
-  host: text("host").notNull(),
-  serial: text("serial").notNull().unique(),
-  accessCode: text("access_code").notNull(),
-  connectionStatus: text("connection_status")
-    .$type<PrinterConnectionStatus>()
-    .notNull(),
-  lastTestedAt: text("last_tested_at"),
-  lastSeenAt: text("last_seen_at"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+interface InviteRow {
+  createdAt: string;
+  createdByUserId: string;
+  email: string;
+  expiresAt: string;
+  id: string;
+  role: UserRole;
+  tokenHash: string;
+  usedAt: string | null;
+}
 
-const cameraSources = sqliteTable("camera_sources", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  provider: text("provider").$type<CameraProviderType>().notNull(),
-  streamUrl: text("stream_url").notNull(),
-  streamKind: text("stream_kind").$type<CameraStreamKind>().notNull(),
-  frigateBaseUrl: text("frigate_base_url"),
-  frigateCamera: text("frigate_camera"),
-  username: text("username"),
-  password: text("password"),
-  status: text("status").$type<CameraSource["status"]>().notNull(),
-  details: text("details").notNull(),
-  lastTestedAt: text("last_tested_at"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+interface UserPreferenceRow {
+  backgroundStyle: AppearanceSettings["backgroundStyle"];
+  darkBackground: string;
+  darkHighlight: string;
+  lightBackground: string;
+  lightHighlight: string;
+  mode: "dark" | "light";
+  updatedAt: string;
+  userId: string;
+}
 
-const cameraAssignments = sqliteTable("camera_assignments", {
-  id: text("id").primaryKey(),
-  targetType: text("target_type").$type<CameraAssignmentTargetType>().notNull(),
-  printerId: text("printer_id").notNull(),
-  sourceId: text("source_id")
-    .notNull()
-    .references(() => cameraSources.id, { onDelete: "cascade" }),
-  feedLabel: text("feed_label").notNull(),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+interface PrinterConnectionRow {
+  accessCode: string;
+  connectionMode: BambuConnectionMode;
+  connectionStatus: PrinterConnectionStatus;
+  createdAt: string;
+  host: string;
+  id: string;
+  lastSeenAt: string | null;
+  lastTestedAt: string | null;
+  model: string;
+  name: string;
+  provider: PrinterConnectionProvider;
+  serial: string;
+  updatedAt: string;
+}
 
-const companionPairingCodes = sqliteTable("companion_pairing_codes", {
-  id: text("id").primaryKey(),
-  tokenHash: text("token_hash").notNull().unique(),
-  createdByUserId: text("created_by_user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  createdAt: text("created_at").notNull(),
-  expiresAt: text("expires_at").notNull(),
-  usedAt: text("used_at"),
-});
+interface CameraSourceRow {
+  createdAt: string;
+  details: string;
+  frigateBaseUrl: string | null;
+  frigateCamera: string | null;
+  id: string;
+  lastTestedAt: string | null;
+  name: string;
+  password: string | null;
+  provider: CameraProviderType;
+  status: CameraSource["status"];
+  streamKind: CameraStreamKind;
+  streamUrl: string;
+  updatedAt: string;
+  username: string | null;
+}
 
-const companions = sqliteTable("companions", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  baseUrl: text("base_url").notNull().unique(),
-  bridgeUsername: text("bridge_username").notNull(),
-  bridgeToken: text("bridge_token").notNull(),
-  status: text("status")
-    .$type<CompanionRegistration["status"]>()
-    .notNull(),
-  lastHealthAt: text("last_health_at"),
-  lastError: text("last_error"),
-  capabilitiesJson: text("capabilities_json").notNull(),
-  capabilityNotesJson: text("capability_notes_json").notNull(),
-  healthJson: text("health_json"),
-  printersJson: text("printers_json"),
-  streamsJson: text("streams_json"),
-  pairedAt: text("paired_at").notNull(),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-});
+interface CameraAssignmentRow {
+  createdAt: string;
+  feedLabel: string;
+  id: string;
+  printerId: string;
+  sourceId: string;
+  targetType: CameraAssignmentTargetType;
+  updatedAt: string;
+}
+
+interface CompanionPairingCodeRow {
+  createdAt: string;
+  createdByUserId: string;
+  expiresAt: string;
+  id: string;
+  tokenHash: string;
+  usedAt: string | null;
+}
+
+interface CompanionRow {
+  baseUrl: string;
+  bridgeToken: string;
+  bridgeUsername: string;
+  capabilitiesJson: string;
+  capabilityNotesJson: string;
+  createdAt: string;
+  healthJson: string | null;
+  id: string;
+  lastError: string | null;
+  lastHealthAt: string | null;
+  name: string;
+  pairedAt: string;
+  printersJson: string | null;
+  status: CompanionRegistration["status"];
+  streamsJson: string | null;
+  updatedAt: string;
+}
 
 export const schema = {
-  cameraAssignments,
-  cameraSources,
-  companionPairingCodes,
-  companions,
-  invites,
-  printerConnections,
-  sessions,
-  userPreferences,
-  users,
-};
+  cameraAssignments: "camera_assignments",
+  cameraSources: "camera_sources",
+  companionPairingCodes: "companion_pairing_codes",
+  companions: "companions",
+  invites: "invites",
+  printerConnections: "printer_connections",
+  sessions: "sessions",
+  userPreferences: "user_preferences",
+  users: "users",
+} as const;
 
-export type AppDatabase = BetterSQLite3Database<typeof schema>;
+export type AppDatabase = Database.Database;
 
 export interface DatabaseClient {
   db: AppDatabase;
@@ -190,17 +185,17 @@ export interface CreateUserInput {
 }
 
 export interface CreateInviteInput {
+  createdByUserId: string;
   email: string;
+  expiresAt: string;
   role: UserRole;
   tokenHash: string;
-  expiresAt: string;
-  createdByUserId: string;
 }
 
 export interface CreateSessionInput {
-  userId: string;
-  tokenHash: string;
   expiresAt: string;
+  tokenHash: string;
+  userId: string;
 }
 
 export interface CreatePrinterConnectionInput extends BambuPrinterConnectionInput {
@@ -257,8 +252,155 @@ export interface CompanionSecretRecord extends CompanionRegistration {
   streams: CompanionStream[];
 }
 
+const USER_SELECT = `
+  SELECT
+    id,
+    email,
+    name,
+    password_hash AS passwordHash,
+    role,
+    status,
+    created_at AS createdAt,
+    updated_at AS updatedAt
+  FROM users
+`;
+
+const SESSION_SELECT = `
+  SELECT
+    id,
+    user_id AS userId,
+    token_hash AS tokenHash,
+    created_at AS createdAt,
+    expires_at AS expiresAt,
+    last_seen_at AS lastSeenAt
+  FROM sessions
+`;
+
+const INVITE_SELECT = `
+  SELECT
+    id,
+    email,
+    role,
+    token_hash AS tokenHash,
+    created_by_user_id AS createdByUserId,
+    created_at AS createdAt,
+    expires_at AS expiresAt,
+    used_at AS usedAt
+  FROM invites
+`;
+
+const USER_PREFERENCE_SELECT = `
+  SELECT
+    user_id AS userId,
+    mode,
+    dark_highlight AS darkHighlight,
+    dark_background AS darkBackground,
+    light_highlight AS lightHighlight,
+    light_background AS lightBackground,
+    background_style AS backgroundStyle,
+    updated_at AS updatedAt
+  FROM user_preferences
+`;
+
+const PRINTER_CONNECTION_SELECT = `
+  SELECT
+    id,
+    provider,
+    connection_mode AS connectionMode,
+    name,
+    model,
+    host,
+    serial,
+    access_code AS accessCode,
+    connection_status AS connectionStatus,
+    last_tested_at AS lastTestedAt,
+    last_seen_at AS lastSeenAt,
+    created_at AS createdAt,
+    updated_at AS updatedAt
+  FROM printer_connections
+`;
+
+const CAMERA_SOURCE_SELECT = `
+  SELECT
+    id,
+    name,
+    provider,
+    stream_url AS streamUrl,
+    stream_kind AS streamKind,
+    frigate_base_url AS frigateBaseUrl,
+    frigate_camera AS frigateCamera,
+    username,
+    password,
+    status,
+    details,
+    last_tested_at AS lastTestedAt,
+    created_at AS createdAt,
+    updated_at AS updatedAt
+  FROM camera_sources
+`;
+
+const CAMERA_ASSIGNMENT_SELECT = `
+  SELECT
+    id,
+    target_type AS targetType,
+    printer_id AS printerId,
+    source_id AS sourceId,
+    feed_label AS feedLabel,
+    created_at AS createdAt,
+    updated_at AS updatedAt
+  FROM camera_assignments
+`;
+
+const COMPANION_PAIRING_SELECT = `
+  SELECT
+    id,
+    token_hash AS tokenHash,
+    created_by_user_id AS createdByUserId,
+    created_at AS createdAt,
+    expires_at AS expiresAt,
+    used_at AS usedAt
+  FROM companion_pairing_codes
+`;
+
+const COMPANION_SELECT = `
+  SELECT
+    id,
+    name,
+    base_url AS baseUrl,
+    bridge_username AS bridgeUsername,
+    bridge_token AS bridgeToken,
+    status,
+    last_health_at AS lastHealthAt,
+    last_error AS lastError,
+    capabilities_json AS capabilitiesJson,
+    capability_notes_json AS capabilityNotesJson,
+    health_json AS healthJson,
+    printers_json AS printersJson,
+    streams_json AS streamsJson,
+    paired_at AS pairedAt,
+    created_at AS createdAt,
+    updated_at AS updatedAt
+  FROM companions
+`;
+
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function getRow<T>(db: AppDatabase, statement: string, params: unknown[] = []): T | undefined {
+  return db.prepare(statement).get(...params) as T | undefined;
+}
+
+function allRows<T>(db: AppDatabase, statement: string, params: unknown[] = []): T[] {
+  return db.prepare(statement).all(...params) as T[];
+}
+
+function runStatement(
+  db: AppDatabase,
+  statement: string,
+  params: unknown[] = [],
+): Database.RunResult {
+  return db.prepare(statement).run(...params);
 }
 
 export function createDatabase(databaseFile: string): DatabaseClient {
@@ -377,11 +519,7 @@ export function createDatabase(databaseFile: string): DatabaseClient {
   const printerConnectionColumns = sqlite
     .prepare("PRAGMA table_info(printer_connections)")
     .all() as Array<{ name: string }>;
-  if (
-    !printerConnectionColumns.some(
-      (column) => column.name === "connection_mode",
-    )
-  ) {
+  if (!printerConnectionColumns.some((column) => column.name === "connection_mode")) {
     sqlite.exec(
       "ALTER TABLE printer_connections ADD COLUMN connection_mode TEXT NOT NULL DEFAULT 'lan';",
     );
@@ -390,24 +528,20 @@ export function createDatabase(databaseFile: string): DatabaseClient {
   const cameraAssignmentColumns = sqlite
     .prepare("PRAGMA table_info(camera_assignments)")
     .all() as Array<{ name: string }>;
-  if (
-    !cameraAssignmentColumns.some((column) => column.name === "target_type")
-  ) {
+  if (!cameraAssignmentColumns.some((column) => column.name === "target_type")) {
     sqlite.exec(
       "ALTER TABLE camera_assignments ADD COLUMN target_type TEXT NOT NULL DEFAULT 'printer';",
     );
   }
 
-  const db = drizzle(sqlite, { schema });
-
-  return { db, sqlite };
+  return { db: sqlite, sqlite };
 }
 
 export function closeDatabase(client: DatabaseClient): void {
   client.sqlite.close();
 }
 
-function mapUser(row: typeof users.$inferSelect): UserProfile {
+function mapUser(row: UserRow): UserProfile {
   return {
     id: row.id,
     email: row.email,
@@ -418,9 +552,7 @@ function mapUser(row: typeof users.$inferSelect): UserProfile {
   };
 }
 
-function mapAppearance(
-  row: typeof userPreferences.$inferSelect | undefined,
-): AppearanceSettings {
+function mapAppearance(row: UserPreferenceRow | undefined): AppearanceSettings {
   if (!row) {
     return DEFAULT_APPEARANCE;
   }
@@ -435,9 +567,7 @@ function mapAppearance(
   };
 }
 
-function mapPrinterConnection(
-  row: typeof printerConnections.$inferSelect,
-): PrinterConnectionRecord {
+function mapPrinterConnection(row: PrinterConnectionRow): PrinterConnectionRecord {
   return {
     id: row.id,
     provider: row.provider,
@@ -467,9 +597,7 @@ function parseJson<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
-function mapCompanion(
-  row: typeof companions.$inferSelect,
-): CompanionSecretRecord {
+function mapCompanion(row: CompanionRow): CompanionSecretRecord {
   const printers = parseJson<CompanionPrinter[]>(row.printersJson, []);
   const streams = parseJson<CompanionStream[]>(row.streamsJson, []);
 
@@ -486,10 +614,7 @@ function mapCompanion(
       slicingAssist: "future",
       telemetry: "unavailable",
     }),
-    capabilityNotes: parseJson<CompanionCapabilityNotes>(
-      row.capabilityNotesJson,
-      {},
-    ),
+    capabilityNotes: parseJson<CompanionCapabilityNotes>(row.capabilityNotesJson, {}),
     createdAt: row.createdAt,
     health: parseJson<CompanionHealthResponse | null>(row.healthJson, null),
     id: row.id,
@@ -537,9 +662,7 @@ function parseFrigateRestreamReference(value: string): boolean {
   }
 }
 
-function cameraSourcePlaybackIssue(
-  row: typeof cameraSources.$inferSelect,
-): string | null {
+function cameraSourcePlaybackIssue(row: CameraSourceRow): string | null {
   if (
     row.provider === "frigate" &&
     !row.frigateBaseUrl &&
@@ -552,9 +675,7 @@ function cameraSourcePlaybackIssue(
   return null;
 }
 
-function cameraProxyUrls(
-  row: typeof cameraSources.$inferSelect,
-): Pick<CameraSource, "snapshotUrl" | "streamUrl"> {
+function cameraProxyUrls(row: CameraSourceRow): Pick<CameraSource, "snapshotUrl" | "streamUrl"> {
   const playbackIssue = cameraSourcePlaybackIssue(row);
   const canProxy =
     !playbackIssue &&
@@ -572,10 +693,7 @@ function cameraProxyUrls(
   };
 }
 
-function mapCameraSource(
-  row: typeof cameraSources.$inferSelect,
-  assignedTo: string[] = [],
-): CameraSource {
+function mapCameraSource(row: CameraSourceRow, assignedTo: string[] = []): CameraSource {
   const proxyUrls = cameraProxyUrls(row);
   const playbackIssue = cameraSourcePlaybackIssue(row);
 
@@ -595,7 +713,7 @@ function mapCameraSource(
 }
 
 function mapCameraSourceSecret(
-  row: typeof cameraSources.$inferSelect,
+  row: CameraSourceRow,
   assignedTo: string[] = [],
 ): CameraSourceSecretRecord {
   return {
@@ -608,21 +726,58 @@ function mapCameraSourceSecret(
   };
 }
 
-export async function countUsers(db: AppDatabase): Promise<number> {
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(users);
+function mapPrinterConnectionSecret(row: PrinterConnectionRow): PrinterConnectionSecretRecord {
+  return {
+    ...mapPrinterConnection(row),
+    accessCode: row.accessCode,
+  };
+}
 
-  return Number(count);
+function mapInviteRecord(baseUrl: string, row: InviteRow): InviteRecord {
+  return {
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    createdAt: row.createdAt,
+    expiresAt: row.expiresAt,
+    usedAt: row.usedAt ?? null,
+    createdBy: row.createdByUserId,
+    inviteUrl: `${baseUrl.replace(/\/$/, "")}/auth/invite/${row.id}`,
+  };
+}
+
+function mapCompanionPublic(companion: CompanionSecretRecord): CompanionRegistration {
+  return {
+    baseUrl: companion.baseUrl,
+    bridgeUsername: companion.bridgeUsername,
+    capabilities: companion.capabilities,
+    capabilityNotes: companion.capabilityNotes,
+    createdAt: companion.createdAt,
+    id: companion.id,
+    lastError: companion.lastError,
+    lastHealthAt: companion.lastHealthAt,
+    name: companion.name,
+    pairedAt: companion.pairedAt,
+    printerCount: companion.printerCount,
+    status: companion.status,
+    streamCount: companion.streamCount,
+    tokenSet: companion.tokenSet,
+    updatedAt: companion.updatedAt,
+  };
+}
+
+export async function countUsers(db: AppDatabase): Promise<number> {
+  const row = getRow<{ count: number }>(db, "SELECT count(*) AS count FROM users");
+  return Number(row?.count ?? 0);
 }
 
 export async function countAdmins(db: AppDatabase): Promise<number> {
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(users)
-    .where(eq(users.role, "admin"));
-
-  return Number(count);
+  const row = getRow<{ count: number }>(
+    db,
+    "SELECT count(*) AS count FROM users WHERE role = ?",
+    ["admin"],
+  );
+  return Number(row?.count ?? 0);
 }
 
 export async function createUser(
@@ -630,7 +785,7 @@ export async function createUser(
   input: CreateUserInput,
 ): Promise<UserProfile> {
   const timestamp = nowIso();
-  const row: typeof users.$inferInsert = {
+  const row: UserRow = {
     id: randomUUID(),
     email: input.email.toLowerCase(),
     name: input.name,
@@ -641,33 +796,47 @@ export async function createUser(
     updatedAt: timestamp,
   };
 
-  await db.insert(users).values(row);
+  runStatement(
+    db,
+    `
+      INSERT INTO users (
+        id, email, name, password_hash, role, status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      row.id,
+      row.email,
+      row.name,
+      row.passwordHash,
+      row.role,
+      row.status,
+      row.createdAt,
+      row.updatedAt,
+    ],
+  );
   await upsertAppearance(db, row.id, DEFAULT_APPEARANCE);
 
-  return mapUser(row as typeof users.$inferSelect);
+  return mapUser(row);
 }
 
 export async function getUserByEmail(
   db: AppDatabase,
   email: string,
-): Promise<typeof users.$inferSelect | undefined> {
-  return db.query.users.findFirst({
-    where: eq(users.email, email.toLowerCase()),
-  });
+): Promise<UserRow | undefined> {
+  return getRow<UserRow>(db, `${USER_SELECT} WHERE email = ? LIMIT 1`, [
+    email.toLowerCase(),
+  ]);
 }
 
 export async function getUserById(
   db: AppDatabase,
   userId: string,
-): Promise<typeof users.$inferSelect | undefined> {
-  return db.query.users.findFirst({
-    where: eq(users.id, userId),
-  });
+): Promise<UserRow | undefined> {
+  return getRow<UserRow>(db, `${USER_SELECT} WHERE id = ? LIMIT 1`, [userId]);
 }
 
 export async function listUsers(db: AppDatabase): Promise<UserProfile[]> {
-  const rows = await db.select().from(users).orderBy(users.createdAt);
-
+  const rows = allRows<UserRow>(db, `${USER_SELECT} ORDER BY created_at ASC`);
   return rows.map(mapUser);
 }
 
@@ -676,42 +845,33 @@ export async function updateUserRole(
   userId: string,
   role: UserRole,
 ): Promise<UserProfile | undefined> {
-  const updatedAt = nowIso();
-  await db.update(users).set({ role, updatedAt }).where(eq(users.id, userId));
+  runStatement(db, "UPDATE users SET role = ?, updated_at = ? WHERE id = ?", [
+    role,
+    nowIso(),
+    userId,
+  ]);
 
   const row = await getUserById(db, userId);
-
   return row ? mapUser(row) : undefined;
 }
 
 export async function listPrinterConnections(
   db: AppDatabase,
 ): Promise<PrinterConnectionRecord[]> {
-  const rows = await db
-    .select()
-    .from(printerConnections)
-    .orderBy(printerConnections.createdAt);
-
+  const rows = allRows<PrinterConnectionRow>(
+    db,
+    `${PRINTER_CONNECTION_SELECT} ORDER BY created_at ASC`,
+  );
   return rows.map(mapPrinterConnection);
-}
-
-function mapPrinterConnectionSecret(
-  row: typeof printerConnections.$inferSelect,
-): PrinterConnectionSecretRecord {
-  return {
-    ...mapPrinterConnection(row),
-    accessCode: row.accessCode,
-  };
 }
 
 export async function listPrinterConnectionSecrets(
   db: AppDatabase,
 ): Promise<PrinterConnectionSecretRecord[]> {
-  const rows = await db
-    .select()
-    .from(printerConnections)
-    .orderBy(printerConnections.createdAt);
-
+  const rows = allRows<PrinterConnectionRow>(
+    db,
+    `${PRINTER_CONNECTION_SELECT} ORDER BY created_at ASC`,
+  );
   return rows.map(mapPrinterConnectionSecret);
 }
 
@@ -719,10 +879,11 @@ export async function getPrinterConnectionById(
   db: AppDatabase,
   connectionId: string,
 ): Promise<PrinterConnectionRecord | undefined> {
-  const row = await db.query.printerConnections.findFirst({
-    where: eq(printerConnections.id, connectionId),
-  });
-
+  const row = getRow<PrinterConnectionRow>(
+    db,
+    `${PRINTER_CONNECTION_SELECT} WHERE id = ? LIMIT 1`,
+    [connectionId],
+  );
   return row ? mapPrinterConnection(row) : undefined;
 }
 
@@ -730,10 +891,11 @@ export async function getPrinterConnectionSecretById(
   db: AppDatabase,
   connectionId: string,
 ): Promise<PrinterConnectionSecretRecord | undefined> {
-  const row = await db.query.printerConnections.findFirst({
-    where: eq(printerConnections.id, connectionId),
-  });
-
+  const row = getRow<PrinterConnectionRow>(
+    db,
+    `${PRINTER_CONNECTION_SELECT} WHERE id = ? LIMIT 1`,
+    [connectionId],
+  );
   return row ? mapPrinterConnectionSecret(row) : undefined;
 }
 
@@ -741,10 +903,11 @@ export async function getPrinterConnectionBySerial(
   db: AppDatabase,
   serial: string,
 ): Promise<PrinterConnectionRecord | undefined> {
-  const row = await db.query.printerConnections.findFirst({
-    where: eq(printerConnections.serial, serial.trim().toUpperCase()),
-  });
-
+  const row = getRow<PrinterConnectionRow>(
+    db,
+    `${PRINTER_CONNECTION_SELECT} WHERE serial = ? LIMIT 1`,
+    [serial.trim().toUpperCase()],
+  );
   return row ? mapPrinterConnection(row) : undefined;
 }
 
@@ -753,7 +916,7 @@ export async function createPrinterConnection(
   input: CreatePrinterConnectionInput,
 ): Promise<PrinterConnectionRecord> {
   const timestamp = nowIso();
-  const row: typeof printerConnections.$inferInsert = {
+  const row: PrinterConnectionRow = {
     id: randomUUID(),
     provider: "bambu-lan",
     connectionMode: input.connectionMode,
@@ -769,9 +932,32 @@ export async function createPrinterConnection(
     updatedAt: timestamp,
   };
 
-  await db.insert(printerConnections).values(row);
+  runStatement(
+    db,
+    `
+      INSERT INTO printer_connections (
+        id, provider, connection_mode, name, model, host, serial, access_code,
+        connection_status, last_tested_at, last_seen_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      row.id,
+      row.provider,
+      row.connectionMode,
+      row.name,
+      row.model,
+      row.host,
+      row.serial,
+      row.accessCode,
+      row.connectionStatus,
+      row.lastTestedAt,
+      row.lastSeenAt,
+      row.createdAt,
+      row.updatedAt,
+    ],
+  );
 
-  return mapPrinterConnection(row as typeof printerConnections.$inferSelect);
+  return mapPrinterConnection(row);
 }
 
 export async function updatePrinterConnection(
@@ -779,15 +965,17 @@ export async function updatePrinterConnection(
   connectionId: string,
   input: CreatePrinterConnectionInput,
 ): Promise<PrinterConnectionRecord | null> {
-  const existing = await db.query.printerConnections.findFirst({
-    where: eq(printerConnections.id, connectionId),
-  });
+  const existing = getRow<PrinterConnectionRow>(
+    db,
+    `${PRINTER_CONNECTION_SELECT} WHERE id = ? LIMIT 1`,
+    [connectionId],
+  );
   if (!existing) {
     return null;
   }
 
   const accessCode = input.accessCode?.trim() || existing.accessCode;
-  const row: typeof printerConnections.$inferInsert = {
+  const row: PrinterConnectionRow = {
     id: connectionId,
     provider: "bambu-lan",
     connectionMode: input.connectionMode,
@@ -799,49 +987,58 @@ export async function updatePrinterConnection(
     connectionStatus: input.connectionStatus,
     lastTestedAt: input.lastTestedAt,
     lastSeenAt:
-      input.connectionStatus === "online"
-        ? input.lastTestedAt
-        : existing.lastSeenAt,
+      input.connectionStatus === "online" ? input.lastTestedAt : existing.lastSeenAt,
     createdAt: existing.createdAt,
     updatedAt: nowIso(),
   };
 
-  await db
-    .update(printerConnections)
-    .set({
-      accessCode: row.accessCode,
-      connectionMode: row.connectionMode,
-      connectionStatus: row.connectionStatus,
-      host: row.host,
-      lastSeenAt: row.lastSeenAt,
-      lastTestedAt: row.lastTestedAt,
-      model: row.model,
-      name: row.name,
-      serial: row.serial,
-      updatedAt: row.updatedAt,
-    })
-    .where(eq(printerConnections.id, connectionId));
+  runStatement(
+    db,
+    `
+      UPDATE printer_connections
+      SET
+        access_code = ?,
+        connection_mode = ?,
+        connection_status = ?,
+        host = ?,
+        last_seen_at = ?,
+        last_tested_at = ?,
+        model = ?,
+        name = ?,
+        serial = ?,
+        updated_at = ?
+      WHERE id = ?
+    `,
+    [
+      row.accessCode,
+      row.connectionMode,
+      row.connectionStatus,
+      row.host,
+      row.lastSeenAt,
+      row.lastTestedAt,
+      row.model,
+      row.name,
+      row.serial,
+      row.updatedAt,
+      connectionId,
+    ],
+  );
 
-  return mapPrinterConnection(row as typeof printerConnections.$inferSelect);
+  return mapPrinterConnection(row);
 }
 
 export async function deletePrinterConnection(
   db: AppDatabase,
   connectionId: string,
 ): Promise<boolean> {
-  await db
-    .delete(cameraAssignments)
-    .where(
-      and(
-        eq(cameraAssignments.targetType, "printer"),
-        eq(cameraAssignments.printerId, connectionId),
-      ),
-    );
-
-  const result = await db
-    .delete(printerConnections)
-    .where(eq(printerConnections.id, connectionId));
-
+  runStatement(
+    db,
+    "DELETE FROM camera_assignments WHERE target_type = ? AND printer_id = ?",
+    ["printer", connectionId],
+  );
+  const result = runStatement(db, "DELETE FROM printer_connections WHERE id = ?", [
+    connectionId,
+  ]);
   return result.changes > 0;
 }
 
@@ -851,24 +1048,23 @@ export async function updatePrinterConnectionStatus(
   connectionStatus: PrinterConnectionStatus,
   seenAt: string | null,
 ): Promise<void> {
-  await db
-    .update(printerConnections)
-    .set({
-      connectionStatus,
-      lastSeenAt: seenAt,
-      lastTestedAt: seenAt ?? nowIso(),
-      updatedAt: nowIso(),
-    })
-    .where(eq(printerConnections.id, connectionId));
+  runStatement(
+    db,
+    `
+      UPDATE printer_connections
+      SET
+        connection_status = ?,
+        last_seen_at = ?,
+        last_tested_at = ?,
+        updated_at = ?
+      WHERE id = ?
+    `,
+    [connectionStatus, seenAt, seenAt ?? nowIso(), nowIso(), connectionId],
+  );
 }
 
-export async function listCameraSources(
-  db: AppDatabase,
-): Promise<CameraSource[]> {
-  const rows = await db
-    .select()
-    .from(cameraSources)
-    .orderBy(cameraSources.createdAt);
+export async function listCameraSources(db: AppDatabase): Promise<CameraSource[]> {
+  const rows = allRows<CameraSourceRow>(db, `${CAMERA_SOURCE_SELECT} ORDER BY created_at ASC`);
   const assignments = await listCameraAssignments(db);
   const assignedBySource = new Map<string, string[]>();
   for (const assignment of assignments) {
@@ -883,10 +1079,7 @@ export async function listCameraSources(
 export async function listCameraSourceSecrets(
   db: AppDatabase,
 ): Promise<CameraSourceSecretRecord[]> {
-  const rows = await db
-    .select()
-    .from(cameraSources)
-    .orderBy(cameraSources.createdAt);
+  const rows = allRows<CameraSourceRow>(db, `${CAMERA_SOURCE_SELECT} ORDER BY created_at ASC`);
   const assignments = await listCameraAssignments(db);
   const assignedBySource = new Map<string, string[]>();
   for (const assignment of assignments) {
@@ -895,19 +1088,18 @@ export async function listCameraSourceSecrets(
     assignedBySource.set(assignment.sourceId, existing);
   }
 
-  return rows.map((row) =>
-    mapCameraSourceSecret(row, assignedBySource.get(row.id)),
-  );
+  return rows.map((row) => mapCameraSourceSecret(row, assignedBySource.get(row.id)));
 }
 
 export async function getCameraSourceSecretById(
   db: AppDatabase,
   sourceId: string,
 ): Promise<CameraSourceSecretRecord | undefined> {
-  const row = await db.query.cameraSources.findFirst({
-    where: eq(cameraSources.id, sourceId),
-  });
-
+  const row = getRow<CameraSourceRow>(
+    db,
+    `${CAMERA_SOURCE_SELECT} WHERE id = ? LIMIT 1`,
+    [sourceId],
+  );
   return row ? mapCameraSourceSecret(row) : undefined;
 }
 
@@ -916,7 +1108,7 @@ export async function createCameraSource(
   input: CreateCameraSourceInput,
 ): Promise<CameraSource> {
   const timestamp = nowIso();
-  const row: typeof cameraSources.$inferInsert = {
+  const row: CameraSourceRow = {
     id: randomUUID(),
     name: input.name.trim(),
     provider: input.provider,
@@ -933,9 +1125,33 @@ export async function createCameraSource(
     updatedAt: timestamp,
   };
 
-  await db.insert(cameraSources).values(row);
+  runStatement(
+    db,
+    `
+      INSERT INTO camera_sources (
+        id, name, provider, stream_url, stream_kind, frigate_base_url, frigate_camera,
+        username, password, status, details, last_tested_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      row.id,
+      row.name,
+      row.provider,
+      row.streamUrl,
+      row.streamKind,
+      row.frigateBaseUrl,
+      row.frigateCamera,
+      row.username,
+      row.password,
+      row.status,
+      row.details,
+      row.lastTestedAt,
+      row.createdAt,
+      row.updatedAt,
+    ],
+  );
 
-  return mapCameraSource(row as typeof cameraSources.$inferSelect);
+  return mapCameraSource(row);
 }
 
 export async function updateCameraSource(
@@ -943,14 +1159,16 @@ export async function updateCameraSource(
   sourceId: string,
   input: CreateCameraSourceInput,
 ): Promise<CameraSource | null> {
-  const existing = await db.query.cameraSources.findFirst({
-    where: eq(cameraSources.id, sourceId),
-  });
+  const existing = getRow<CameraSourceRow>(
+    db,
+    `${CAMERA_SOURCE_SELECT} WHERE id = ? LIMIT 1`,
+    [sourceId],
+  );
   if (!existing) {
     return null;
   }
 
-  const row: typeof cameraSources.$inferInsert = {
+  const row: CameraSourceRow = {
     id: sourceId,
     name: input.name.trim(),
     provider: input.provider,
@@ -967,35 +1185,50 @@ export async function updateCameraSource(
     updatedAt: nowIso(),
   };
 
-  await db
-    .update(cameraSources)
-    .set({
-      name: row.name,
-      provider: row.provider,
-      streamUrl: row.streamUrl,
-      streamKind: row.streamKind,
-      frigateBaseUrl: row.frigateBaseUrl,
-      frigateCamera: row.frigateCamera,
-      username: row.username,
-      password: row.password,
-      status: row.status,
-      details: row.details,
-      lastTestedAt: row.lastTestedAt,
-      updatedAt: row.updatedAt,
-    })
-    .where(eq(cameraSources.id, sourceId));
+  runStatement(
+    db,
+    `
+      UPDATE camera_sources
+      SET
+        name = ?,
+        provider = ?,
+        stream_url = ?,
+        stream_kind = ?,
+        frigate_base_url = ?,
+        frigate_camera = ?,
+        username = ?,
+        password = ?,
+        status = ?,
+        details = ?,
+        last_tested_at = ?,
+        updated_at = ?
+      WHERE id = ?
+    `,
+    [
+      row.name,
+      row.provider,
+      row.streamUrl,
+      row.streamKind,
+      row.frigateBaseUrl,
+      row.frigateCamera,
+      row.username,
+      row.password,
+      row.status,
+      row.details,
+      row.lastTestedAt,
+      row.updatedAt,
+      sourceId,
+    ],
+  );
 
-  return mapCameraSource(row as typeof cameraSources.$inferSelect);
+  return mapCameraSource(row);
 }
 
 export async function deleteCameraSource(
   db: AppDatabase,
   sourceId: string,
 ): Promise<boolean> {
-  const result = await db
-    .delete(cameraSources)
-    .where(eq(cameraSources.id, sourceId));
-
+  const result = runStatement(db, "DELETE FROM camera_sources WHERE id = ?", [sourceId]);
   return result.changes > 0;
 }
 
@@ -1004,32 +1237,46 @@ export async function updateCameraSourceStatus(
   sourceId: string,
   input: Pick<CreateCameraSourceInput, "details" | "lastTestedAt" | "status">,
 ): Promise<void> {
-  await db
-    .update(cameraSources)
-    .set({
-      details: input.details,
-      lastTestedAt: input.lastTestedAt,
-      status: input.status,
-      updatedAt: nowIso(),
-    })
-    .where(eq(cameraSources.id, sourceId));
+  runStatement(
+    db,
+    `
+      UPDATE camera_sources
+      SET
+        details = ?,
+        last_tested_at = ?,
+        status = ?,
+        updated_at = ?
+      WHERE id = ?
+    `,
+    [input.details, input.lastTestedAt, input.status, nowIso(), sourceId],
+  );
 }
 
 export async function listCameraAssignments(
   db: AppDatabase,
 ): Promise<CameraAssignment[]> {
-  const rows = await db
-    .select({
-      feedId: cameraAssignments.id,
-      feedLabel: cameraAssignments.feedLabel,
-      printerId: cameraAssignments.printerId,
-      sourceId: cameraAssignments.sourceId,
-      sourceName: cameraSources.name,
-      targetType: cameraAssignments.targetType,
-    })
-    .from(cameraAssignments)
-    .leftJoin(cameraSources, eq(cameraAssignments.sourceId, cameraSources.id))
-    .orderBy(cameraAssignments.createdAt);
+  const rows = allRows<{
+    feedId: string;
+    feedLabel: string;
+    printerId: string;
+    sourceId: string;
+    sourceName: string | null;
+    targetType: CameraAssignmentTargetType;
+  }>(
+    db,
+    `
+      SELECT
+        ca.id AS feedId,
+        ca.feed_label AS feedLabel,
+        ca.printer_id AS printerId,
+        ca.source_id AS sourceId,
+        cs.name AS sourceName,
+        ca.target_type AS targetType
+      FROM camera_assignments ca
+      LEFT JOIN camera_sources cs ON ca.source_id = cs.id
+      ORDER BY ca.created_at ASC
+    `,
+  );
   const printers = await listPrinterConnections(db);
   const printerById = new Map(printers.map((printer) => [printer.id, printer]));
 
@@ -1058,48 +1305,60 @@ export async function upsertCameraAssignment(
 ): Promise<CameraAssignment> {
   const timestamp = nowIso();
   const targetType = input.targetType ?? "printer";
-  const existing = await db.query.cameraAssignments.findFirst({
-    where: and(
-      eq(cameraAssignments.targetType, targetType),
-      eq(cameraAssignments.printerId, input.printerId),
-      eq(cameraAssignments.sourceId, input.sourceId),
-      eq(cameraAssignments.feedLabel, input.feedLabel.trim()),
-    ),
-  });
+  const feedLabel = input.feedLabel.trim();
+  const existing = getRow<CameraAssignmentRow>(
+    db,
+    `
+      ${CAMERA_ASSIGNMENT_SELECT}
+      WHERE target_type = ? AND printer_id = ? AND source_id = ? AND feed_label = ?
+      LIMIT 1
+    `,
+    [targetType, input.printerId, input.sourceId, feedLabel],
+  );
 
-  const row: typeof cameraAssignments.$inferInsert = {
+  const row: CameraAssignmentRow = {
     id: existing?.id ?? randomUUID(),
     targetType,
     printerId: input.printerId,
     sourceId: input.sourceId,
-    feedLabel: input.feedLabel.trim(),
+    feedLabel,
     createdAt: existing?.createdAt ?? timestamp,
     updatedAt: timestamp,
   };
 
   if (existing) {
-    await db
-      .update(cameraAssignments)
-      .set({
-        feedLabel: row.feedLabel,
-        updatedAt: timestamp,
-      })
-      .where(eq(cameraAssignments.id, existing.id));
+    runStatement(
+      db,
+      "UPDATE camera_assignments SET feed_label = ?, updated_at = ? WHERE id = ?",
+      [row.feedLabel, row.updatedAt, existing.id],
+    );
   } else {
-    await db.insert(cameraAssignments).values(row);
+    runStatement(
+      db,
+      `
+        INSERT INTO camera_assignments (
+          id, target_type, printer_id, source_id, feed_label, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        row.id,
+        row.targetType,
+        row.printerId,
+        row.sourceId,
+        row.feedLabel,
+        row.createdAt,
+        row.updatedAt,
+      ],
+    );
   }
 
-  const [assignment] = (await listCameraAssignments(db)).filter(
-    (item) => item.feedId === row.id,
-  );
-
+  const assignment = (await listCameraAssignments(db)).find((item) => item.feedId === row.id);
   return (
     assignment ?? {
       feedId: row.id,
       feedLabel: row.feedLabel,
       printerId: row.printerId,
-      printerName:
-        row.targetType === "fleet" ? "Fleet Overview" : row.printerId,
+      printerName: row.targetType === "fleet" ? "Fleet Overview" : row.printerId,
       sourceId: row.sourceId,
       sourceName: row.sourceId,
       targetId: row.printerId,
@@ -1113,10 +1372,9 @@ export async function deleteCameraAssignment(
   db: AppDatabase,
   assignmentId: string,
 ): Promise<boolean> {
-  const result = await db
-    .delete(cameraAssignments)
-    .where(eq(cameraAssignments.id, assignmentId));
-
+  const result = runStatement(db, "DELETE FROM camera_assignments WHERE id = ?", [
+    assignmentId,
+  ]);
   return result.changes > 0;
 }
 
@@ -1124,10 +1382,11 @@ export async function getAppearance(
   db: AppDatabase,
   userId: string,
 ): Promise<AppearanceSettings> {
-  const row = await db.query.userPreferences.findFirst({
-    where: eq(userPreferences.userId, userId),
-  });
-
+  const row = getRow<UserPreferenceRow>(
+    db,
+    `${USER_PREFERENCE_SELECT} WHERE user_id = ? LIMIT 1`,
+    [userId],
+  );
   return mapAppearance(row);
 }
 
@@ -1137,20 +1396,33 @@ export async function upsertAppearance(
   appearance: AppearanceSettings,
 ): Promise<AppearanceSettings> {
   const updatedAt = nowIso();
-  await db
-    .insert(userPreferences)
-    .values({
+  runStatement(
+    db,
+    `
+      INSERT INTO user_preferences (
+        user_id, mode, dark_highlight, dark_background, light_highlight,
+        light_background, background_style, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        mode = excluded.mode,
+        dark_highlight = excluded.dark_highlight,
+        dark_background = excluded.dark_background,
+        light_highlight = excluded.light_highlight,
+        light_background = excluded.light_background,
+        background_style = excluded.background_style,
+        updated_at = excluded.updated_at
+    `,
+    [
       userId,
-      ...appearance,
+      appearance.mode,
+      appearance.darkHighlight,
+      appearance.darkBackground,
+      appearance.lightHighlight,
+      appearance.lightBackground,
+      appearance.backgroundStyle,
       updatedAt,
-    })
-    .onConflictDoUpdate({
-      target: userPreferences.userId,
-      set: {
-        ...appearance,
-        updatedAt,
-      },
-    });
+    ],
+  );
 
   return appearance;
 }
@@ -1160,7 +1432,7 @@ export async function createInvite(
   baseUrl: string,
   input: CreateInviteInput,
 ): Promise<InviteRecord> {
-  const row: typeof invites.$inferInsert = {
+  const row: InviteRow = {
     id: randomUUID(),
     email: input.email.toLowerCase(),
     role: input.role,
@@ -1171,66 +1443,56 @@ export async function createInvite(
     usedAt: null,
   };
 
-  await db.insert(invites).values(row);
+  runStatement(
+    db,
+    `
+      INSERT INTO invites (
+        id, email, role, token_hash, created_by_user_id, created_at, expires_at, used_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      row.id,
+      row.email,
+      row.role,
+      row.tokenHash,
+      row.createdByUserId,
+      row.createdAt,
+      row.expiresAt,
+      row.usedAt,
+    ],
+  );
 
-  return {
-    id: row.id,
-    email: row.email,
-    role: row.role,
-    createdAt: row.createdAt,
-    expiresAt: row.expiresAt,
-    usedAt: row.usedAt ?? null,
-    createdBy: row.createdByUserId,
-    inviteUrl: `${baseUrl.replace(/\/$/, "")}/auth/invite/${row.id}`,
-  };
+  return mapInviteRecord(baseUrl, row);
 }
 
 export async function listInvites(
   db: AppDatabase,
   baseUrl: string,
 ): Promise<InviteRecord[]> {
-  const rows = await db.select().from(invites).orderBy(desc(invites.createdAt));
-
-  return rows.map((row) => ({
-    id: row.id,
-    email: row.email,
-    role: row.role,
-    createdAt: row.createdAt,
-    expiresAt: row.expiresAt,
-    usedAt: row.usedAt ?? null,
-    createdBy: row.createdByUserId,
-    inviteUrl: `${baseUrl.replace(/\/$/, "")}/auth/invite/${row.id}`,
-  }));
+  const rows = allRows<InviteRow>(db, `${INVITE_SELECT} ORDER BY created_at DESC`);
+  return rows.map((row) => mapInviteRecord(baseUrl, row));
 }
 
 export async function findInviteById(
   db: AppDatabase,
   inviteId: string,
-): Promise<typeof invites.$inferSelect | undefined> {
-  return db.query.invites.findFirst({
-    where: eq(invites.id, inviteId),
-  });
+): Promise<InviteRow | undefined> {
+  return getRow<InviteRow>(db, `${INVITE_SELECT} WHERE id = ? LIMIT 1`, [inviteId]);
 }
 
 export async function findActiveInviteByTokenHash(
   db: AppDatabase,
   tokenHash: string,
-): Promise<typeof invites.$inferSelect | undefined> {
-  const now = nowIso();
-
-  return db.query.invites.findFirst({
-    where: and(eq(invites.tokenHash, tokenHash), gt(invites.expiresAt, now)),
-  });
+): Promise<InviteRow | undefined> {
+  return getRow<InviteRow>(
+    db,
+    `${INVITE_SELECT} WHERE token_hash = ? AND expires_at > ? LIMIT 1`,
+    [tokenHash, nowIso()],
+  );
 }
 
-export async function markInviteUsed(
-  db: AppDatabase,
-  inviteId: string,
-): Promise<void> {
-  await db
-    .update(invites)
-    .set({ usedAt: nowIso() })
-    .where(eq(invites.id, inviteId));
+export async function markInviteUsed(db: AppDatabase, inviteId: string): Promise<void> {
+  runStatement(db, "UPDATE invites SET used_at = ? WHERE id = ?", [nowIso(), inviteId]);
 }
 
 export async function createSession(
@@ -1238,49 +1500,50 @@ export async function createSession(
   input: CreateSessionInput,
 ): Promise<void> {
   const timestamp = nowIso();
-  await db.insert(sessions).values({
-    id: randomUUID(),
-    userId: input.userId,
-    tokenHash: input.tokenHash,
-    createdAt: timestamp,
-    expiresAt: input.expiresAt,
-    lastSeenAt: timestamp,
-  });
+  runStatement(
+    db,
+    `
+      INSERT INTO sessions (
+        id, user_id, token_hash, created_at, expires_at, last_seen_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    [randomUUID(), input.userId, input.tokenHash, timestamp, input.expiresAt, timestamp],
+  );
 }
 
 export async function getSessionByTokenHash(
   db: AppDatabase,
   tokenHash: string,
-): Promise<typeof sessions.$inferSelect | undefined> {
-  const now = nowIso();
-
-  return db.query.sessions.findFirst({
-    where: and(eq(sessions.tokenHash, tokenHash), gt(sessions.expiresAt, now)),
-  });
+): Promise<SessionRow | undefined> {
+  return getRow<SessionRow>(
+    db,
+    `${SESSION_SELECT} WHERE token_hash = ? AND expires_at > ? LIMIT 1`,
+    [tokenHash, nowIso()],
+  );
 }
 
 export async function touchSession(
   db: AppDatabase,
   sessionId: string,
 ): Promise<void> {
-  await db
-    .update(sessions)
-    .set({ lastSeenAt: nowIso() })
-    .where(eq(sessions.id, sessionId));
+  runStatement(db, "UPDATE sessions SET last_seen_at = ? WHERE id = ?", [
+    nowIso(),
+    sessionId,
+  ]);
 }
 
 export async function deleteSessionByTokenHash(
   db: AppDatabase,
   tokenHash: string,
 ): Promise<void> {
-  await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
+  runStatement(db, "DELETE FROM sessions WHERE token_hash = ?", [tokenHash]);
 }
 
 export async function createCompanionPairingCode(
   db: AppDatabase,
   input: CreateCompanionPairingCodeInput,
-): Promise<typeof companionPairingCodes.$inferSelect> {
-  const row: typeof companionPairingCodes.$inferInsert = {
+): Promise<CompanionPairingCodeRow> {
+  const row: CompanionPairingCodeRow = {
     id: randomUUID(),
     tokenHash: input.tokenHash,
     createdByUserId: input.createdByUserId,
@@ -1289,69 +1552,63 @@ export async function createCompanionPairingCode(
     usedAt: null,
   };
 
-  await db.insert(companionPairingCodes).values(row);
-  return row as typeof companionPairingCodes.$inferSelect;
+  runStatement(
+    db,
+    `
+      INSERT INTO companion_pairing_codes (
+        id, token_hash, created_by_user_id, created_at, expires_at, used_at
+      ) VALUES (?, ?, ?, ?, ?, ?)
+    `,
+    [
+      row.id,
+      row.tokenHash,
+      row.createdByUserId,
+      row.createdAt,
+      row.expiresAt,
+      row.usedAt,
+    ],
+  );
+
+  return row;
 }
 
 export async function findActiveCompanionPairingCodeByTokenHash(
   db: AppDatabase,
   tokenHash: string,
-): Promise<typeof companionPairingCodes.$inferSelect | undefined> {
-  const now = nowIso();
-  return db.query.companionPairingCodes.findFirst({
-    where: and(
-      eq(companionPairingCodes.tokenHash, tokenHash),
-      gt(companionPairingCodes.expiresAt, now),
-    ),
-  });
+): Promise<CompanionPairingCodeRow | undefined> {
+  return getRow<CompanionPairingCodeRow>(
+    db,
+    `${COMPANION_PAIRING_SELECT} WHERE token_hash = ? AND expires_at > ? LIMIT 1`,
+    [tokenHash, nowIso()],
+  );
 }
 
 export async function markCompanionPairingCodeUsed(
   db: AppDatabase,
   pairingCodeId: string,
 ): Promise<void> {
-  await db
-    .update(companionPairingCodes)
-    .set({ usedAt: nowIso() })
-    .where(eq(companionPairingCodes.id, pairingCodeId));
+  runStatement(db, "UPDATE companion_pairing_codes SET used_at = ? WHERE id = ?", [
+    nowIso(),
+    pairingCodeId,
+  ]);
 }
 
 export async function listCompanions(
   db: AppDatabase,
 ): Promise<CompanionRegistration[]> {
-  const rows = await db
-    .select()
-    .from(companions)
-    .orderBy(desc(companions.updatedAt));
-
-  return rows.map((row) => {
-    const companion = mapCompanion(row);
-    return {
-      baseUrl: companion.baseUrl,
-      capabilities: companion.capabilities,
-      createdAt: companion.createdAt,
-      id: companion.id,
-      lastError: companion.lastError,
-      lastHealthAt: companion.lastHealthAt,
-      name: companion.name,
-      pairedAt: companion.pairedAt,
-      printerCount: companion.printerCount,
-      status: companion.status,
-      streamCount: companion.streamCount,
-      tokenSet: companion.tokenSet,
-      updatedAt: companion.updatedAt,
-    };
-  });
+  const rows = allRows<CompanionRow>(db, `${COMPANION_SELECT} ORDER BY updated_at DESC`);
+  return rows.map((row) => mapCompanionPublic(mapCompanion(row)));
 }
 
 export async function getCompanionSecretById(
   db: AppDatabase,
   companionId: string,
 ): Promise<CompanionSecretRecord | undefined> {
-  const row = await db.query.companions.findFirst({
-    where: eq(companions.id, companionId),
-  });
-
+  const row = getRow<CompanionRow>(
+    db,
+    `${COMPANION_SELECT} WHERE id = ? LIMIT 1`,
+    [companionId],
+  );
   return row ? mapCompanion(row) : undefined;
 }
 
@@ -1359,10 +1616,11 @@ export async function findCompanionByBaseUrl(
   db: AppDatabase,
   baseUrl: string,
 ): Promise<CompanionSecretRecord | undefined> {
-  const row = await db.query.companions.findFirst({
-    where: eq(companions.baseUrl, baseUrl),
-  });
-
+  const row = getRow<CompanionRow>(
+    db,
+    `${COMPANION_SELECT} WHERE base_url = ? LIMIT 1`,
+    [baseUrl],
+  );
   return row ? mapCompanion(row) : undefined;
 }
 
@@ -1371,10 +1629,12 @@ export async function upsertCompanionRegistration(
   input: CreateCompanionRegistrationInput,
 ): Promise<CompanionRegistration> {
   const timestamp = nowIso();
-  const existing = await db.query.companions.findFirst({
-    where: eq(companions.baseUrl, input.baseUrl),
-  });
-  const row: typeof companions.$inferInsert = {
+  const existing = getRow<CompanionRow>(
+    db,
+    `${COMPANION_SELECT} WHERE base_url = ? LIMIT 1`,
+    [input.baseUrl],
+  );
+  const row: CompanionRow = {
     id: existing?.id ?? randomUUID(),
     name: input.name,
     baseUrl: input.baseUrl,
@@ -1394,102 +1654,135 @@ export async function upsertCompanionRegistration(
   };
 
   if (existing) {
-    await db
-      .update(companions)
-      .set({
-        name: row.name,
-        bridgeUsername: row.bridgeUsername,
-        bridgeToken: row.bridgeToken,
-        status: row.status,
-        lastHealthAt: row.lastHealthAt,
-        lastError: row.lastError,
-        capabilitiesJson: row.capabilitiesJson,
-        capabilityNotesJson: row.capabilityNotesJson,
-        healthJson: row.healthJson,
-        printersJson: row.printersJson,
-        streamsJson: row.streamsJson,
-        pairedAt: row.pairedAt,
-        updatedAt: row.updatedAt,
-      })
-      .where(eq(companions.id, existing.id));
+    runStatement(
+      db,
+      `
+        UPDATE companions
+        SET
+          name = ?,
+          bridge_username = ?,
+          bridge_token = ?,
+          status = ?,
+          last_health_at = ?,
+          last_error = ?,
+          capabilities_json = ?,
+          capability_notes_json = ?,
+          health_json = ?,
+          printers_json = ?,
+          streams_json = ?,
+          paired_at = ?,
+          updated_at = ?
+        WHERE id = ?
+      `,
+      [
+        row.name,
+        row.bridgeUsername,
+        row.bridgeToken,
+        row.status,
+        row.lastHealthAt,
+        row.lastError,
+        row.capabilitiesJson,
+        row.capabilityNotesJson,
+        row.healthJson,
+        row.printersJson,
+        row.streamsJson,
+        row.pairedAt,
+        row.updatedAt,
+        existing.id,
+      ],
+    );
   } else {
-    await db.insert(companions).values(row);
+    runStatement(
+      db,
+      `
+        INSERT INTO companions (
+          id, name, base_url, bridge_username, bridge_token, status,
+          last_health_at, last_error, capabilities_json, capability_notes_json,
+          health_json, printers_json, streams_json, paired_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        row.id,
+        row.name,
+        row.baseUrl,
+        row.bridgeUsername,
+        row.bridgeToken,
+        row.status,
+        row.lastHealthAt,
+        row.lastError,
+        row.capabilitiesJson,
+        row.capabilityNotesJson,
+        row.healthJson,
+        row.printersJson,
+        row.streamsJson,
+        row.pairedAt,
+        row.createdAt,
+        row.updatedAt,
+      ],
+    );
   }
 
-  const companion = mapCompanion(row as typeof companions.$inferSelect);
-  return {
-    baseUrl: companion.baseUrl,
-    capabilities: companion.capabilities,
-    createdAt: companion.createdAt,
-    id: companion.id,
-    lastError: companion.lastError,
-    lastHealthAt: companion.lastHealthAt,
-    name: companion.name,
-    pairedAt: companion.pairedAt,
-    printerCount: companion.printerCount,
-    status: companion.status,
-    streamCount: companion.streamCount,
-    tokenSet: companion.tokenSet,
-    updatedAt: companion.updatedAt,
-  };
+  return mapCompanionPublic(mapCompanion(row));
 }
 
 export async function updateCompanionSnapshot(
   db: AppDatabase,
   companionId: string,
-  input: Omit<CreateCompanionRegistrationInput, "baseUrl" | "bridgeToken" | "bridgeUsername" | "name" | "pairedAt"> & {
+  input: Omit<
+    CreateCompanionRegistrationInput,
+    "baseUrl" | "bridgeToken" | "bridgeUsername" | "name" | "pairedAt"
+  > & {
     lastError: string | null;
   },
 ): Promise<CompanionRegistration | null> {
-  const existing = await db.query.companions.findFirst({
-    where: eq(companions.id, companionId),
-  });
+  const existing = getRow<CompanionRow>(
+    db,
+    `${COMPANION_SELECT} WHERE id = ? LIMIT 1`,
+    [companionId],
+  );
   if (!existing) {
     return null;
   }
 
   const updatedAt = nowIso();
-  await db
-    .update(companions)
-    .set({
-      capabilitiesJson: JSON.stringify(input.capabilities),
-      capabilityNotesJson: JSON.stringify(input.capabilityNotes),
-      healthJson: JSON.stringify(input.health),
-      lastError: input.lastError,
-      lastHealthAt: updatedAt,
-      printersJson: JSON.stringify(input.printers),
-      status: input.status,
-      streamsJson: JSON.stringify(input.streams),
+  runStatement(
+    db,
+    `
+      UPDATE companions
+      SET
+        capabilities_json = ?,
+        capability_notes_json = ?,
+        health_json = ?,
+        last_error = ?,
+        last_health_at = ?,
+        printers_json = ?,
+        status = ?,
+        streams_json = ?,
+        updated_at = ?
+      WHERE id = ?
+    `,
+    [
+      JSON.stringify(input.capabilities),
+      JSON.stringify(input.capabilityNotes),
+      JSON.stringify(input.health),
+      input.lastError,
       updatedAt,
-    })
-    .where(eq(companions.id, companionId));
+      JSON.stringify(input.printers),
+      input.status,
+      JSON.stringify(input.streams),
+      updatedAt,
+      companionId,
+    ],
+  );
 
   const next = await getCompanionSecretById(db, companionId);
-  if (!next) {
-    return null;
-  }
-
-  return {
-    baseUrl: next.baseUrl,
-    capabilities: next.capabilities,
-    createdAt: next.createdAt,
-    id: next.id,
-    lastError: next.lastError,
-    lastHealthAt: next.lastHealthAt,
-    name: next.name,
-    pairedAt: next.pairedAt,
-    printerCount: next.printerCount,
-    status: next.status,
-    streamCount: next.streamCount,
-    tokenSet: next.tokenSet,
-    updatedAt: next.updatedAt,
-  };
+  return next ? mapCompanionPublic(next) : null;
 }
 
 export async function deleteCompanion(
   db: AppDatabase,
   companionId: string,
 ): Promise<boolean> {
-  const result = await db.delete(companions).where(eq(companions.id, companionId));
+  const result = runStatement(db, "DELETE FROM companions WHERE id = ?", [companionId]);
   return result.changes > 0;
 }

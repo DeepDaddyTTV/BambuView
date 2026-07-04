@@ -6,6 +6,7 @@ onlyBuiltDependencies:
   - esbuild
 allowBuilds:
   better-sqlite3: true
+  electron-winstaller: true
   esbuild: true
 minimumReleaseAgeExclude:
   - electron@43.0.0
