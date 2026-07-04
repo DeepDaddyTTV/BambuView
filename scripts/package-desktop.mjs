@@ -1,4 +1,12 @@
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import {
+  chmodSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -144,6 +152,18 @@ cpSync(path.join(webDir, "dist"), path.join(stageDir, "web"), {
   force: true,
   recursive: true,
 });
+
+const nodeRuntimeDir = path.join(stageDir, "node-runtime");
+const nodeRuntimeName = process.platform === "win32" ? "node.exe" : "node";
+const nodeRuntimePath = path.join(nodeRuntimeDir, nodeRuntimeName);
+mkdirSync(nodeRuntimeDir, { recursive: true });
+cpSync(realpathSync(process.execPath), nodeRuntimePath, {
+  force: true,
+});
+
+if (process.platform !== "win32") {
+  chmodSync(nodeRuntimePath, 0o755);
+}
 
 if (existsSync(path.join(repoRoot, ".npmrc"))) {
   cpSync(path.join(repoRoot, ".npmrc"), path.join(stageDir, ".npmrc"), {

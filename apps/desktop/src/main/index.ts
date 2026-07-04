@@ -12,8 +12,11 @@ let quitting = false;
 
 function resolveRuntimePaths() {
   if (app.isPackaged) {
+    const nodeBinary = process.platform === "win32" ? "node.exe" : "node";
+
     return {
       apiServer: path.join(process.resourcesPath, "api/server.cjs"),
+      nodeRuntime: path.join(process.resourcesPath, "node-runtime", nodeBinary),
       webDist: path.join(process.resourcesPath, "web"),
     };
   }
@@ -22,6 +25,7 @@ function resolveRuntimePaths() {
 
   return {
     apiServer: path.join(repoRoot, "apps/api/dist/server.cjs"),
+    nodeRuntime: process.execPath,
     webDist: path.join(repoRoot, "apps/web/dist"),
   };
 }
@@ -106,18 +110,23 @@ async function startApiServer() {
     );
   }
 
+  if (!fs.existsSync(runtimePaths.nodeRuntime)) {
+    throw new Error(
+      `BambuView Node runtime was not found at ${runtimePaths.nodeRuntime}.`,
+    );
+  }
+
   const port = await findOpenPort();
   const origin = `http://localhost:${port}`;
   const dataDir = path.join(app.getPath("userData"), "data");
   fs.mkdirSync(dataDir, { recursive: true });
 
-  apiProcess = spawn(process.execPath, [runtimePaths.apiServer], {
+  apiProcess = spawn(runtimePaths.nodeRuntime, [runtimePaths.apiServer], {
     env: {
       ...process.env,
       APP_ORIGIN: origin,
       COOKIE_SECURE: "false",
       DATABASE_FILE: path.join(dataDir, "bambuview.db"),
-      ELECTRON_RUN_AS_NODE: "1",
       HOST: "127.0.0.1",
       NODE_ENV: "production",
       PORT: String(port),
