@@ -2,6 +2,7 @@
   "name": "@bambuview/companion",
   "version": "0.0.30",
   "description": "Local bridge app for BambuView printers, cameras, telemetry, and file handoff.",
+  "desktopName": "bambuview-companion",
   "author": {
     "name": "BambuView Maintainers",
     "email": "noreply@github.com"
@@ -69,7 +70,7 @@
       ]
     },
     "win": {
-      "artifactName": "${productName}-${version}-Setup-${arch}.${ext}",
+      "artifactName": "BambuView-Companion-${version}-Setup-${arch}.${ext}",
       "target": [
         {
           "target": "nsis",
@@ -88,8 +89,10 @@
     },
     "linux": {
       "category": "Utility",
-      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "artifactName": "BambuView-Companion-${version}-${arch}.${ext}",
+      "executableName": "bambuview-companion",
       "maintainer": "BambuView Maintainers <noreply@github.com>",
+      "syncDesktopName": true,
       "target": [
         {
           "target": "deb",
@@ -104,6 +107,12 @@
           ]
         }
       ]
+    },
+    "deb": {
+      "packageName": "bambuview-companion"
+    },
+    "rpm": {
+      "packageName": "bambuview-companion"
     }
   }
 }

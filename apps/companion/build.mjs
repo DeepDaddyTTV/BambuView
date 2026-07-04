@@ -1,14 +1,8 @@
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { resolveEsbuildInvocation } from "../../scripts/resolve-esbuild.mjs";
 
 const companionDir = fileURLToPath(new URL("./", import.meta.url));
 const repoRoot = path.resolve(companionDir, "../..");
@@ -16,52 +10,21 @@ const outDir = path.join(companionDir, "out");
 const rendererOutDir = path.join(outDir, "renderer");
 const rendererAssetsDir = path.join(rendererOutDir, "assets");
 const rendererMetaFile = path.join(rendererOutDir, "metafile.json");
-const esbuildBinaryName = process.platform === "win32" ? "esbuild.exe" : "esbuild";
-
-function resolveEsbuildCli() {
-  const directPackageBinary = path.join(
-    companionDir,
-    "node_modules/esbuild/bin",
-    esbuildBinaryName,
-  );
-
-  if (existsSync(directPackageBinary)) {
-    return directPackageBinary;
-  }
-
-  const pnpmStoreDir = path.join(repoRoot, "node_modules/.pnpm");
-  const pnpmEntries = existsSync(pnpmStoreDir)
-    ? readdirSync(pnpmStoreDir)
-        .filter((entry) => entry.startsWith("esbuild@"))
-        .sort()
-        .reverse()
-    : [];
-
-  for (const entry of pnpmEntries) {
-    const candidate = path.join(
-      pnpmStoreDir,
-      entry,
-      "node_modules/esbuild/bin",
-      esbuildBinaryName,
-    );
-
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  throw new Error(
-    "Unable to locate a working esbuild binary for the Companion build.",
-  );
-}
-
-const esbuildCli = resolveEsbuildCli();
+const esbuildInvocation = resolveEsbuildInvocation({
+  label: "Companion",
+  repoRoot,
+  workspaceDir: companionDir,
+});
 
 function run(args) {
-  const result = spawnSync(esbuildCli, args, {
-    cwd: companionDir,
-    stdio: "inherit",
-  });
+  const result = spawnSync(
+    esbuildInvocation.command,
+    [...esbuildInvocation.args, ...args],
+    {
+      cwd: companionDir,
+      stdio: "inherit",
+    },
+  );
 
   if (result.status !== 0) {
     process.exit(result.status ?? 1);
@@ -108,7 +71,7 @@ run([
 run([
   "src/renderer/main.tsx",
   "--bundle",
-  "--define:process.env.NODE_ENV=\"production\"",
+  '--define:process.env.NODE_ENV="production"',
   "--format=esm",
   "--jsx=automatic",
   "--legal-comments=none",
@@ -131,12 +94,13 @@ const rendererJs = rendererOutputs.find(
 );
 const rendererCss = rendererOutputs.find(
   (filePath) =>
-    filePath.startsWith("out/renderer/assets/") &&
-    filePath.endsWith(".css"),
+    filePath.startsWith("out/renderer/assets/") && filePath.endsWith(".css"),
 );
 
 if (!rendererJs || !rendererCss) {
-  throw new Error("Companion renderer build did not produce the expected assets.");
+  throw new Error(
+    "Companion renderer build did not produce the expected assets.",
+  );
 }
 
 writeFileSync(

@@ -1,56 +1,25 @@
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { resolveEsbuildInvocation } from "../../scripts/resolve-esbuild.mjs";
 
 const desktopDir = fileURLToPath(new URL("./", import.meta.url));
 const repoRoot = path.resolve(desktopDir, "../..");
 const outDir = path.join(desktopDir, "out");
-const esbuildBinaryName = process.platform === "win32" ? "esbuild.exe" : "esbuild";
-
-function resolveEsbuildCli() {
-  const directPackageBinary = path.join(
-    desktopDir,
-    "node_modules/esbuild/bin",
-    esbuildBinaryName,
-  );
-
-  if (existsSync(directPackageBinary)) {
-    return directPackageBinary;
-  }
-
-  const pnpmStoreDir = path.join(repoRoot, "node_modules/.pnpm");
-  const pnpmEntries = existsSync(pnpmStoreDir)
-    ? readdirSync(pnpmStoreDir)
-        .filter((entry) => entry.startsWith("esbuild@"))
-        .sort()
-        .reverse()
-    : [];
-
-  for (const entry of pnpmEntries) {
-    const candidate = path.join(
-      pnpmStoreDir,
-      entry,
-      "node_modules/esbuild/bin",
-      esbuildBinaryName,
-    );
-
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  throw new Error("Unable to locate a working esbuild binary for the desktop build.");
-}
-
-const esbuildCli = resolveEsbuildCli();
+const esbuildInvocation = resolveEsbuildInvocation({
+  label: "desktop",
+  repoRoot,
+  workspaceDir: desktopDir,
+});
 
 rmSync(outDir, { force: true, recursive: true });
 mkdirSync(path.join(outDir, "main"), { recursive: true });
 
 const result = spawnSync(
-  esbuildCli,
+  esbuildInvocation.command,
   [
+    ...esbuildInvocation.args,
     "src/main/index.ts",
     "--bundle",
     "--external:electron",
