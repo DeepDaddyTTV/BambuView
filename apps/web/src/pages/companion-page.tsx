@@ -38,7 +38,9 @@ function toneClasses(status: CompanionRegistration["status"]) {
 
 export function CompanionPage() {
   const queryClient = useQueryClient();
-  const [selectedCompanionId, setSelectedCompanionId] = useState<string | null>(null);
+  const [selectedCompanionId, setSelectedCompanionId] = useState<string | null>(
+    null,
+  );
   const [latestPairingCode, setLatestPairingCode] =
     useState<CompanionPairingCode | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
@@ -144,9 +146,9 @@ export function CompanionPage() {
           <div className="section-title">Install Companion</div>
           <p className="mt-3 text-sm leading-7 text-zinc-400">
             Companion is the native bridge app for local telemetry, local
-            streams, and trusted-machine handoff. Install it on the machine
-            that can actually reach your printers or camera sources, then come
-            back here to pair it.
+            streams, and trusted-machine handoff. Install it on the machine that
+            can actually reach your printers or camera sources, then come back
+            here to pair it.
           </p>
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
             <a
@@ -170,16 +172,16 @@ export function CompanionPage() {
           </div>
           <div className="mt-5 border border-white/8 bg-white/[0.03] px-5 py-5 text-sm leading-7 text-zinc-300">
             Companion release assets are published as macOS <strong>DMG</strong>
-            , Windows <strong>EXE</strong>, and Linux{" "}
-            <strong>AppImage</strong> and <strong>deb</strong> packages.
+            , Windows <strong>EXE</strong>, and Linux <strong>DEB</strong> or{" "}
+            <strong>RPM</strong> installers.
           </div>
         </section>
 
         <section className="panel">
           <div className="section-title">Pair Companion</div>
           <p className="mt-3 text-sm leading-7 text-zinc-400">
-            Generate a one-time pairing token here, then paste it into
-            BambuView Companion along with this server URL.
+            Generate a one-time pairing token here, then paste it into BambuView
+            Companion along with this server URL.
           </p>
           <div className="mt-5 rounded-[22px] border border-white/8 bg-white/[0.03] p-5">
             <div className="text-sm uppercase tracking-[0.2em] text-zinc-500">
@@ -212,7 +214,8 @@ export function CompanionPage() {
                   {latestPairingCode.code}
                 </div>
                 <div className="mt-2 text-xs text-emerald-100/80">
-                  Expires {new Date(latestPairingCode.expiresAt).toLocaleString()}
+                  Expires{" "}
+                  {new Date(latestPairingCode.expiresAt).toLocaleString()}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3">
                   <button
@@ -246,7 +249,8 @@ export function CompanionPage() {
             ) : null}
             {companionsQuery.data?.companions.length === 0 ? (
               <div className="rounded-[22px] border border-white/8 bg-white/[0.03] px-5 py-6 text-sm leading-7 text-zinc-400">
-                No Companions are paired yet. Generate a pairing token, then finish setup in the desktop app.
+                No Companions are paired yet. Generate a pairing token, then
+                finish setup in the desktop app.
               </div>
             ) : null}
             {companionsQuery.data?.companions.map((companion) => (
@@ -293,7 +297,8 @@ export function CompanionPage() {
             <div>
               <div className="section-title">Companion Detail</div>
               <p className="mt-3 text-sm leading-7 text-zinc-400">
-                Refresh the connection to pull the latest health, capability, printer, and stream data from the local bridge.
+                Refresh the connection to pull the latest health, capability,
+                printer, and stream data from the local bridge.
               </p>
             </div>
             {selectedCompanionId ? (
@@ -301,18 +306,24 @@ export function CompanionPage() {
                 <button
                   className="fleet-console-toolbar__button"
                   disabled={testCompanionMutation.isPending}
-                  onClick={() => testCompanionMutation.mutate(selectedCompanionId)}
+                  onClick={() =>
+                    testCompanionMutation.mutate(selectedCompanionId)
+                  }
                   type="button"
                 >
                   <RefreshCcw className="h-4 w-4" />
                   <span>
-                    {testCompanionMutation.isPending ? "Testing…" : "Test Companion"}
+                    {testCompanionMutation.isPending
+                      ? "Testing…"
+                      : "Test Companion"}
                   </span>
                 </button>
                 <button
                   className="fleet-console-toolbar__button"
                   disabled={deleteCompanionMutation.isPending}
-                  onClick={() => deleteCompanionMutation.mutate(selectedCompanionId)}
+                  onClick={() =>
+                    deleteCompanionMutation.mutate(selectedCompanionId)
+                  }
                   type="button"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -324,7 +335,8 @@ export function CompanionPage() {
 
           {!selectedCompanionId ? (
             <div className="mt-5 rounded-[22px] border border-white/8 bg-white/[0.03] px-5 py-6 text-sm text-zinc-400">
-              Select a paired Companion to see live capabilities and importable streams.
+              Select a paired Companion to see live capabilities and importable
+              streams.
             </div>
           ) : null}
 
@@ -386,7 +398,8 @@ export function CompanionPage() {
                           {printer.model} • {printer.hostname}
                         </div>
                         <div className="mt-3 text-xs uppercase tracking-[0.18em] text-zinc-500">
-                          Telemetry: {printer.capabilities.telemetry.replaceAll("_", " ")}
+                          Telemetry:{" "}
+                          {printer.capabilities.telemetry.replaceAll("_", " ")}
                         </div>
                       </div>
                     ))}
@@ -462,7 +475,10 @@ export function CompanionPage() {
                 <div className="flex gap-3">
                   <ArrowRight className="mt-0.5 h-4 w-4 text-emerald-200" />
                   <div className="text-sm leading-7 text-emerald-100">
-                    Imported Companion streams show up under <strong>Cameras</strong> with provider <strong>BambuView Companion</strong>. After import, assign them to printers or Fleet Overview there.
+                    Imported Companion streams show up under{" "}
+                    <strong>Cameras</strong> with provider{" "}
+                    <strong>BambuView Companion</strong>. After import, assign
+                    them to printers or Fleet Overview there.
                   </div>
                 </div>
               </div>

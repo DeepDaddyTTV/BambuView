@@ -123,7 +123,7 @@ it("renders Orca as the filament workbench and switches to the resin lane", asyn
 
   await user.click(screen.getByRole("button", { name: "Resin / SLA" }));
 
-  expect(await screen.findByText("Prusa resin lane")).toBeInTheDocument();
+  expect(await screen.findAllByText("Prusa resin lane")).not.toHaveLength(0);
   expect(
     screen.queryByRole("button", { name: "Generate Bambu Connect Link" }),
   ).not.toBeInTheDocument();

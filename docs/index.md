@@ -5,12 +5,13 @@ These docs are written for someone setting up BambuView for the first time.
 Start here:
 
 - [First-time setup](./getting-started.md)
+- [Native install](./native-install.md)
 - [Bambu connection modes](./lan-mode.md)
 - [Camera setup](./cameras.md)
 - [BambuView Companion](./companion.md)
 - [Prepare & Slice](./prepare-slice.md)
 
-What BambuView `0.0.31` alpha includes:
+What BambuView `0.0.30` alpha includes:
 
 - A local first-run admin setup flow
 - Invite-only account creation after bootstrap
@@ -26,6 +27,7 @@ What BambuView `0.0.31` alpha includes:
 - Printer and Fleet Overview camera assignment with proxied playback for browser-renderable camera sources
 - Clear degraded-state warnings when a saved camera source is reachable metadata or a dashboard URL instead of browser-renderable media
 - Docker Compose-first setup with persistent SQLite state
+- Native alpha installers for BambuView Desktop and BambuView Companion on macOS, Windows, and Linux
 - Appearance controls that let each user tune light mode, dark mode, background art, and the shared highlight color used across the UI
 
 Still being built:

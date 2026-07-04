@@ -7,6 +7,8 @@ import type {
   CompanionPrinterTestResult,
 } from "@bambuview/contracts";
 
+type MqttBuffer = Buffer<ArrayBufferLike>;
+
 const BAMBU_CAMERA_PORT = 322;
 const BAMBU_LAN_CONTROL_PORT = 8883;
 const CONNECTION_TIMEOUT_MS = 3000;
@@ -86,7 +88,9 @@ function normalizeStatus(
   return "idle";
 }
 
-function labelForStatus(status: CompanionPrinterTelemetry["printStatus"]): string {
+function labelForStatus(
+  status: CompanionPrinterTelemetry["printStatus"],
+): string {
   if (status === "printing") return "Printing";
   if (status === "paused") return "Paused";
   if (status === "offline") return "Offline";
@@ -107,7 +111,9 @@ function normalizeColor(value: string | null): string {
   return "#b8babd";
 }
 
-function parseSlots(print: Record<string, unknown>): CompanionPrinterTelemetry["slots"] {
+function parseSlots(
+  print: Record<string, unknown>,
+): CompanionPrinterTelemetry["slots"] {
   const ams = asRecord(print.ams);
   const activeTray =
     readString(readNested(print, ["tray_now", "vt_tray", "ams_tray_now"])) ??
@@ -184,7 +190,9 @@ function parseTelemetry(payload: unknown): RawTelemetry {
     chamberTargetTemperature: readNumber(
       readNested(print, ["chamber_target_temper", "chamber_target_temp"]),
     ),
-    elapsedMinutes: readNumber(readNested(print, ["print_time", "mc_print_time"])),
+    elapsedMinutes: readNumber(
+      readNested(print, ["print_time", "mc_print_time"]),
+    ),
     fileName:
       readString(
         readNested(print, ["subtask_name", "gcode_file", "file", "gcode_name"]),
@@ -193,7 +201,9 @@ function parseTelemetry(payload: unknown): RawTelemetry {
       readString(root.firmware_version) ??
       readString(readNested(print, ["firmware_version", "version"])),
     layerCurrent: readNumber(readNested(print, ["layer_num", "layer"])),
-    layerTotal: readNumber(readNested(print, ["total_layer_num", "total_layers"])),
+    layerTotal: readNumber(
+      readNested(print, ["total_layer_num", "total_layers"]),
+    ),
     nozzleTemperature: readNumber(
       readNested(print, ["nozzle_temper", "nozzle_temp"]),
     ),
@@ -263,7 +273,11 @@ function createConnectPacket(input: {
 function createSubscribePacket(topic: string): Buffer {
   return createMqttPacket(
     0x82,
-    Buffer.concat([Buffer.from([0, 1]), encodeMqttString(topic), Buffer.from([0])]),
+    Buffer.concat([
+      Buffer.from([0, 1]),
+      encodeMqttString(topic),
+      Buffer.from([0]),
+    ]),
   );
 }
 
@@ -275,7 +289,7 @@ function createPublishPacket(topic: string, payload: string): Buffer {
 }
 
 function readRemainingLength(
-  buffer: Buffer,
+  buffer: MqttBuffer,
 ): { bytesRead: number; value: number } | null {
   let multiplier = 1;
   let value = 0;
@@ -290,9 +304,12 @@ function readRemainingLength(
   return null;
 }
 
-function shiftMqttPacket(
-  buffer: Buffer,
-): { flags: number; packet: Buffer; remaining: Buffer; type: number } | null {
+function shiftMqttPacket(buffer: MqttBuffer): {
+  flags: number;
+  packet: MqttBuffer;
+  remaining: MqttBuffer;
+  type: number;
+} | null {
   if (buffer.length < 2) {
     return null;
   }
@@ -313,7 +330,10 @@ function shiftMqttPacket(
   };
 }
 
-function packetContainsTopic(packet: Buffer, expectedTopic: string): boolean {
+function packetContainsTopic(
+  packet: MqttBuffer,
+  expectedTopic: string,
+): boolean {
   if (packet.length < 2) {
     return false;
   }
@@ -324,7 +344,7 @@ function packetContainsTopic(packet: Buffer, expectedTopic: string): boolean {
   return packet.subarray(2, 2 + topicLength).toString("utf8") === expectedTopic;
 }
 
-function getPublishPayload(packet: Buffer, flags: number): string | null {
+function getPublishPayload(packet: MqttBuffer, flags: number): string | null {
   if (packet.length < 2) {
     return null;
   }
@@ -368,7 +388,8 @@ export async function testBambuPrinter(
   printer: CompanionPrinterInput,
 ): Promise<CompanionPrinterTestResult> {
   const checkedAt = new Date().toISOString();
-  const rawLan = printer.connectionMode === "lan" || printer.connectionMode === "developer";
+  const rawLan =
+    printer.connectionMode === "lan" || printer.connectionMode === "developer";
   if (!rawLan) {
     return {
       capabilities: {
@@ -381,13 +402,17 @@ export async function testBambuPrinter(
         telemetry: "unavailable",
       },
       capabilityNotes: {
-        camera: "Cloud and Bambu Connect profiles need a browser-compatible restream to embed video.",
+        camera:
+          "Cloud and Bambu Connect profiles need a browser-compatible restream to embed video.",
         controls: "Direct controls require LAN-only Developer Mode.",
-        fileUpload: "Direct printer file upload is only planned for Developer Mode.",
-        telemetry: "Live telemetry requires LAN Mode or LAN-only Developer Mode.",
+        fileUpload:
+          "Direct printer file upload is only planned for Developer Mode.",
+        telemetry:
+          "Live telemetry requires LAN Mode or LAN-only Developer Mode.",
       },
       checkedAt,
-      message: "This profile is saved for handoff. Live telemetry and control need LAN/Developer Mode.",
+      message:
+        "This profile is saved for handoff. Live telemetry and control need LAN/Developer Mode.",
       reachable: true,
     };
   }
@@ -397,7 +422,9 @@ export async function testBambuPrinter(
   const telemetryState =
     host && printer.accessCode?.trim() ? "available" : "requires_setup";
   const controlsState =
-    printer.connectionMode === "developer" ? "unavailable" : "requires_developer_mode";
+    printer.connectionMode === "developer"
+      ? "unavailable"
+      : "requires_developer_mode";
 
   return {
     capabilities: {
@@ -406,7 +433,9 @@ export async function testBambuPrinter(
       controls: controlsState,
       discovery: "unavailable",
       fileUpload:
-        printer.connectionMode === "developer" ? "unavailable" : "requires_developer_mode",
+        printer.connectionMode === "developer"
+          ? "unavailable"
+          : "requires_developer_mode",
       slicingAssist: "future",
       telemetry: telemetryState,
     },
@@ -460,7 +489,8 @@ export async function readBambuTelemetry(
       firmwareVersion: null,
       layerCurrent: null,
       layerTotal: null,
-      message: "Add the printer hostname, serial number, and LAN access code to request telemetry.",
+      message:
+        "Add the printer hostname, serial number, and LAN access code to request telemetry.",
       nozzleTargetTemperature: null,
       nozzleTemperature: null,
       printStatus: "offline",
@@ -493,7 +523,9 @@ export async function readBambuTelemetry(
       layerCurrent: null,
       layerTotal: null,
       message:
-        error instanceof Error ? error.message : "The printer did not return telemetry.",
+        error instanceof Error
+          ? error.message
+          : "The printer did not return telemetry.",
       nozzleTargetTemperature: null,
       nozzleTemperature: null,
       printStatus: "offline",
@@ -508,7 +540,8 @@ export async function readBambuTelemetry(
 }
 
 async function fetchTelemetryPayload(
-  printer: Required<Pick<CompanionPrinterInput, "accessCode">> & CompanionPrinterInput,
+  printer: Required<Pick<CompanionPrinterInput, "accessCode">> &
+    CompanionPrinterInput,
 ): Promise<unknown> {
   const host = printer.hostname.trim();
   const serial = printer.serial.trim().toUpperCase();
@@ -517,7 +550,7 @@ async function fetchTelemetryPayload(
   return new Promise((resolve, reject) => {
     let settled = false;
     let connected = false;
-    let buffered = Buffer.alloc(0);
+    let buffered: MqttBuffer = Buffer.alloc(0);
     const reportTopic = buildMqttTopic(serial, "report");
     const requestTopic = buildMqttTopic(serial, "request");
     const socket = tls.connect({
@@ -546,10 +579,14 @@ async function fetchTelemetryPayload(
 
     const timeout = setTimeout(() => {
       if (connected) {
-        fail("The printer did not publish a telemetry report before the timeout.");
+        fail(
+          "The printer did not publish a telemetry report before the timeout.",
+        );
         return;
       }
-      fail("The printer did not accept MQTT authentication before the timeout.");
+      fail(
+        "The printer did not accept MQTT authentication before the timeout.",
+      );
     }, MQTT_REPORT_TIMEOUT_MS);
 
     socket.setTimeout(CONNECTION_TIMEOUT_MS);
@@ -564,7 +601,8 @@ async function fetchTelemetryPayload(
     });
 
     socket.on("data", (chunk) => {
-      const packetChunk = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+      const packetChunk =
+        typeof chunk === "string" ? Buffer.from(chunk) : chunk;
       buffered = Buffer.concat([buffered, packetChunk]);
 
       while (buffered.length > 0) {
@@ -577,7 +615,9 @@ async function fetchTelemetryPayload(
         if (parsed.type === 2) {
           const returnCode = parsed.packet[1];
           if (returnCode !== 0) {
-            fail("The printer rejected the MQTT username, access code, or client session.");
+            fail(
+              "The printer rejected the MQTT username, access code, or client session.",
+            );
             return;
           }
 
@@ -598,7 +638,10 @@ async function fetchTelemetryPayload(
           continue;
         }
 
-        if (parsed.type === 3 && packetContainsTopic(parsed.packet, reportTopic)) {
+        if (
+          parsed.type === 3 &&
+          packetContainsTopic(parsed.packet, reportTopic)
+        ) {
           const payload = getPublishPayload(parsed.packet, parsed.flags);
           if (!payload) {
             continue;
@@ -607,7 +650,9 @@ async function fetchTelemetryPayload(
           try {
             finish(JSON.parse(payload));
           } catch {
-            fail("The printer returned a telemetry packet that was not valid JSON.");
+            fail(
+              "The printer returned a telemetry packet that was not valid JSON.",
+            );
           }
         }
       }

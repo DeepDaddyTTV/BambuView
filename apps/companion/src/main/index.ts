@@ -84,7 +84,10 @@ async function restartBridge() {
       if (code === "EADDRINUSE") {
         await runtime.applyPortConflict();
       } else {
-        await runtime.applyBridgeListening(false, "Companion bridge failed to start.");
+        await runtime.applyBridgeListening(
+          false,
+          "Companion bridge failed to start.",
+        );
         logger.error("Companion bridge failed to start.");
       }
     }
@@ -133,7 +136,9 @@ function registerIpc() {
   ipcMain.handle(companionChannels.saveSettings, (_event, input) =>
     runtime.saveSettings(input),
   );
-  ipcMain.handle(companionChannels.pair, (_event, input) => runtime.pair(input));
+  ipcMain.handle(companionChannels.pair, (_event, input) =>
+    runtime.pair(input),
+  );
   ipcMain.handle(companionChannels.resetPairing, () => runtime.resetPairing());
   ipcMain.handle(companionChannels.regenerateBridgeToken, async () => {
     const token = await runtime.regenerateBridgeToken();
@@ -215,8 +220,6 @@ app.on("before-quit", async () => {
   tray?.destroy();
 });
 
-app.on("window-all-closed", (event) => {
-  if (process.platform !== "darwin") {
-    event.preventDefault();
-  }
+app.on("window-all-closed", () => {
+  // Companion stays available from the tray until the user chooses Quit.
 });

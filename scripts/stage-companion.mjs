@@ -6,7 +6,10 @@ import { spawnSync } from "node:child_process";
 
 const repoRoot = fileURLToPath(new URL("../", import.meta.url));
 const companionDir = path.join(repoRoot, "apps/companion");
-const pnpmCli = process.env.npm_execpath ?? process.env.PNPM_EXECUTABLE ?? null;
+const pnpmCli =
+  process.env.npm_execpath ??
+  process.env.PNPM_EXECUTABLE ??
+  (process.platform === "win32" ? "pnpm.cmd" : "pnpm");
 const stageDir =
   process.argv[2] ??
   path.join(
@@ -49,12 +52,6 @@ function resolvePnpmInvocation(args) {
     args,
     command: pnpmCli,
   };
-}
-
-if (!pnpmCli) {
-  throw new Error(
-    "Companion staging must be launched through pnpm so the workspace deploy command can be resolved.",
-  );
 }
 
 if (!existsSync(path.join(companionDir, "out/main/index.js"))) {

@@ -32,8 +32,8 @@ Planned release artifacts:
 
 - macOS: `.dmg`
 - Windows: `.exe`
-- Linux: `.AppImage`
 - Linux: `.deb`
+- Linux: `.rpm`
 
 Install the build for your platform, launch `BambuView Companion`, and keep it running on the trusted machine that can reach your printer or camera sources.
 

@@ -1,0 +1,176 @@
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { spawnSync } from "node:child_process";
+
+const repoRoot = fileURLToPath(new URL("../", import.meta.url));
+const desktopDir = path.join(repoRoot, "apps/desktop");
+const apiDir = path.join(repoRoot, "apps/api");
+const webDir = path.join(repoRoot, "apps/web");
+const outputDir = path.join(desktopDir, "release");
+const stageDir = path.join(
+  os.tmpdir(),
+  `bambuview-desktop-stage-${Date.now().toString(36)}`,
+);
+const skipBuild = process.argv.includes("--skip-build");
+const passthroughArgs = process.argv
+  .slice(2)
+  .filter((arg) => arg !== "--skip-build" && arg !== "--");
+const pnpmCli = process.env.npm_execpath ?? process.env.PNPM_EXECUTABLE ?? null;
+
+function resolveElectronBuilderCli() {
+  const pnpmDir = path.join(repoRoot, "node_modules/.pnpm");
+  const entry = readdirSync(pnpmDir).find((candidate) =>
+    candidate.startsWith("electron-builder@"),
+  );
+
+  if (!entry) {
+    throw new Error("electron-builder is not installed in this workspace.");
+  }
+
+  const cliPath = path.join(
+    pnpmDir,
+    entry,
+    "node_modules/electron-builder/cli.js",
+  );
+
+  if (!existsSync(cliPath)) {
+    throw new Error("electron-builder CLI could not be located.");
+  }
+
+  return cliPath;
+}
+
+function run(command, args, cwd, extraEnv = {}) {
+  const result = spawnSync(command, args, {
+    cwd,
+    env: {
+      ...process.env,
+      ...extraEnv,
+    },
+    stdio: "inherit",
+  });
+
+  if (result.error) {
+    throw result.error;
+  }
+
+  if (result.status !== 0) {
+    if (result.signal) {
+      console.error(`Command terminated by signal: ${result.signal}`);
+    }
+    process.exit(result.status ?? 1);
+  }
+}
+
+function resolvePnpmInvocation(args) {
+  const resolvedPnpmCli =
+    pnpmCli ?? (process.platform === "win32" ? "pnpm.cmd" : "pnpm");
+
+  if (/\.(?:[cm]?js)$/i.test(resolvedPnpmCli)) {
+    return {
+      args: [resolvedPnpmCli, ...args],
+      command: process.execPath,
+    };
+  }
+
+  return {
+    args,
+    command: resolvedPnpmCli,
+  };
+}
+
+function runWebBuild() {
+  const tscBinary = path.join(
+    repoRoot,
+    "node_modules/.bin",
+    process.platform === "win32" ? "tsc.cmd" : "tsc",
+  );
+  const viteBinary = path.join(
+    webDir,
+    "node_modules/.bin",
+    process.platform === "win32" ? "vite.cmd" : "vite",
+  );
+
+  run(tscBinary, ["-p", "tsconfig.json"], webDir);
+  run(viteBinary, ["build"], webDir);
+}
+
+const electronBuilderCli = resolveElectronBuilderCli();
+
+if (!skipBuild) {
+  run(process.execPath, ["build.mjs"], apiDir);
+  runWebBuild();
+  run(process.execPath, ["build.mjs"], desktopDir);
+}
+
+rmSync(stageDir, { force: true, recursive: true });
+mkdirSync(stageDir, { recursive: true });
+
+const pnpmInvocation = resolvePnpmInvocation([
+  "--config.confirmModulesPurge=false",
+  "--filter",
+  "@bambuview/desktop",
+  "deploy",
+  "--prod",
+  "--legacy",
+  stageDir,
+]);
+
+run(pnpmInvocation.command, pnpmInvocation.args, repoRoot, {
+  BAMBUVIEW_SKIP_POSTINSTALL: "1",
+  CI: "true",
+});
+
+for (const entry of ["release", "src", "tsconfig.json", "vitest.config.ts"]) {
+  rmSync(path.join(stageDir, entry), { force: true, recursive: true });
+}
+
+cpSync(path.join(desktopDir, "out"), path.join(stageDir, "out"), {
+  force: true,
+  recursive: true,
+});
+cpSync(path.join(apiDir, "dist"), path.join(stageDir, "api"), {
+  force: true,
+  recursive: true,
+});
+cpSync(path.join(webDir, "dist"), path.join(stageDir, "web"), {
+  force: true,
+  recursive: true,
+});
+
+if (existsSync(path.join(repoRoot, ".npmrc"))) {
+  cpSync(path.join(repoRoot, ".npmrc"), path.join(stageDir, ".npmrc"), {
+    force: true,
+  });
+}
+
+rmSync(outputDir, { force: true, recursive: true });
+mkdirSync(outputDir, { recursive: true });
+
+run(
+  process.execPath,
+  [
+    electronBuilderCli,
+    "--projectDir",
+    stageDir,
+    "--publish",
+    "never",
+    "--config.directories.output",
+    outputDir,
+    ...passthroughArgs,
+  ],
+  repoRoot,
+  {
+    BAMBUVIEW_SKIP_POSTINSTALL: "1",
+    CI: "true",
+    CSC_IDENTITY_AUTO_DISCOVERY: "false",
+    NPM_CONFIG_CONFIRM_MODULES_PURGE: "false",
+    PNPM_CONFIG_CONFIRM_MODULES_PURGE: "false",
+  },
+);
+
+rmSync(stageDir, { force: true, recursive: true });
+
+console.log(outputDir);

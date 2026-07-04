@@ -27,6 +27,7 @@ It is being built for people who want a clean local-first printer console with i
 - **Prepare & Slice workspace split** with OrcaSlicer positioned as the filament/FDM fork target and PrusaSlicer reserved for resin-only workflows.
 - **Camera source management** for direct browser-compatible HTTP/MJPEG/HLS feeds, Frigate/go2rtc restream URLs, and raw RTSP sources that can be restreamed before browser playback.
 - **BambuView Companion foundation** with native pairing, localhost bridge auth, manual printer profiles, honest capability reporting, local telemetry hooks, and importable Companion stream sources.
+- **Native alpha installers** for the full BambuView desktop app and BambuView Companion on macOS, Windows, and Linux through GitHub Releases.
 - **Local first-run setup** that creates the first admin account before the app opens.
 - **Invite-only users** after bootstrap, with `admin`, `operator`, and `viewer` roles.
 - **Per-user appearance settings** for light mode, dark mode, highlight colors, background colors, and background styles.
@@ -37,7 +38,7 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.31` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, selectable background styles, and a first Companion management surface.
+The `0.0.30` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, selectable background styles, and a first Companion management surface.
 
 The Bambu connection profiles now expose honest capability states. Cloud / Normal and Bambu Connect are saved as handoff profiles for Bambu Connect import links and bridge-aware workflows, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers or the Fleet Overview target; RTSP and native Bambu feeds should still be routed through Frigate/go2rtc, a Network Plugin bridge endpoint, or a browser-compatible Companion stream before browser playback.
 
@@ -53,7 +54,7 @@ BambuView Companion is the native/local bridge app inside this repo.
 
 Use it when BambuView needs a trusted desktop process for local printer telemetry, local camera bridge output, or local file handoff that the browser app cannot reach directly.
 
-The first Companion foundation in `0.0.31` includes:
+The first Companion foundation in `0.0.30` includes:
 
 - Electron + TypeScript app inside `apps/companion`
 - bridge API on `http://localhost:<port>` by default
@@ -65,6 +66,16 @@ The first Companion foundation in `0.0.31` includes:
 - importable Companion stream sources that land in `Cameras`
 
 See the full Companion guide in [docs/companion.md](docs/companion.md).
+
+## Install Options
+
+BambuView can run in three ways during alpha:
+
+- **Docker Compose** runs the self-hosted web app and is still the best option for an always-on server.
+- **BambuView Desktop** runs the same web app locally without Docker by starting the bundled API and SQLite database inside a native app.
+- **BambuView Companion** is the local bridge app for printer telemetry, local camera bridge output, and file handoff.
+
+Docker images are published only to Docker Hub. Native installers are published only on GitHub Releases.
 
 ## Getting Started
 
@@ -176,6 +187,7 @@ Human-facing setup docs live in the repo `docs/` folder and are published throug
 - [GitHub Repository](https://github.com/DeepDaddyTTV/BambuView)
 - [GitHub Pages Docs](https://deepdaddyttv.github.io/BambuView/)
 - [First-time setup](docs/getting-started.md)
+- [Native install](docs/native-install.md)
 - [Bambu connection modes](docs/lan-mode.md)
 - [Camera setup](docs/cameras.md)
 - [BambuView Companion](docs/companion.md)

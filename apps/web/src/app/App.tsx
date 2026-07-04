@@ -1,5 +1,15 @@
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router-dom";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
+import {
+  BrowserRouter,
+  Navigate,
+  Outlet,
+  Route,
+  Routes,
+} from "react-router-dom";
 
 import { DEFAULT_APPEARANCE, type AuthSession } from "@bambuview/contracts";
 
@@ -19,7 +29,7 @@ const queryClient = new QueryClient();
 function ProtectedRoutes() {
   const sessionQuery = useQuery({
     queryKey: ["session"],
-    queryFn: () => apiFetch<AuthSession>("/api/auth/session")
+    queryFn: () => apiFetch<AuthSession>("/api/auth/session"),
   });
 
   if (sessionQuery.isLoading || !sessionQuery.data) {
@@ -31,27 +41,19 @@ function ProtectedRoutes() {
   }
 
   return (
-    <AppearanceProvider initialAppearance={sessionQuery.data.appearance ?? DEFAULT_APPEARANCE}>
+    <AppearanceProvider
+      initialAppearance={sessionQuery.data.appearance ?? DEFAULT_APPEARANCE}
+    >
       <Routes>
-        <Route
-          path="/"
-          element={
-            <FleetPage user={sessionQuery.data.user} />
-          }
-        />
+        <Route path="/" element={<FleetPage user={sessionQuery.data.user} />} />
         <Route
           path="/fleet"
-          element={
-            <FleetPage user={sessionQuery.data.user} />
-          }
+          element={<FleetPage user={sessionQuery.data.user} />}
         />
         <Route
           path="/cameras"
           element={
-            <AppShell
-              title="Cameras"
-              user={sessionQuery.data.user}
-            >
+            <AppShell title="Cameras" user={sessionQuery.data.user}>
               <CamerasPage />
             </AppShell>
           }
@@ -59,10 +61,7 @@ function ProtectedRoutes() {
         <Route
           path="/companion"
           element={
-            <AppShell
-              title="Companion"
-              user={sessionQuery.data.user}
-            >
+            <AppShell title="Companion" user={sessionQuery.data.user}>
               <CompanionPage />
             </AppShell>
           }
@@ -70,10 +69,7 @@ function ProtectedRoutes() {
         <Route
           path="/users"
           element={
-            <AppShell
-              title="Users"
-              user={sessionQuery.data.user}
-            >
+            <AppShell title="Users" user={sessionQuery.data.user}>
               <UsersPage currentUser={sessionQuery.data.user} />
             </AppShell>
           }
@@ -81,10 +77,7 @@ function ProtectedRoutes() {
         <Route
           path="/settings"
           element={
-            <AppShell
-              title="Appearance"
-              user={sessionQuery.data.user}
-            >
+            <AppShell title="Appearance" user={sessionQuery.data.user}>
               <SettingsPage />
             </AppShell>
           }
@@ -92,18 +85,12 @@ function ProtectedRoutes() {
         <Route
           path="/prepare"
           element={
-            <AppShell
-              title="Prepare & Slice"
-              user={sessionQuery.data.user}
-            >
+            <AppShell title="Prepare & Slice" user={sessionQuery.data.user}>
               <PreparePage />
             </AppShell>
           }
         />
-        <Route
-          path="*"
-          element={<Navigate replace to="/fleet" />}
-        />
+        <Route path="*" element={<Navigate replace to="/fleet" />} />
       </Routes>
     </AppearanceProvider>
   );
@@ -114,18 +101,9 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
-          <Route
-            path="/auth"
-            element={<AuthPage />}
-          />
-          <Route
-            path="/auth/invite/:inviteId"
-            element={<AuthPage />}
-          />
-          <Route
-            path="*"
-            element={<ProtectedRoutes />}
-          />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/auth/invite/:inviteId" element={<AuthPage />} />
+          <Route path="*" element={<ProtectedRoutes />} />
         </Routes>
         <Outlet />
       </BrowserRouter>

@@ -17,7 +17,7 @@ import {
   ShieldAlert,
   Waves,
 } from "lucide-react";
-import { startTransition, useEffect, useState, type FormEvent } from "react";
+import { startTransition, useEffect, useState } from "react";
 
 import type {
   CompanionCapabilityFlags,
@@ -88,7 +88,10 @@ function toneLabel(status: CompanionSnapshot["health"]["status"]) {
   return status.replaceAll("-", " ");
 }
 
-function capabilityText(flags: CompanionCapabilityFlags, key: keyof CompanionCapabilityFlags) {
+function capabilityText(
+  flags: CompanionCapabilityFlags,
+  key: keyof CompanionCapabilityFlags,
+) {
   return flags[key].replaceAll("_", " ");
 }
 
@@ -100,11 +103,14 @@ export function App() {
   const [pairForm, setPairForm] = useState<PairCompanionInput>(emptyPairForm);
   const [printerForm, setPrinterForm] =
     useState<CompanionPrinterInput>(emptyPrinterForm);
-  const [streamForm, setStreamForm] = useState<CompanionStreamInput>(emptyStreamForm);
-  const [settingsForm, setSettingsForm] = useState<CompanionSettings | null>(null);
-  const [telemetry, setTelemetry] = useState<Record<string, CompanionPrinterTelemetry>>(
-    {},
+  const [streamForm, setStreamForm] =
+    useState<CompanionStreamInput>(emptyStreamForm);
+  const [settingsForm, setSettingsForm] = useState<CompanionSettings | null>(
+    null,
   );
+  const [telemetry, setTelemetry] = useState<
+    Record<string, CompanionPrinterTelemetry>
+  >({});
 
   async function refresh() {
     const next = await window.companion.getSnapshot();
@@ -134,7 +140,10 @@ export function App() {
     );
   }
 
-  async function runAction<T>(action: () => Promise<T>, after?: (value: T) => void) {
+  async function runAction<T>(
+    action: () => Promise<T>,
+    after?: (value: T) => void,
+  ) {
     setBusy(true);
     setErrorMessage(null);
     try {
@@ -142,17 +151,22 @@ export function App() {
       after?.(result);
       await refresh();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Action failed.");
+      setErrorMessage(
+        error instanceof Error ? error.message : "Action failed.",
+      );
     } finally {
       setBusy(false);
     }
   }
 
   const activeSectionLabel =
-    sections.find((section) => section.key === activeSection)?.label ?? "Companion";
+    sections.find((section) => section.key === activeSection)?.label ??
+    "Companion";
 
   return (
-    <div className={`companion-shell companion-shell--${settingsForm.themeMode}`}>
+    <div
+      className={`companion-shell companion-shell--${settingsForm.themeMode}`}
+    >
       <aside className="companion-sidebar">
         <div className="companion-brand">
           <div className="companion-brand__mark" />
@@ -171,7 +185,11 @@ export function App() {
           </div>
           <div className="companion-status__meta">
             <div>{snapshot.health.bridge.baseUrl}</div>
-            <div>{snapshot.health.bridge.bindMode === "lan" ? "LAN binding" : "localhost only"}</div>
+            <div>
+              {snapshot.health.bridge.bindMode === "lan"
+                ? "LAN binding"
+                : "localhost only"}
+            </div>
           </div>
         </div>
 
@@ -355,7 +373,8 @@ export function App() {
                   className="ghost-button"
                   onClick={() => {
                     void runAction(async () => {
-                      const result = await window.companion.regenerateBridgeToken();
+                      const result =
+                        await window.companion.regenerateBridgeToken();
                       alert(`New bridge token generated:\n\n${result.token}`);
                       return result;
                     });
@@ -452,7 +471,8 @@ export function App() {
                     onChange={(event) =>
                       setPrinterForm((current) => ({
                         ...current,
-                        connectionMode: event.target.value as CompanionPrinterInput["connectionMode"],
+                        connectionMode: event.target
+                          .value as CompanionPrinterInput["connectionMode"],
                       }))
                     }
                     value={printerForm.connectionMode}
@@ -476,11 +496,7 @@ export function App() {
                     value={printerForm.notes ?? ""}
                   />
                 </label>
-                <button
-                  className="solid-button"
-                  disabled={busy}
-                  type="submit"
-                >
+                <button className="solid-button" disabled={busy} type="submit">
                   <Printer className="button-icon" />
                   Save Printer
                 </button>
@@ -492,7 +508,8 @@ export function App() {
               <div className="stack-list">
                 {snapshot.printers.length === 0 ? (
                   <div className="empty-state">
-                    No printers saved yet. Add a Bambu printer manually to start local telemetry planning.
+                    No printers saved yet. Add a Bambu printer manually to start
+                    local telemetry planning.
                   </div>
                 ) : null}
                 {snapshot.printers.map((printer) => (
@@ -501,14 +518,19 @@ export function App() {
                       <div>
                         <div className="item-card__title">{printer.name}</div>
                         <div className="item-card__meta">
-                          {printer.model} • {printer.hostname} • {printer.connectionMode}
+                          {printer.model} • {printer.hostname} •{" "}
+                          {printer.connectionMode}
                         </div>
                       </div>
-                      <div className={`status-pill status-pill--${printer.lastSeenAt ? "paired" : "warning"}`}>
+                      <div
+                        className={`status-pill status-pill--${printer.lastSeenAt ? "paired" : "warning"}`}
+                      >
                         {capabilityText(printer.capabilities, "telemetry")}
                       </div>
                     </div>
-                    <div className="item-card__copy">{printer.capabilityNotes.telemetry}</div>
+                    <div className="item-card__copy">
+                      {printer.capabilityNotes.telemetry}
+                    </div>
                     <div className="button-row">
                       <button
                         className="ghost-button"
@@ -544,7 +566,9 @@ export function App() {
                         className="ghost-button ghost-button--danger"
                         onClick={() => {
                           void runAction(() =>
-                            Promise.resolve(window.companion.deletePrinter(printer.id)),
+                            Promise.resolve(
+                              window.companion.deletePrinter(printer.id),
+                            ),
                           );
                         }}
                         type="button"
@@ -569,7 +593,9 @@ export function App() {
                         </div>
                         <div>
                           <strong>Nozzle</strong>
-                          <span>{telemetry[printer.id].nozzleTemperature ?? "—"}°C</span>
+                          <span>
+                            {telemetry[printer.id].nozzleTemperature ?? "—"}°C
+                          </span>
                         </div>
                       </div>
                     ) : null}
@@ -612,7 +638,8 @@ export function App() {
                     onChange={(event) =>
                       setStreamForm((current) => ({
                         ...current,
-                        sourceKind: event.target.value as CompanionStreamInput["sourceKind"],
+                        sourceKind: event.target
+                          .value as CompanionStreamInput["sourceKind"],
                       }))
                     }
                     value={streamForm.sourceKind}
@@ -693,7 +720,8 @@ export function App() {
               <div className="stack-list">
                 {snapshot.streams.length === 0 ? (
                   <div className="empty-state">
-                    No streams saved yet. Add MJPEG, snapshot, HLS, RTSP, or native Bambu sources here.
+                    No streams saved yet. Add MJPEG, snapshot, HLS, RTSP, or
+                    native Bambu sources here.
                   </div>
                 ) : null}
                 {snapshot.streams.map((stream) => (
@@ -702,10 +730,13 @@ export function App() {
                       <div>
                         <div className="item-card__title">{stream.name}</div>
                         <div className="item-card__meta">
-                          {stream.sourceKind} • {stream.outputKind} • {stream.status}
+                          {stream.sourceKind} • {stream.outputKind} •{" "}
+                          {stream.status}
                         </div>
                       </div>
-                      <div className={`status-pill status-pill--${stream.status === "online" ? "streaming" : stream.status === "degraded" ? "warning" : "error"}`}>
+                      <div
+                        className={`status-pill status-pill--${stream.status === "online" ? "streaming" : stream.status === "degraded" ? "warning" : "error"}`}
+                      >
                         {stream.status}
                       </div>
                     </div>
@@ -717,9 +748,13 @@ export function App() {
                           className="ghost-button"
                           onClick={() => {
                             void runAction(async () =>
-                              window.companion.copyBridgeUrl().then((url) =>
-                                window.companion.openExternal(`${url}${stream.snapshotPath}`),
-                              ),
+                              window.companion
+                                .copyBridgeUrl()
+                                .then((url) =>
+                                  window.companion.openExternal(
+                                    `${url}${stream.snapshotPath}`,
+                                  ),
+                                ),
                             );
                           }}
                           type="button"
@@ -732,7 +767,9 @@ export function App() {
                         className="ghost-button ghost-button--danger"
                         onClick={() => {
                           void runAction(() =>
-                            Promise.resolve(window.companion.deleteStream(stream.id)),
+                            Promise.resolve(
+                              window.companion.deleteStream(stream.id),
+                            ),
                           );
                         }}
                         type="button"
@@ -753,19 +790,21 @@ export function App() {
             <article className="panel-card">
               <div className="panel-card__title">Global Capability Report</div>
               <div className="capability-grid">
-                {Object.entries(snapshot.health.capabilities).map(([key, value]) => (
-                  <div className="capability-card" key={key}>
-                    <strong>{key}</strong>
-                    <span>{value.replaceAll("_", " ")}</span>
-                    <p>
-                      {
-                        snapshot.health.capabilityNotes[
-                          key as keyof typeof snapshot.health.capabilityNotes
-                        ]
-                      }
-                    </p>
-                  </div>
-                ))}
+                {Object.entries(snapshot.health.capabilities).map(
+                  ([key, value]) => (
+                    <div className="capability-card" key={key}>
+                      <strong>{key}</strong>
+                      <span>{value.replaceAll("_", " ")}</span>
+                      <p>
+                        {
+                          snapshot.health.capabilityNotes[
+                            key as keyof typeof snapshot.health.capabilityNotes
+                          ]
+                        }
+                      </p>
+                    </div>
+                  ),
+                )}
               </div>
             </article>
 
@@ -776,18 +815,21 @@ export function App() {
                   <div className="item-card" key={printer.id}>
                     <div className="item-card__title">{printer.name}</div>
                     <div className="telemetry-grid telemetry-grid--capabilities">
-                      {Object.entries(printer.capabilities).map(([key, value]) => (
-                        <div key={key}>
-                          <strong>{key}</strong>
-                          <span>{value.replaceAll("_", " ")}</span>
-                        </div>
-                      ))}
+                      {Object.entries(printer.capabilities).map(
+                        ([key, value]) => (
+                          <div key={key}>
+                            <strong>{key}</strong>
+                            <span>{value.replaceAll("_", " ")}</span>
+                          </div>
+                        ),
+                      )}
                     </div>
                   </div>
                 ))}
                 {snapshot.printers.length === 0 ? (
                   <div className="empty-state">
-                    Add a printer to see capability gating for telemetry, camera, AMS, and control paths.
+                    Add a printer to see capability gating for telemetry,
+                    camera, AMS, and control paths.
                   </div>
                 ) : null}
               </div>
@@ -823,7 +865,9 @@ export function App() {
                 className="stack-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void runAction(() => window.companion.saveSettings(settingsForm));
+                  void runAction(() =>
+                    window.companion.saveSettings(settingsForm),
+                  );
                 }}
               >
                 <label>
@@ -847,9 +891,12 @@ export function App() {
                         current
                           ? {
                               ...current,
-                              bindMode: event.target.value as CompanionSettings["bindMode"],
+                              bindMode: event.target
+                                .value as CompanionSettings["bindMode"],
                               host:
-                                event.target.value === "lan" ? current.host : "localhost",
+                                event.target.value === "lan"
+                                  ? current.host
+                                  : "localhost",
                             }
                           : current,
                       )
@@ -866,7 +913,9 @@ export function App() {
                     disabled={settingsForm.bindMode === "localhost"}
                     onChange={(event) =>
                       setSettingsForm((current) =>
-                        current ? { ...current, host: event.target.value } : current,
+                        current
+                          ? { ...current, host: event.target.value }
+                          : current,
                       )
                     }
                     value={settingsForm.host}
@@ -879,7 +928,10 @@ export function App() {
                     onChange={(event) =>
                       setSettingsForm((current) =>
                         current
-                          ? { ...current, port: Number(event.target.value || current.port) }
+                          ? {
+                              ...current,
+                              port: Number(event.target.value || current.port),
+                            }
                           : current,
                       )
                     }
@@ -895,7 +947,8 @@ export function App() {
                         current
                           ? {
                               ...current,
-                              themeMode: event.target.value as CompanionSettings["themeMode"],
+                              themeMode: event.target
+                                .value as CompanionSettings["themeMode"],
                             }
                           : current,
                       )
@@ -936,7 +989,9 @@ export function App() {
               <div className="notice notice--warning">
                 <FileUp className="button-icon" />
                 <span>
-                  LAN binding is advanced and opt-in. Only enable it when BambuView cannot reach the Companion bridge through localhost on the same trusted machine.
+                  LAN binding is advanced and opt-in. Only enable it when
+                  BambuView cannot reach the Companion bridge through localhost
+                  on the same trusted machine.
                 </span>
               </div>
             </article>

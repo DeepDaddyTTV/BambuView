@@ -10,7 +10,7 @@ import {
   RefreshCcw,
   Settings,
   SunMedium,
-  Users2
+  Users2,
 } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
 
@@ -26,15 +26,18 @@ const navigationItems = [
   { icon: Camera, label: "Cameras", to: "/cameras" },
   { icon: PlugZap, label: "Companion", to: "/companion" },
   { icon: Users2, label: "Users", to: "/users" },
-  { icon: Settings, label: "Settings", to: "/settings" }
+  { icon: Settings, label: "Settings", to: "/settings" },
 ];
 
 const shellDescriptions: Record<string, string> = {
-  Appearance: "Tune the approved shell and personalize how the app feels day to day.",
-  Cameras: "Assign feeds, check stream health, and map cameras to printers or farms.",
-  Companion: "Pair native bridge apps, test local capabilities, and import Companion streams into BambuView.",
+  Appearance:
+    "Tune the approved shell and personalize how the app feels day to day.",
+  Cameras:
+    "Assign feeds, check stream health, and map cameras to printers or farms.",
+  Companion:
+    "Pair native bridge apps, test local capabilities, and import Companion streams into BambuView.",
   "Prepare & Slice": "Stage print jobs and prep your next release-ready plate.",
-  Users: "Manage invites, roles, and who can operate your fleet."
+  Users: "Manage invites, roles, and who can operate your fleet.",
 };
 
 function initials(name: string) {
@@ -57,16 +60,18 @@ function ModeToggle() {
 
     await updateAppearance({
       ...appearance,
-      mode
+      mode,
     });
   }
 
   return (
     <div className="fleet-console-toolbar__group">
-      {([
-        { icon: Moon, key: "dark", label: "Dark" },
-        { icon: SunMedium, key: "light", label: "Light" }
-      ] as const).map((mode) => (
+      {(
+        [
+          { icon: Moon, key: "dark", label: "Dark" },
+          { icon: SunMedium, key: "light", label: "Light" },
+        ] as const
+      ).map((mode) => (
         <button
           className={`fleet-console-toolbar__mode ${appearance.mode === mode.key ? "fleet-console-toolbar__mode--active" : ""}`}
           key={mode.key}
@@ -86,7 +91,7 @@ function ModeToggle() {
 export function AppShell({
   children,
   title,
-  user
+  user,
 }: {
   children: React.ReactNode;
   title: string;
@@ -123,16 +128,24 @@ export function AppShell({
             <span className="fleet-console-dot fleet-console-dot--green" />
             <span>All Systems Operational</span>
           </div>
-          <div className="fleet-console-sidebar-card__copy">12 Printers • 1 Farm • 8 Cameras</div>
-          <div className="fleet-console-sidebar-card__copy">Updated just now</div>
+          <div className="fleet-console-sidebar-card__copy">
+            12 Printers • 1 Farm • 8 Cameras
+          </div>
+          <div className="fleet-console-sidebar-card__copy">
+            Updated just now
+          </div>
           <div className="fleet-console-sidebar-card__sparkline" />
         </section>
 
         <section className="fleet-console-sidebar-card fleet-console-sidebar-card--compact">
           <div className="fleet-console-sidebar-card__row">
             <div>
-              <div className="fleet-console-sidebar-card__headline">Need help?</div>
-              <div className="fleet-console-sidebar-card__copy">Browse docs and guides</div>
+              <div className="fleet-console-sidebar-card__headline">
+                Need help?
+              </div>
+              <div className="fleet-console-sidebar-card__copy">
+                Browse docs and guides
+              </div>
             </div>
             <ExternalLink className="h-4 w-4 text-zinc-500" />
           </div>
@@ -141,8 +154,12 @@ export function AppShell({
         <section className="fleet-console-sidebar-card fleet-console-sidebar-card--compact">
           <div className="fleet-console-sidebar-card__row">
             <div>
-              <div className="fleet-console-sidebar-card__headline">Check for Updates</div>
-              <div className="fleet-console-sidebar-card__copy">BambuView v{APP_VERSION}</div>
+              <div className="fleet-console-sidebar-card__headline">
+                Check for Updates
+              </div>
+              <div className="fleet-console-sidebar-card__copy">
+                BambuView v{APP_VERSION}
+              </div>
             </div>
             <RefreshCcw className="h-4 w-4 text-zinc-500" />
           </div>
@@ -150,7 +167,9 @@ export function AppShell({
 
         <section className="fleet-console-sidebar-card fleet-console-sidebar-card--compact">
           <div className="fleet-console-user">
-            <div className="fleet-console-user__avatar">{initials(user.name)}</div>
+            <div className="fleet-console-user__avatar">
+              {initials(user.name)}
+            </div>
             <div className="fleet-console-user__copy">
               <div className="fleet-console-user__name">{user.name}</div>
               <div className="fleet-console-user__role">Administrator</div>

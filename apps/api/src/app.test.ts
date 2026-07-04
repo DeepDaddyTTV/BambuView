@@ -721,7 +721,7 @@ describe("companion integration", () => {
         response.end(
           JSON.stringify({
             appName: "BambuView Companion",
-            appVersion: "0.0.31",
+            appVersion: "0.0.30",
             bridge: {
               baseUrl: "http://127.0.0.1:41738",
               bindMode: "localhost",

@@ -9,20 +9,19 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(
-  url: string,
-  init?: RequestInit
-): Promise<T> {
+export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(init?.headers ?? {})
+      ...(init?.headers ?? {}),
     },
-    ...init
+    ...init,
   });
 
-  const isJson = response.headers.get("content-type")?.includes("application/json");
+  const isJson = response.headers
+    .get("content-type")
+    ?.includes("application/json");
   const data = isJson ? await response.json() : null;
 
   if (!response.ok) {

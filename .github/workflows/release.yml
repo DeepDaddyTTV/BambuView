@@ -101,7 +101,7 @@ jobs:
             build_args: --win nsis --x64
             os: windows-latest
           - artifact_name: companion-linux
-            build_args: --linux AppImage deb --x64
+            build_args: --linux deb rpm --x64
             os: ubuntu-latest
 
     steps:
@@ -123,15 +123,68 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build native Companion package
-        run: |
-          PNPM_EXECUTABLE="$(command -v pnpm)" \
-          node scripts/package-companion.mjs ${{ matrix.build_args }}
+        run: node scripts/package-companion.mjs ${{ matrix.build_args }}
 
       - name: Upload Companion artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: apps/companion/release/*
+          path: |
+            apps/companion/release/*.deb
+            apps/companion/release/*.dmg
+            apps/companion/release/*.exe
+            apps/companion/release/*.rpm
+          if-no-files-found: error
+
+  desktop-artifacts:
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact_name: desktop-macos
+            build_args: --mac dmg zip --arm64
+            os: macos-14
+          - artifact_name: desktop-windows
+            build_args: --win nsis portable --x64
+            os: windows-latest
+          - artifact_name: desktop-linux
+            build_args: --linux AppImage deb rpm --x64
+            os: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build native BambuView package
+        run: node scripts/package-desktop.mjs ${{ matrix.build_args }}
+
+      - name: Upload BambuView artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.rpm
+            apps/desktop/release/*.zip
           if-no-files-found: error
 
   release:
@@ -139,12 +192,13 @@ jobs:
     needs:
       - docker-images
       - companion-artifacts
+      - desktop-artifacts
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
 
-      - name: Download Companion artifacts
+      - name: Download native app artifacts
         uses: actions/download-artifact@v5
         with:
           path: release-artifacts

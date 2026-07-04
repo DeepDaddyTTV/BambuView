@@ -13,6 +13,8 @@ apps/web/test-results
 apps/web/.vite
 apps/companion/out
 apps/companion/release
+apps/desktop/out
+apps/desktop/release
 .env
 .env.*
 !.env.example

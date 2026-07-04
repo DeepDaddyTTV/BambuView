@@ -1,4 +1,9 @@
-import { createHash, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import {
+  createHash,
+  randomBytes,
+  scryptSync,
+  timingSafeEqual,
+} from "node:crypto";
 
 import type { FastifyReply, FastifyRequest } from "fastify";
 
@@ -10,7 +15,7 @@ import {
   getSessionByTokenHash,
   getUserById,
   touchSession,
-  type AppDatabase
+  type AppDatabase,
 } from "./db.js";
 
 const PASSWORD_KEY_LENGTH = 64;
@@ -22,7 +27,9 @@ export interface SessionContext {
 
 export function hashPassword(password: string): string {
   const salt = randomBytes(16).toString("hex");
-  const digest = scryptSync(password, salt, PASSWORD_KEY_LENGTH).toString("hex");
+  const digest = scryptSync(password, salt, PASSWORD_KEY_LENGTH).toString(
+    "hex",
+  );
 
   return `${salt}:${digest}`;
 }
@@ -58,20 +65,23 @@ export function getExpiry(days: number): string {
 export function setSessionCookie(
   reply: FastifyReply,
   config: AppConfig,
-  rawToken: string
+  rawToken: string,
 ): void {
   reply.setCookie(config.cookieName, rawToken, {
     httpOnly: true,
     sameSite: "lax",
     secure: config.secureCookies,
     path: "/",
-    maxAge: config.sessionTtlDays * 24 * 60 * 60
+    maxAge: config.sessionTtlDays * 24 * 60 * 60,
   });
 }
 
-export function clearSessionCookie(reply: FastifyReply, config: AppConfig): void {
+export function clearSessionCookie(
+  reply: FastifyReply,
+  config: AppConfig,
+): void {
   reply.clearCookie(config.cookieName, {
-    path: "/"
+    path: "/",
   });
 }
 
@@ -79,14 +89,14 @@ export async function createAuthenticatedSession(
   db: AppDatabase,
   config: AppConfig,
   reply: FastifyReply,
-  userId: string
+  userId: string,
 ): Promise<void> {
   const rawToken = createRawToken();
   const tokenHash = hashToken(rawToken);
   await createSession(db, {
     userId,
     tokenHash,
-    expiresAt: getExpiry(config.sessionTtlDays)
+    expiresAt: getExpiry(config.sessionTtlDays),
   });
   setSessionCookie(reply, config, rawToken);
 }
@@ -95,7 +105,7 @@ export async function destroySession(
   db: AppDatabase,
   config: AppConfig,
   request: FastifyRequest,
-  reply: FastifyReply
+  reply: FastifyReply,
 ): Promise<void> {
   const rawToken = request.cookies[config.cookieName];
   if (rawToken) {
@@ -108,7 +118,7 @@ export async function destroySession(
 export async function getSessionContext(
   db: AppDatabase,
   config: AppConfig,
-  request: FastifyRequest
+  request: FastifyRequest,
 ): Promise<SessionContext | null> {
   const rawToken = request.cookies[config.cookieName];
   if (!rawToken) {
@@ -129,6 +139,6 @@ export async function getSessionContext(
 
   return {
     user,
-    appearance: await getAppearance(db, user.id)
+    appearance: await getAppearance(db, user.id),
   };
 }

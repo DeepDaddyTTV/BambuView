@@ -25,7 +25,7 @@ function createRuntime() {
   const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
   tempDirs.push(dir);
   return new CompanionRuntime({
-    appVersion: "0.0.31",
+    appVersion: "0.0.30",
     codec: {
       available: false,
       decrypt: (value) => value,
@@ -182,14 +182,18 @@ describe("companion runtime", () => {
     const afterDeleteStream = runtime.deleteStream(afterStream.streams[0].id);
     expect(afterDeleteStream.streams).toHaveLength(0);
 
-    const afterDeletePrinter = runtime.deletePrinter(afterPrinter.printers[0].id);
+    const afterDeletePrinter = runtime.deletePrinter(
+      afterPrinter.printers[0].id,
+    );
     expect(afterDeletePrinter.printers).toHaveLength(0);
     mediaServer.close();
   });
 
   it("finds a new port when the preferred one is busy", async () => {
     const occupied = net.createServer();
-    await new Promise<void>((resolve) => occupied.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      occupied.listen(0, "127.0.0.1", resolve),
+    );
     const address = occupied.address();
     if (!address || typeof address === "string") {
       throw new Error("Expected address info.");

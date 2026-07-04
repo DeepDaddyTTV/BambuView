@@ -1,6 +1,12 @@
 import { Loader2, LockKeyhole, Mail, UserRound } from "lucide-react";
 import { FormEvent, useState } from "react";
-import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  Navigate,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { type AuthSession } from "@bambuview/contracts";
@@ -12,7 +18,7 @@ import { ApiError, apiFetch } from "../lib/api";
 function AuthField({
   icon,
   inputProps,
-  label
+  label,
 }: {
   icon: React.ReactNode;
   inputProps: React.InputHTMLAttributes<HTMLInputElement>;
@@ -20,7 +26,9 @@ function AuthField({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-zinc-300">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-zinc-300">
+        {label}
+      </span>
       <div className="flex items-center gap-3 rounded-[22px] border border-white/10 bg-white/[0.03] px-4 py-3">
         <span className="text-zinc-500">{icon}</span>
         <input
@@ -48,12 +56,12 @@ export function AuthPage() {
   const [formState, setFormState] = useState({
     email: "",
     name: "",
-    password: ""
+    password: "",
   });
 
   const sessionQuery = useQuery({
     queryKey: ["session"],
-    queryFn: () => apiFetch<AuthSession>("/api/auth/session")
+    queryFn: () => apiFetch<AuthSession>("/api/auth/session"),
   });
 
   const session = sessionQuery.data;
@@ -73,38 +81,39 @@ export function AuthPage() {
     setErrorMessage(null);
 
     try {
-      const payload =
-        isInvite
-          ? await apiFetch<AuthSession>("/api/auth/register", {
+      const payload = isInvite
+        ? await apiFetch<AuthSession>("/api/auth/register", {
+            method: "POST",
+            body: JSON.stringify({
+              inviteId,
+              inviteToken,
+              name: formState.name,
+              password: formState.password,
+            }),
+          })
+        : isBootstrap
+          ? await apiFetch<AuthSession>("/api/auth/bootstrap", {
               method: "POST",
               body: JSON.stringify({
-                inviteId,
-                inviteToken,
+                email: formState.email,
                 name: formState.name,
-                password: formState.password
-              })
+                password: formState.password,
+              }),
             })
-          : isBootstrap
-            ? await apiFetch<AuthSession>("/api/auth/bootstrap", {
-                method: "POST",
-                body: JSON.stringify({
-                  email: formState.email,
-                  name: formState.name,
-                  password: formState.password
-                })
-              })
-            : await apiFetch<AuthSession>("/api/auth/login", {
-                method: "POST",
-                body: JSON.stringify({
-                  email: formState.email,
-                  password: formState.password
-                })
-              });
+          : await apiFetch<AuthSession>("/api/auth/login", {
+              method: "POST",
+              body: JSON.stringify({
+                email: formState.email,
+                password: formState.password,
+              }),
+            });
 
       queryClient.setQueryData(["session"], payload);
       navigate("/fleet");
     } catch (error) {
-      setErrorMessage(error instanceof ApiError ? error.message : "Authentication failed.");
+      setErrorMessage(
+        error instanceof ApiError ? error.message : "Authentication failed.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -118,8 +127,12 @@ export function AuthPage() {
           <div className="relative z-10 flex items-center gap-3">
             <BrandLogo className="h-11 w-[208px]" />
             <div>
-              <div className="text-sm text-zinc-500">Fleet orchestration for print farms.</div>
-              <div className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-600">v{APP_VERSION}</div>
+              <div className="text-sm text-zinc-500">
+                Fleet orchestration for print farms.
+              </div>
+              <div className="mt-1 text-xs uppercase tracking-[0.18em] text-zinc-600">
+                v{APP_VERSION}
+              </div>
             </div>
           </div>
           <div className="relative z-10 mt-12 max-w-2xl lg:mt-0">
@@ -137,15 +150,23 @@ export function AuthPage() {
                   <div className="text-[0.98rem] uppercase tracking-[0.28em] text-zinc-500">
                     Printers Online
                   </div>
-                  <div className="mt-5 text-[5.25rem] font-semibold leading-none text-white">7</div>
-                  <div className="mt-2 text-sm text-zinc-400">4 Printing • 1 Farm</div>
+                  <div className="mt-5 text-[5.25rem] font-semibold leading-none text-white">
+                    7
+                  </div>
+                  <div className="mt-2 text-sm text-zinc-400">
+                    4 Printing • 1 Farm
+                  </div>
                 </div>
                 <div className="auth-metric-card">
                   <div className="text-[0.98rem] uppercase tracking-[0.28em] text-zinc-500">
                     Camera Sources
                   </div>
-                  <div className="mt-5 text-[5.25rem] font-semibold leading-none text-white">12</div>
-                  <div className="mt-2 text-sm text-zinc-400">Frigate • RTSP • Bambu</div>
+                  <div className="mt-5 text-[5.25rem] font-semibold leading-none text-white">
+                    12
+                  </div>
+                  <div className="mt-2 text-sm text-zinc-400">
+                    Frigate • RTSP • Bambu
+                  </div>
                 </div>
               </div>
             )}
@@ -161,7 +182,11 @@ export function AuthPage() {
                   : "Local authentication"}
             </div>
             <h2 className="mt-4 text-4xl font-semibold text-white">
-              {isInvite ? "Finish your invited account" : isBootstrap ? "Create the first admin" : "Sign in to BambuView"}
+              {isInvite
+                ? "Finish your invited account"
+                : isBootstrap
+                  ? "Create the first admin"
+                  : "Sign in to BambuView"}
             </h2>
             <p className="mt-4 text-base leading-7 text-zinc-400">
               {isInvite
@@ -181,11 +206,15 @@ export function AuthPage() {
                   icon={<Mail className="h-4 w-4" />}
                   inputProps={{
                     autoComplete: "email",
-                    onChange: (event) => setFormState((current) => ({ ...current, email: event.target.value })),
+                    onChange: (event) =>
+                      setFormState((current) => ({
+                        ...current,
+                        email: event.target.value,
+                      })),
                     placeholder: "you@example.com",
                     required: true,
                     type: "email",
-                    value: formState.email
+                    value: formState.email,
                   }}
                   label="Email"
                 />
@@ -195,10 +224,14 @@ export function AuthPage() {
                   icon={<UserRound className="h-4 w-4" />}
                   inputProps={{
                     autoComplete: "name",
-                    onChange: (event) => setFormState((current) => ({ ...current, name: event.target.value })),
+                    onChange: (event) =>
+                      setFormState((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      })),
                     placeholder: "Alex Morgan",
                     required: true,
-                    value: formState.name
+                    value: formState.name,
                   }}
                   label="Name"
                 />
@@ -206,24 +239,41 @@ export function AuthPage() {
               <AuthField
                 icon={<LockKeyhole className="h-4 w-4" />}
                 inputProps={{
-                  autoComplete: isInvite || isBootstrap ? "new-password" : "current-password",
+                  autoComplete:
+                    isInvite || isBootstrap
+                      ? "new-password"
+                      : "current-password",
                   minLength: 8,
-                  onChange: (event) => setFormState((current) => ({ ...current, password: event.target.value })),
+                  onChange: (event) =>
+                    setFormState((current) => ({
+                      ...current,
+                      password: event.target.value,
+                    })),
                   placeholder: "••••••••",
                   required: true,
                   type: "password",
-                  value: formState.password
+                  value: formState.password,
                 }}
                 label="Password"
               />
-              {errorMessage ? <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{errorMessage}</div> : null}
+              {errorMessage ? (
+                <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                  {errorMessage}
+                </div>
+              ) : null}
               <button
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-[color:var(--accent)] px-6 py-4 text-base font-semibold text-zinc-950 transition hover:brightness-110"
                 disabled={isSubmitting || sessionQuery.isLoading}
                 type="submit"
               >
-                {isSubmitting || sessionQuery.isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {isInvite ? "Create account" : isBootstrap ? "Bootstrap BambuView" : "Sign in"}
+                {isSubmitting || sessionQuery.isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : null}
+                {isInvite
+                  ? "Create account"
+                  : isBootstrap
+                    ? "Bootstrap BambuView"
+                    : "Sign in"}
               </button>
             </form>
           </div>

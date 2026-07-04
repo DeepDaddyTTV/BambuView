@@ -13,10 +13,7 @@ function basicAuth(username: string, token: string): string {
   return `Basic ${Buffer.from(`${username}:${token}`).toString("base64")}`;
 }
 
-async function fetchJson<T>(
-  url: string,
-  init: RequestInit,
-): Promise<T> {
+async function fetchJson<T>(url: string, init: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   const data = (await response.json().catch(() => null)) as
     | { message?: string }
@@ -34,7 +31,10 @@ async function fetchJson<T>(
 }
 
 export async function fetchCompanionSnapshot(
-  companion: Pick<CompanionSecretRecord, "baseUrl" | "bridgeToken" | "bridgeUsername">,
+  companion: Pick<
+    CompanionSecretRecord,
+    "baseUrl" | "bridgeToken" | "bridgeUsername"
+  >,
 ): Promise<{
   capabilities: CompanionCapabilityFlags;
   capabilityNotes: CompanionCapabilityNotes;
@@ -47,14 +47,19 @@ export async function fetchCompanionSnapshot(
   };
 
   const [health, capabilities, printers, streams] = await Promise.all([
-    fetchJson<CompanionHealthResponse>(`${companion.baseUrl}/health`, { headers }),
+    fetchJson<CompanionHealthResponse>(`${companion.baseUrl}/health`, {
+      headers,
+    }),
     fetchJson<{
       capabilities: CompanionCapabilityFlags;
       capabilityNotes: CompanionCapabilityNotes;
     }>(`${companion.baseUrl}/capabilities`, { headers }),
-    fetchJson<{ printers: CompanionPrinter[] }>(`${companion.baseUrl}/printers`, {
-      headers,
-    }),
+    fetchJson<{ printers: CompanionPrinter[] }>(
+      `${companion.baseUrl}/printers`,
+      {
+        headers,
+      },
+    ),
     fetchJson<{ streams: CompanionStream[] }>(`${companion.baseUrl}/streams`, {
       headers,
     }),
@@ -82,7 +87,8 @@ export async function testCompanionConnection(
       createdAt: companion.createdAt,
       id: companion.id,
       lastError: null,
-      lastHealthAt: snapshot.health.pairing.pairedAt ?? new Date().toISOString(),
+      lastHealthAt:
+        snapshot.health.pairing.pairedAt ?? new Date().toISOString(),
       name: companion.name,
       pairedAt: companion.pairedAt,
       printerCount: snapshot.printers.length,

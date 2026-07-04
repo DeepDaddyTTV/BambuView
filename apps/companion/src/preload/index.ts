@@ -5,23 +5,29 @@ import { companionChannels } from "@common/ipc";
 
 const api: CompanionDesktopApi = {
   copyBridgeUrl: () => ipcRenderer.invoke(companionChannels.copyBridgeUrl),
-  createPrinter: (input) => ipcRenderer.invoke(companionChannels.createPrinter, input),
-  createStream: (input) => ipcRenderer.invoke(companionChannels.createStream, input),
+  createPrinter: (input) =>
+    ipcRenderer.invoke(companionChannels.createPrinter, input),
+  createStream: (input) =>
+    ipcRenderer.invoke(companionChannels.createStream, input),
   deletePrinter: (printerId) =>
     ipcRenderer.invoke(companionChannels.deletePrinter, printerId),
-  deleteStream: (streamId) => ipcRenderer.invoke(companionChannels.deleteStream, streamId),
+  deleteStream: (streamId) =>
+    ipcRenderer.invoke(companionChannels.deleteStream, streamId),
   getSnapshot: () => ipcRenderer.invoke(companionChannels.getSnapshot),
   handleFileHandoff: (printerId, input) =>
     ipcRenderer.invoke(companionChannels.fileHandoff, printerId, input),
-  openExternal: (url) => ipcRenderer.invoke(companionChannels.openExternal, url),
+  openExternal: (url) =>
+    ipcRenderer.invoke(companionChannels.openExternal, url),
   pair: (input) => ipcRenderer.invoke(companionChannels.pair, input),
   readTelemetry: (printerId) =>
     ipcRenderer.invoke(companionChannels.readTelemetry, printerId),
   regenerateBridgeToken: () =>
     ipcRenderer.invoke(companionChannels.regenerateBridgeToken),
   resetPairing: () => ipcRenderer.invoke(companionChannels.resetPairing),
-  saveSettings: (input) => ipcRenderer.invoke(companionChannels.saveSettings, input),
-  testPrinter: (printerId) => ipcRenderer.invoke(companionChannels.testPrinter, printerId),
+  saveSettings: (input) =>
+    ipcRenderer.invoke(companionChannels.saveSettings, input),
+  testPrinter: (printerId) =>
+    ipcRenderer.invoke(companionChannels.testPrinter, printerId),
   updatePrinter: (printerId, input) =>
     ipcRenderer.invoke(companionChannels.updatePrinter, printerId, input),
   updateStream: (streamId, input) =>

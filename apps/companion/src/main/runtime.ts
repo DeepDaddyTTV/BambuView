@@ -1,5 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { dirname } from "node:path";
 import { EventEmitter } from "node:events";
 
@@ -139,7 +145,10 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function normalizeHost(bindMode: CompanionSettings["bindMode"], host: string): string {
+function normalizeHost(
+  bindMode: CompanionSettings["bindMode"],
+  host: string,
+): string {
   if (bindMode === "lan") {
     return host.trim() || "0.0.0.0";
   }
@@ -147,7 +156,10 @@ function normalizeHost(bindMode: CompanionSettings["bindMode"], host: string): s
 }
 
 function joinUrl(baseUrl: string, pathname: string): string {
-  return new URL(pathname, baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`).toString();
+  return new URL(
+    pathname,
+    baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
+  ).toString();
 }
 
 function timeoutSignal(timeoutMs: number): AbortSignal {
@@ -182,7 +194,10 @@ function encryptSecret(codec: SecretCodec, value: string): PersistedSecret {
   return { mode: "plain", value };
 }
 
-function decryptSecret(codec: SecretCodec, value: PersistedSecret | undefined): string {
+function decryptSecret(
+  codec: SecretCodec,
+  value: PersistedSecret | undefined,
+): string {
   if (!value?.value) {
     return "";
   }
@@ -207,7 +222,9 @@ async function fetchWithUpstreamAuth(
   });
 }
 
-function inferOutputKind(sourceKind: CompanionStreamSourceKind): CompanionStreamOutputKind {
+function inferOutputKind(
+  sourceKind: CompanionStreamSourceKind,
+): CompanionStreamOutputKind {
   if (sourceKind === "mjpeg") return "mjpeg";
   if (sourceKind === "snapshot") return "snapshot";
   if (sourceKind === "hls") return "hls";
@@ -230,7 +247,10 @@ function contentTypeMatches(
     return normalized.includes("image/");
   }
   if (sourceKind === "hls") {
-    return normalized.includes("mpegurl") || normalized.includes("application/vnd.apple");
+    return (
+      normalized.includes("mpegurl") ||
+      normalized.includes("application/vnd.apple")
+    );
   }
   return false;
 }
@@ -288,7 +308,8 @@ async function inspectStreamInput(input: CompanionStreamInput): Promise<{
   try {
     const response = await fetchWithUpstreamAuth(input.upstreamUrl, input);
     const contentType = response.headers.get("content-type");
-    const renderable = response.ok && contentTypeMatches(input.sourceKind, contentType);
+    const renderable =
+      response.ok && contentTypeMatches(input.sourceKind, contentType);
     return {
       details: renderable
         ? "The stream responded with browser-renderable media."
@@ -355,7 +376,10 @@ export class CompanionRuntime extends EventEmitter {
   }
 
   async applyPortConflict(): Promise<void> {
-    const host = normalizeHost(this.state.settings.bindMode, this.state.settings.host);
+    const host = normalizeHost(
+      this.state.settings.bindMode,
+      this.state.settings.host,
+    );
     this.bridgeState = {
       baseUrl: `http://${host}:${this.state.settings.port}`,
       errorMessage: `Port ${this.state.settings.port} is already in use on ${host}.`,
@@ -372,7 +396,9 @@ export class CompanionRuntime extends EventEmitter {
     return this.bridgeState.baseUrl;
   }
 
-  async createPrinter(input: CompanionPrinterInput): Promise<CompanionSnapshot> {
+  async createPrinter(
+    input: CompanionPrinterInput,
+  ): Promise<CompanionSnapshot> {
     const timestamp = nowIso();
     this.state.printers.push({
       accessCode: encryptSecret(this.codec, input.accessCode?.trim() ?? ""),
@@ -419,7 +445,9 @@ export class CompanionRuntime extends EventEmitter {
   }
 
   deletePrinter(printerId: string): CompanionSnapshot {
-    this.state.printers = this.state.printers.filter((printer) => printer.id !== printerId);
+    this.state.printers = this.state.printers.filter(
+      (printer) => printer.id !== printerId,
+    );
     this.state.streams = this.state.streams.map((stream) =>
       stream.linkedPrinterId === printerId
         ? { ...stream, linkedPrinterId: null, updatedAt: nowIso() }
@@ -431,7 +459,9 @@ export class CompanionRuntime extends EventEmitter {
   }
 
   deleteStream(streamId: string): CompanionSnapshot {
-    this.state.streams = this.state.streams.filter((stream) => stream.id !== streamId);
+    this.state.streams = this.state.streams.filter(
+      (stream) => stream.id !== streamId,
+    );
     this.state.printers = this.state.printers.map((printer) =>
       printer.streamId === streamId
         ? { ...printer, streamId: null, updatedAt: nowIso() }
@@ -458,9 +488,12 @@ export class CompanionRuntime extends EventEmitter {
     const telemetryReady = printers.some(
       (printer) => printer.capabilities.telemetry === "available",
     );
-    const streamReady = streams.some((stream) => stream.outputKind !== "unavailable");
+    const streamReady = streams.some(
+      (stream) => stream.outputKind !== "unavailable",
+    );
     const needsRestream = streams.some(
-      (stream) => stream.sourceKind === "rtsp" || stream.sourceKind === "bambu-native",
+      (stream) =>
+        stream.sourceKind === "rtsp" || stream.sourceKind === "bambu-native",
     );
     const developerPrinter = printers.some(
       (printer) => printer.connectionMode === "developer",
@@ -468,7 +501,11 @@ export class CompanionRuntime extends EventEmitter {
 
     return {
       capabilities: {
-        ams: telemetryReady ? "available" : printers.length > 0 ? "requires_setup" : "unavailable",
+        ams: telemetryReady
+          ? "available"
+          : printers.length > 0
+            ? "requires_setup"
+            : "unavailable",
         camera: streamReady
           ? "available"
           : needsRestream
@@ -497,7 +534,8 @@ export class CompanionRuntime extends EventEmitter {
           "Automatic Bambu discovery is not implemented in this alpha. Add printers manually with hostname, serial, and access code.",
         fileUpload:
           "Local file staging is supported, but direct printer upload is not enabled in this alpha.",
-        slicingAssist: "Companion reserves a local slicing-assist boundary for a future revision.",
+        slicingAssist:
+          "Companion reserves a local slicing-assist boundary for a future revision.",
         telemetry:
           "Live telemetry is available for LAN and Developer profiles with hostname, serial number, and access code.",
       },
@@ -526,9 +564,7 @@ export class CompanionRuntime extends EventEmitter {
       !this.state.pairing.paired
         ? "Companion is not paired with a BambuView server yet."
         : null,
-      this.listStreams().length === 0
-        ? "No streams are configured yet."
-        : null,
+      this.listStreams().length === 0 ? "No streams are configured yet." : null,
     ].filter((value): value is string => Boolean(value));
 
     return {
@@ -537,7 +573,10 @@ export class CompanionRuntime extends EventEmitter {
       bridge: {
         baseUrl: this.bridgeState.baseUrl,
         bindMode: this.state.settings.bindMode,
-        host: normalizeHost(this.state.settings.bindMode, this.state.settings.host),
+        host: normalizeHost(
+          this.state.settings.bindMode,
+          this.state.settings.host,
+        ),
         port: this.state.settings.port,
         suggestedPort: this.bridgeState.suggestedPort,
       },
@@ -566,7 +605,9 @@ export class CompanionRuntime extends EventEmitter {
       mjpegPath:
         stream.outputKind === "mjpeg" ? `/streams/${stream.id}/mjpeg` : null,
       snapshotPath:
-        stream.outputKind === "snapshot" ? `/streams/${stream.id}/snapshot` : null,
+        stream.outputKind === "snapshot"
+          ? `/streams/${stream.id}/snapshot`
+          : null,
     };
   }
 
@@ -688,11 +729,14 @@ export class CompanionRuntime extends EventEmitter {
       signal: timeoutSignal(7000),
     });
 
-    const data = (await response.json().catch(() => null)) as
-      | { companion?: CompanionRegistration; message?: string }
-      | null;
+    const data = (await response.json().catch(() => null)) as {
+      companion?: CompanionRegistration;
+      message?: string;
+    } | null;
     if (!response.ok || !data?.companion) {
-      throw new Error(data?.message ?? "BambuView rejected the pairing request.");
+      throw new Error(
+        data?.message ?? "BambuView rejected the pairing request.",
+      );
     }
 
     this.state.pairing = {
@@ -746,11 +790,15 @@ export class CompanionRuntime extends EventEmitter {
     return { ...this.state.pairing };
   }
 
-  async saveSettings(input: Partial<CompanionSettings>): Promise<CompanionSnapshot> {
+  async saveSettings(
+    input: Partial<CompanionSettings>,
+  ): Promise<CompanionSnapshot> {
     this.state.settings = {
       ...this.state.settings,
       ...input,
-      friendlyName: maskCompanionName(input.friendlyName ?? this.state.settings.friendlyName),
+      friendlyName: maskCompanionName(
+        input.friendlyName ?? this.state.settings.friendlyName,
+      ),
       host: input.host?.trim() || this.state.settings.host,
       port: input.port ?? this.state.settings.port,
     };
@@ -777,7 +825,10 @@ export class CompanionRuntime extends EventEmitter {
     if (this.listStreams().some((stream) => stream.status === "online")) {
       return "streaming";
     }
-    if (this.bridgeState.errorMessage || this.listStreams().some((stream) => stream.status === "degraded")) {
+    if (
+      this.bridgeState.errorMessage ||
+      this.listStreams().some((stream) => stream.status === "degraded")
+    ) {
       return "warning";
     }
     return "paired";
@@ -807,7 +858,10 @@ export class CompanionRuntime extends EventEmitter {
     if (!printer) {
       throw new Error("Printer not found.");
     }
-    printer.accessCode = encryptSecret(this.codec, input.accessCode?.trim() ?? "");
+    printer.accessCode = encryptSecret(
+      this.codec,
+      input.accessCode?.trim() ?? "",
+    );
     printer.connectionMode = input.connectionMode;
     printer.hostname = input.hostname.trim();
     printer.model = input.model.trim();
@@ -857,7 +911,8 @@ export class CompanionRuntime extends EventEmitter {
       const telemetryConfigured =
         Boolean(printer.hostname.trim()) &&
         Boolean(decryptSecret(this.codec, printer.accessCode)) &&
-        (printer.connectionMode === "lan" || printer.connectionMode === "developer");
+        (printer.connectionMode === "lan" ||
+          printer.connectionMode === "developer");
       const cameraState = linkedStream
         ? linkedStream.outputKind === "unavailable"
           ? "requires_restream"
@@ -866,7 +921,9 @@ export class CompanionRuntime extends EventEmitter {
           ? "requires_restream"
           : "requires_setup";
       const controlsState =
-        printer.connectionMode === "developer" ? "unavailable" : "requires_developer_mode";
+        printer.connectionMode === "developer"
+          ? "unavailable"
+          : "requires_developer_mode";
 
       return {
         accessCodeSet: Boolean(decryptSecret(this.codec, printer.accessCode)),
@@ -876,13 +933,14 @@ export class CompanionRuntime extends EventEmitter {
           controls: controlsState,
           discovery: "unavailable",
           fileUpload:
-            printer.connectionMode === "developer" ? "unavailable" : "requires_developer_mode",
+            printer.connectionMode === "developer"
+              ? "unavailable"
+              : "requires_developer_mode",
           slicingAssist: "future",
           telemetry: telemetryConfigured ? "available" : "requires_setup",
         },
         capabilityNotes: {
-          ams:
-            "AMS status follows the same local printer report used for telemetry when the printer answers.",
+          ams: "AMS status follows the same local printer report used for telemetry when the printer answers.",
           camera: linkedStream
             ? linkedStream.outputKind === "unavailable"
               ? "This linked stream still needs a browser-compatible restream."
@@ -898,10 +956,9 @@ export class CompanionRuntime extends EventEmitter {
             "Companion can stage local files now, but direct printer upload is still disabled in this alpha.",
           slicingAssist:
             "Slice-assist hooks are reserved for a future revision.",
-          telemetry:
-            telemetryConfigured
-              ? "Companion can request live telemetry over the printer's local MQTT report channel."
-              : "Add hostname, serial number, and LAN access code to request telemetry.",
+          telemetry: telemetryConfigured
+            ? "Companion can request live telemetry over the printer's local MQTT report channel."
+            : "Add hostname, serial number, and LAN access code to request telemetry.",
         },
         connectionMode: printer.connectionMode,
         createdAt: printer.createdAt,
@@ -959,7 +1016,9 @@ export class CompanionRuntime extends EventEmitter {
         streams: Array.isArray(raw?.streams) ? raw.streams : [],
       };
     } catch {
-      this.logger.warn("Companion state file could not be read. Falling back to defaults.");
+      this.logger.warn(
+        "Companion state file could not be read. Falling back to defaults.",
+      );
       return this.createDefaultState();
     }
   }

@@ -9,6 +9,8 @@ Before you begin, make sure you have:
 - A browser that can reach the app
 - A plan for HTTPS if you expose it outside your home network
 
+If you do not want to run Docker, use the native BambuView Desktop installer from GitHub Releases instead. It starts the same BambuView app locally and stores its SQLite database in the app's user data folder.
+
 ## Start BambuView
 
 ### Docker Compose
@@ -64,6 +66,18 @@ Before you begin, make sure you have:
    pnpm build
    pnpm start
    ```
+
+### Native alpha installer
+
+1. Open the latest alpha release on GitHub.
+2. Download the BambuView installer for your operating system:
+   - macOS: `.dmg`
+   - Windows: `.exe`
+   - Linux: `.deb` or `.rpm`
+3. Install and open BambuView.
+4. Create the first admin account when the app opens.
+
+Use the BambuView Companion installer only when you want the local bridge app. Companion does not replace the main BambuView app.
 
 ## Finish the first launch
 
@@ -131,7 +145,7 @@ If a printer has no assigned browser-compatible camera, its camera panel shows `
 
 For the full walkthrough, read [Camera Setup](./cameras.md).
 
-## What to expect in `0.0.29` alpha
+## What to expect in `0.0.30` alpha
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 

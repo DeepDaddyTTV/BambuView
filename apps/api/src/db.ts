@@ -32,17 +32,25 @@ const sourceDirFromCwd =
   path.basename(process.cwd()) === "api"
     ? path.resolve(process.cwd(), "src")
     : path.resolve(process.cwd(), "apps/api/src");
-const moduleDir =
-  typeof __dirname === "string" ? __dirname : sourceDirFromCwd;
+const moduleDir = typeof __dirname === "string" ? __dirname : sourceDirFromCwd;
 const moduleFilename =
-  typeof __filename === "string"
-    ? __filename
-    : path.join(moduleDir, "db.ts");
+  typeof __filename === "string" ? __filename : path.join(moduleDir, "db.ts");
 const require = createRequire(moduleFilename);
-const Database = require(
-  path.join(moduleDir, "../node_modules/better-sqlite3/lib/index.js"),
-) as typeof import("better-sqlite3");
 
+function loadDatabaseDriver() {
+  try {
+    return require("better-sqlite3") as typeof import("better-sqlite3");
+  } catch {
+    return require(
+      path.join(moduleDir, "../node_modules/better-sqlite3/lib/index.js"),
+    ) as typeof import("better-sqlite3");
+  }
+}
+
+const Database = loadDatabaseDriver();
+
+type BetterSqliteDatabase = import("better-sqlite3").Database;
+type BetterSqliteRunResult = import("better-sqlite3").RunResult;
 type UserStatus = "active" | "invited";
 
 interface UserRow {
@@ -170,11 +178,11 @@ export const schema = {
   users: "users",
 } as const;
 
-export type AppDatabase = Database.Database;
+export type AppDatabase = BetterSqliteDatabase;
 
 export interface DatabaseClient {
   db: AppDatabase;
-  sqlite: Database.Database;
+  sqlite: BetterSqliteDatabase;
 }
 
 export interface CreateUserInput {
@@ -387,11 +395,19 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-function getRow<T>(db: AppDatabase, statement: string, params: unknown[] = []): T | undefined {
+function getRow<T>(
+  db: AppDatabase,
+  statement: string,
+  params: unknown[] = [],
+): T | undefined {
   return db.prepare(statement).get(...params) as T | undefined;
 }
 
-function allRows<T>(db: AppDatabase, statement: string, params: unknown[] = []): T[] {
+function allRows<T>(
+  db: AppDatabase,
+  statement: string,
+  params: unknown[] = [],
+): T[] {
   return db.prepare(statement).all(...params) as T[];
 }
 
@@ -399,7 +415,7 @@ function runStatement(
   db: AppDatabase,
   statement: string,
   params: unknown[] = [],
-): Database.RunResult {
+): BetterSqliteRunResult {
   return db.prepare(statement).run(...params);
 }
 
@@ -519,7 +535,11 @@ export function createDatabase(databaseFile: string): DatabaseClient {
   const printerConnectionColumns = sqlite
     .prepare("PRAGMA table_info(printer_connections)")
     .all() as Array<{ name: string }>;
-  if (!printerConnectionColumns.some((column) => column.name === "connection_mode")) {
+  if (
+    !printerConnectionColumns.some(
+      (column) => column.name === "connection_mode",
+    )
+  ) {
     sqlite.exec(
       "ALTER TABLE printer_connections ADD COLUMN connection_mode TEXT NOT NULL DEFAULT 'lan';",
     );
@@ -528,7 +548,9 @@ export function createDatabase(databaseFile: string): DatabaseClient {
   const cameraAssignmentColumns = sqlite
     .prepare("PRAGMA table_info(camera_assignments)")
     .all() as Array<{ name: string }>;
-  if (!cameraAssignmentColumns.some((column) => column.name === "target_type")) {
+  if (
+    !cameraAssignmentColumns.some((column) => column.name === "target_type")
+  ) {
     sqlite.exec(
       "ALTER TABLE camera_assignments ADD COLUMN target_type TEXT NOT NULL DEFAULT 'printer';",
     );
@@ -567,7 +589,9 @@ function mapAppearance(row: UserPreferenceRow | undefined): AppearanceSettings {
   };
 }
 
-function mapPrinterConnection(row: PrinterConnectionRow): PrinterConnectionRecord {
+function mapPrinterConnection(
+  row: PrinterConnectionRow,
+): PrinterConnectionRecord {
   return {
     id: row.id,
     provider: row.provider,
@@ -614,7 +638,10 @@ function mapCompanion(row: CompanionRow): CompanionSecretRecord {
       slicingAssist: "future",
       telemetry: "unavailable",
     }),
-    capabilityNotes: parseJson<CompanionCapabilityNotes>(row.capabilityNotesJson, {}),
+    capabilityNotes: parseJson<CompanionCapabilityNotes>(
+      row.capabilityNotesJson,
+      {},
+    ),
     createdAt: row.createdAt,
     health: parseJson<CompanionHealthResponse | null>(row.healthJson, null),
     id: row.id,
@@ -675,7 +702,9 @@ function cameraSourcePlaybackIssue(row: CameraSourceRow): string | null {
   return null;
 }
 
-function cameraProxyUrls(row: CameraSourceRow): Pick<CameraSource, "snapshotUrl" | "streamUrl"> {
+function cameraProxyUrls(
+  row: CameraSourceRow,
+): Pick<CameraSource, "snapshotUrl" | "streamUrl"> {
   const playbackIssue = cameraSourcePlaybackIssue(row);
   const canProxy =
     !playbackIssue &&
@@ -693,7 +722,10 @@ function cameraProxyUrls(row: CameraSourceRow): Pick<CameraSource, "snapshotUrl"
   };
 }
 
-function mapCameraSource(row: CameraSourceRow, assignedTo: string[] = []): CameraSource {
+function mapCameraSource(
+  row: CameraSourceRow,
+  assignedTo: string[] = [],
+): CameraSource {
   const proxyUrls = cameraProxyUrls(row);
   const playbackIssue = cameraSourcePlaybackIssue(row);
 
@@ -726,7 +758,9 @@ function mapCameraSourceSecret(
   };
 }
 
-function mapPrinterConnectionSecret(row: PrinterConnectionRow): PrinterConnectionSecretRecord {
+function mapPrinterConnectionSecret(
+  row: PrinterConnectionRow,
+): PrinterConnectionSecretRecord {
   return {
     ...mapPrinterConnection(row),
     accessCode: row.accessCode,
@@ -746,7 +780,9 @@ function mapInviteRecord(baseUrl: string, row: InviteRow): InviteRecord {
   };
 }
 
-function mapCompanionPublic(companion: CompanionSecretRecord): CompanionRegistration {
+function mapCompanionPublic(
+  companion: CompanionSecretRecord,
+): CompanionRegistration {
   return {
     baseUrl: companion.baseUrl,
     bridgeUsername: companion.bridgeUsername,
@@ -767,7 +803,10 @@ function mapCompanionPublic(companion: CompanionSecretRecord): CompanionRegistra
 }
 
 export async function countUsers(db: AppDatabase): Promise<number> {
-  const row = getRow<{ count: number }>(db, "SELECT count(*) AS count FROM users");
+  const row = getRow<{ count: number }>(
+    db,
+    "SELECT count(*) AS count FROM users",
+  );
   return Number(row?.count ?? 0);
 }
 
@@ -987,7 +1026,9 @@ export async function updatePrinterConnection(
     connectionStatus: input.connectionStatus,
     lastTestedAt: input.lastTestedAt,
     lastSeenAt:
-      input.connectionStatus === "online" ? input.lastTestedAt : existing.lastSeenAt,
+      input.connectionStatus === "online"
+        ? input.lastTestedAt
+        : existing.lastSeenAt,
     createdAt: existing.createdAt,
     updatedAt: nowIso(),
   };
@@ -1036,9 +1077,11 @@ export async function deletePrinterConnection(
     "DELETE FROM camera_assignments WHERE target_type = ? AND printer_id = ?",
     ["printer", connectionId],
   );
-  const result = runStatement(db, "DELETE FROM printer_connections WHERE id = ?", [
-    connectionId,
-  ]);
+  const result = runStatement(
+    db,
+    "DELETE FROM printer_connections WHERE id = ?",
+    [connectionId],
+  );
   return result.changes > 0;
 }
 
@@ -1063,8 +1106,13 @@ export async function updatePrinterConnectionStatus(
   );
 }
 
-export async function listCameraSources(db: AppDatabase): Promise<CameraSource[]> {
-  const rows = allRows<CameraSourceRow>(db, `${CAMERA_SOURCE_SELECT} ORDER BY created_at ASC`);
+export async function listCameraSources(
+  db: AppDatabase,
+): Promise<CameraSource[]> {
+  const rows = allRows<CameraSourceRow>(
+    db,
+    `${CAMERA_SOURCE_SELECT} ORDER BY created_at ASC`,
+  );
   const assignments = await listCameraAssignments(db);
   const assignedBySource = new Map<string, string[]>();
   for (const assignment of assignments) {
@@ -1079,7 +1127,10 @@ export async function listCameraSources(db: AppDatabase): Promise<CameraSource[]
 export async function listCameraSourceSecrets(
   db: AppDatabase,
 ): Promise<CameraSourceSecretRecord[]> {
-  const rows = allRows<CameraSourceRow>(db, `${CAMERA_SOURCE_SELECT} ORDER BY created_at ASC`);
+  const rows = allRows<CameraSourceRow>(
+    db,
+    `${CAMERA_SOURCE_SELECT} ORDER BY created_at ASC`,
+  );
   const assignments = await listCameraAssignments(db);
   const assignedBySource = new Map<string, string[]>();
   for (const assignment of assignments) {
@@ -1088,7 +1139,9 @@ export async function listCameraSourceSecrets(
     assignedBySource.set(assignment.sourceId, existing);
   }
 
-  return rows.map((row) => mapCameraSourceSecret(row, assignedBySource.get(row.id)));
+  return rows.map((row) =>
+    mapCameraSourceSecret(row, assignedBySource.get(row.id)),
+  );
 }
 
 export async function getCameraSourceSecretById(
@@ -1228,7 +1281,9 @@ export async function deleteCameraSource(
   db: AppDatabase,
   sourceId: string,
 ): Promise<boolean> {
-  const result = runStatement(db, "DELETE FROM camera_sources WHERE id = ?", [sourceId]);
+  const result = runStatement(db, "DELETE FROM camera_sources WHERE id = ?", [
+    sourceId,
+  ]);
   return result.changes > 0;
 }
 
@@ -1352,13 +1407,16 @@ export async function upsertCameraAssignment(
     );
   }
 
-  const assignment = (await listCameraAssignments(db)).find((item) => item.feedId === row.id);
+  const assignment = (await listCameraAssignments(db)).find(
+    (item) => item.feedId === row.id,
+  );
   return (
     assignment ?? {
       feedId: row.id,
       feedLabel: row.feedLabel,
       printerId: row.printerId,
-      printerName: row.targetType === "fleet" ? "Fleet Overview" : row.printerId,
+      printerName:
+        row.targetType === "fleet" ? "Fleet Overview" : row.printerId,
       sourceId: row.sourceId,
       sourceName: row.sourceId,
       targetId: row.printerId,
@@ -1372,9 +1430,11 @@ export async function deleteCameraAssignment(
   db: AppDatabase,
   assignmentId: string,
 ): Promise<boolean> {
-  const result = runStatement(db, "DELETE FROM camera_assignments WHERE id = ?", [
-    assignmentId,
-  ]);
+  const result = runStatement(
+    db,
+    "DELETE FROM camera_assignments WHERE id = ?",
+    [assignmentId],
+  );
   return result.changes > 0;
 }
 
@@ -1469,7 +1529,10 @@ export async function listInvites(
   db: AppDatabase,
   baseUrl: string,
 ): Promise<InviteRecord[]> {
-  const rows = allRows<InviteRow>(db, `${INVITE_SELECT} ORDER BY created_at DESC`);
+  const rows = allRows<InviteRow>(
+    db,
+    `${INVITE_SELECT} ORDER BY created_at DESC`,
+  );
   return rows.map((row) => mapInviteRecord(baseUrl, row));
 }
 
@@ -1477,7 +1540,9 @@ export async function findInviteById(
   db: AppDatabase,
   inviteId: string,
 ): Promise<InviteRow | undefined> {
-  return getRow<InviteRow>(db, `${INVITE_SELECT} WHERE id = ? LIMIT 1`, [inviteId]);
+  return getRow<InviteRow>(db, `${INVITE_SELECT} WHERE id = ? LIMIT 1`, [
+    inviteId,
+  ]);
 }
 
 export async function findActiveInviteByTokenHash(
@@ -1491,8 +1556,14 @@ export async function findActiveInviteByTokenHash(
   );
 }
 
-export async function markInviteUsed(db: AppDatabase, inviteId: string): Promise<void> {
-  runStatement(db, "UPDATE invites SET used_at = ? WHERE id = ?", [nowIso(), inviteId]);
+export async function markInviteUsed(
+  db: AppDatabase,
+  inviteId: string,
+): Promise<void> {
+  runStatement(db, "UPDATE invites SET used_at = ? WHERE id = ?", [
+    nowIso(),
+    inviteId,
+  ]);
 }
 
 export async function createSession(
@@ -1507,7 +1578,14 @@ export async function createSession(
         id, user_id, token_hash, created_at, expires_at, last_seen_at
       ) VALUES (?, ?, ?, ?, ?, ?)
     `,
-    [randomUUID(), input.userId, input.tokenHash, timestamp, input.expiresAt, timestamp],
+    [
+      randomUUID(),
+      input.userId,
+      input.tokenHash,
+      timestamp,
+      input.expiresAt,
+      timestamp,
+    ],
   );
 }
 
@@ -1587,16 +1665,20 @@ export async function markCompanionPairingCodeUsed(
   db: AppDatabase,
   pairingCodeId: string,
 ): Promise<void> {
-  runStatement(db, "UPDATE companion_pairing_codes SET used_at = ? WHERE id = ?", [
-    nowIso(),
-    pairingCodeId,
-  ]);
+  runStatement(
+    db,
+    "UPDATE companion_pairing_codes SET used_at = ? WHERE id = ?",
+    [nowIso(), pairingCodeId],
+  );
 }
 
 export async function listCompanions(
   db: AppDatabase,
 ): Promise<CompanionRegistration[]> {
-  const rows = allRows<CompanionRow>(db, `${COMPANION_SELECT} ORDER BY updated_at DESC`);
+  const rows = allRows<CompanionRow>(
+    db,
+    `${COMPANION_SELECT} ORDER BY updated_at DESC`,
+  );
   return rows.map((row) => mapCompanionPublic(mapCompanion(row)));
 }
 
@@ -1783,6 +1865,8 @@ export async function deleteCompanion(
   db: AppDatabase,
   companionId: string,
 ): Promise<boolean> {
-  const result = runStatement(db, "DELETE FROM companions WHERE id = ?", [companionId]);
+  const result = runStatement(db, "DELETE FROM companions WHERE id = ?", [
+    companionId,
+  ]);
   return result.changes > 0;
 }

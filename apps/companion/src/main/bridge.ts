@@ -3,7 +3,10 @@ import { Readable } from "node:stream";
 import Fastify from "fastify";
 import { z } from "zod";
 
-import type { CompanionPrinterInput, CompanionStreamInput } from "@bambuview/contracts";
+import type {
+  CompanionPrinterInput,
+  CompanionStreamInput,
+} from "@bambuview/contracts";
 
 import { CompanionRuntime } from "./runtime.js";
 
@@ -69,71 +72,103 @@ export async function createBridgeServer(runtime: CompanionRuntime) {
     const tokenCandidate =
       typeof headerToken === "string"
         ? headerToken
-        : authorization.password ?? authorization.token;
+        : (authorization.password ?? authorization.token);
     if (!tokenCandidate || tokenCandidate !== bridgeAuth.token) {
-      return reply.code(401).send({ message: "Companion auth token required." });
+      return reply
+        .code(401)
+        .send({ message: "Companion auth token required." });
     }
   });
 
   app.get("/health", async () => runtime.getHealth());
   app.get("/capabilities", async () => runtime.getCapabilitySummary());
   app.get("/printers/discover", async () => runtime.getDiscoveryResult());
-  app.get("/printers", async () => ({ printers: runtime.getSnapshot().printers }));
+  app.get("/printers", async () => ({
+    printers: runtime.getSnapshot().printers,
+  }));
   app.post("/printers", async (request, reply) => {
     const input = printerSchema().parse(request.body);
     const snapshot = await runtime.createPrinter(input);
     return reply.code(201).send({ printer: snapshot.printers.at(-1) });
   });
   app.get("/printers/:id", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
-    const printer = runtime.getSnapshot().printers.find((item) => item.id === params.id);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
+    const printer = runtime
+      .getSnapshot()
+      .printers.find((item) => item.id === params.id);
     if (!printer) {
       return reply.code(404).send({ message: "Printer not found." });
     }
     return { printer };
   });
   app.patch("/printers/:id", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
     const input = printerSchema().parse(request.body);
     const snapshot = await runtime.updatePrinter(params.id, input);
     const printer = snapshot.printers.find((item) => item.id === params.id);
     return reply.send({ printer });
   });
   app.delete("/printers/:id", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
     runtime.deletePrinter(params.id);
     return reply.code(204).send();
   });
   app.post("/printers/:id/test", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
     const result = await runtime.testPrinter(params.id);
     return reply.send({ test: result });
   });
   app.get("/printers/:id/telemetry", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
     const telemetry = await runtime.readTelemetry(params.id);
     return reply.send({ telemetry });
   });
   app.get("/printers/:id/camera/snapshot", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
-    const printer = runtime.getSnapshot().printers.find((item) => item.id === params.id);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
+    const printer = runtime
+      .getSnapshot()
+      .printers.find((item) => item.id === params.id);
     if (!printer?.streamId) {
-      return reply.code(409).send({ message: "No stream is linked to this printer." });
+      return reply
+        .code(409)
+        .send({ message: "No stream is linked to this printer." });
     }
     return proxyStream(runtime, printer.streamId, "snapshot", reply);
   });
   app.get("/printers/:id/camera/mjpeg", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
-    const printer = runtime.getSnapshot().printers.find((item) => item.id === params.id);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
+    const printer = runtime
+      .getSnapshot()
+      .printers.find((item) => item.id === params.id);
     if (!printer?.streamId) {
-      return reply.code(409).send({ message: "No stream is linked to this printer." });
+      return reply
+        .code(409)
+        .send({ message: "No stream is linked to this printer." });
     }
     return proxyStream(runtime, printer.streamId, "mjpeg", reply);
   });
   app.post("/printers/:id/command", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
     const body = z.object({ action: z.string() }).parse(request.body);
-    const printer = runtime.getSnapshot().printers.find((item) => item.id === params.id);
+    const printer = runtime
+      .getSnapshot()
+      .printers.find((item) => item.id === params.id);
     if (!printer) {
       return reply.code(404).send({ message: "Printer not found." });
     }
@@ -148,11 +183,15 @@ export async function createBridgeServer(runtime: CompanionRuntime) {
     });
   });
   app.post("/printers/:id/files", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
-    const input = z.object({
-      action: z.enum(["open", "reveal", "stage"]).optional(),
-      path: z.string().trim().min(1).max(4096),
-    }).parse(request.body);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
+    const input = z
+      .object({
+        action: z.enum(["open", "reveal", "stage"]).optional(),
+        path: z.string().trim().min(1).max(4096),
+      })
+      .parse(request.body);
     const handoff = await runtime.handleFileHandoff(params.id, input);
     return reply.send({ handoff });
   });
@@ -164,31 +203,43 @@ export async function createBridgeServer(runtime: CompanionRuntime) {
     return reply.code(201).send({ stream: snapshot.streams.at(-1) });
   });
   app.get("/streams/:id", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
-    const stream = runtime.getSnapshot().streams.find((item) => item.id === params.id);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
+    const stream = runtime
+      .getSnapshot()
+      .streams.find((item) => item.id === params.id);
     if (!stream) {
       return reply.code(404).send({ message: "Stream not found." });
     }
     return { stream };
   });
   app.patch("/streams/:id", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
     const input = streamSchema().parse(request.body);
     const snapshot = await runtime.updateStream(params.id, input);
     const stream = snapshot.streams.find((item) => item.id === params.id);
     return reply.send({ stream });
   });
   app.delete("/streams/:id", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
     runtime.deleteStream(params.id);
     return reply.code(204).send();
   });
   app.get("/streams/:id/mjpeg", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
     return proxyStream(runtime, params.id, "mjpeg", reply);
   });
   app.get("/streams/:id/snapshot", async (request, reply) => {
-    const params = z.object({ id: z.string().trim().min(1) }).parse(request.params);
+    const params = z
+      .object({ id: z.string().trim().min(1) })
+      .parse(request.params);
     return proxyStream(runtime, params.id, "snapshot", reply);
   });
   app.get("/logs", async () => ({ logs: runtime.getSnapshot().logs }));
@@ -200,7 +251,12 @@ async function proxyStream(
   runtime: CompanionRuntime,
   streamId: string,
   mode: "mjpeg" | "snapshot",
-  reply: { code(statusCode: number): typeof reply; send(payload: unknown): unknown; header(key: string, value: string): void; type(value: string): void },
+  reply: {
+    code(statusCode: number): typeof reply;
+    send(payload: unknown): unknown;
+    header(key: string, value: string): void;
+    type(value: string): void;
+  },
 ) {
   const target = runtime.getStreamProxyTarget(streamId, mode);
   if (!target) {
@@ -227,7 +283,9 @@ async function proxyStream(
       upstream.headers.get("content-type") ??
         (mode === "snapshot" ? "image/jpeg" : "multipart/x-mixed-replace"),
     );
-    return reply.send(Readable.from(upstream.body as AsyncIterable<Uint8Array>));
+    return reply.send(
+      Readable.from(upstream.body as AsyncIterable<Uint8Array>),
+    );
   } catch {
     return reply.code(502).send({
       message: "Companion could not reach the configured upstream stream.",

@@ -57,10 +57,22 @@ export function BrandLogo({ className }: { className?: string }) {
   } as CSSProperties;
 
   return (
-    <span aria-label="BambuView" className={clsx("brand-lockup", className)} role="img">
+    <span
+      aria-label="BambuView"
+      className={clsx("brand-lockup", className)}
+      role="img"
+    >
       <InlineLogo className="brand-lockup__mark" markup={themedLogoMark} />
-      <span aria-hidden="true" className="brand-lockup__wordmark" style={wordmarkStyle}>
-        <img alt="" className="brand-lockup__wordmark-fallback" src={logoTextWebp} />
+      <span
+        aria-hidden="true"
+        className="brand-lockup__wordmark"
+        style={wordmarkStyle}
+      >
+        <img
+          alt=""
+          className="brand-lockup__wordmark-fallback"
+          src={logoTextWebp}
+        />
         <span className="brand-lockup__wordmark-layer brand-lockup__wordmark-layer--ink" />
         <span className="brand-lockup__wordmark-layer brand-lockup__wordmark-layer--accent" />
       </span>

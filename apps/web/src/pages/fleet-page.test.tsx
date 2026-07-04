@@ -48,12 +48,7 @@ const printer: PrinterDetail = {
 };
 
 it("shows the no-camera fallback copy", () => {
-  render(
-    <CameraFeedFrame
-      feed={null}
-      printer={printer}
-    />,
-  );
+  render(<CameraFeedFrame feed={null} printer={printer} />);
 
   expect(screen.getByText("No Camera Detected")).toBeInTheDocument();
   expect(

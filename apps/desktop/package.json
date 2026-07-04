@@ -1,48 +1,37 @@
 {
-  "name": "@bambuview/companion",
+  "name": "@bambuview/desktop",
   "version": "0.0.30",
-  "description": "Local bridge app for BambuView printers, cameras, telemetry, and file handoff.",
+  "description": "Native desktop wrapper for the self-hosted BambuView web app.",
   "author": "BambuView",
   "private": true,
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
     "build": "node build.mjs",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,html}\"",
-    "package": "node ../../scripts/package-companion.mjs"
+    "package": "node ../../scripts/package-desktop.mjs"
   },
   "dependencies": {
-    "@bambuview/contracts": "workspace:*",
-    "fastify": "^5.8.5",
-    "lucide-react": "^0.552.0",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0",
-    "zod": "^4.4.3"
+    "better-sqlite3": "^12.11.1"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.0",
     "@types/node": "^26.0.0",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "@vitejs/plugin-react": "^5.1.0",
     "electron": "43.0.0",
     "electron-builder": "^26.15.3",
-    "electron-vite": "^5.0.0",
     "esbuild": "^0.28.1",
-    "jsdom": "^27.0.1",
     "typescript": "^6.0.3",
-    "vite": "^7.3.5",
     "vitest": "^4.1.9"
   },
   "build": {
-    "appId": "com.deepdaddyttv.bambuview.companion",
-    "productName": "BambuView Companion",
+    "appId": "com.deepdaddyttv.bambuview.desktop",
+    "productName": "BambuView",
     "electronVersion": "43.0.0",
     "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
     "directories": {
       "buildResources": "buildResources",
       "output": "release"
@@ -50,6 +39,20 @@
     "files": [
       "out/**/*",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "api",
+        "to": "api"
+      },
+      {
+        "from": "web",
+        "to": "web"
+      },
+      {
+        "from": "node_modules",
+        "to": "node_modules"
+      }
     ],
     "mac": {
       "category": "public.app-category.utilities",
@@ -60,14 +63,26 @@
             "arm64",
             "x64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
         }
       ]
     },
     "win": {
-      "artifactName": "${productName}-${version}-Setup-${arch}.${ext}",
       "target": [
         {
           "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
           "arch": [
             "x64"
           ]
@@ -75,16 +90,26 @@
       ]
     },
     "nsis": {
+      "artifactName": "${productName}-${version}-Setup-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "BambuView Companion"
+      "shortcutName": "BambuView"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-Portable-${arch}.${ext}"
     },
     "linux": {
       "category": "Utility",
       "artifactName": "${productName}-${version}-${arch}.${ext}",
       "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
         {
           "target": "deb",
           "arch": [

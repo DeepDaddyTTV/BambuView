@@ -20,7 +20,7 @@ async function main() {
   trace("main:app-built");
   await app.listen({
     host: config.host,
-    port: config.port
+    port: config.port,
   });
   trace(`main:listening ${config.host}:${config.port}`);
 }

@@ -859,7 +859,9 @@ export async function registerRoutes(
   });
 
   app.post("/api/companions/pair", async (request, reply) => {
-    const body: CompanionPairingRequest = companionPairSchema.parse(request.body);
+    const body: CompanionPairingRequest = companionPairSchema.parse(
+      request.body,
+    );
     const pairingCode = await findActiveCompanionPairingCodeByTokenHash(
       dependencies.db,
       hashToken(body.pairingToken),
@@ -920,17 +922,21 @@ export async function registerRoutes(
 
     try {
       const live = await fetchCompanionSnapshot(companion);
-      const updated = await updateCompanionSnapshot(dependencies.db, params.id, {
-        capabilities: live.capabilities,
-        capabilityNotes: live.capabilityNotes,
-        health: live.health,
-        lastError: null,
-        printers: live.printers,
-        status: live.streams.some((stream) => stream.status === "online")
-          ? "online"
-          : "degraded",
-        streams: live.streams,
-      });
+      const updated = await updateCompanionSnapshot(
+        dependencies.db,
+        params.id,
+        {
+          capabilities: live.capabilities,
+          capabilityNotes: live.capabilityNotes,
+          health: live.health,
+          lastError: null,
+          printers: live.printers,
+          status: live.streams.some((stream) => stream.status === "online")
+            ? "online"
+            : "degraded",
+          streams: live.streams,
+        },
+      );
       if (!updated) {
         return reply.code(404).send({ message: "Companion not found." });
       }
@@ -978,12 +984,17 @@ export async function registerRoutes(
         .object({ id: z.uuid(), streamId: z.string().trim().min(1) })
         .parse(request.params);
       const body = companionImportSchema.parse(request.body ?? {});
-      const companion = await getCompanionSecretById(dependencies.db, params.id);
+      const companion = await getCompanionSecretById(
+        dependencies.db,
+        params.id,
+      );
       if (!companion) {
         return reply.code(404).send({ message: "Companion not found." });
       }
 
-      const stream = companion.streams.find((item) => item.id === params.streamId);
+      const stream = companion.streams.find(
+        (item) => item.id === params.streamId,
+      );
       if (!stream) {
         return reply.code(404).send({ message: "Companion stream not found." });
       }

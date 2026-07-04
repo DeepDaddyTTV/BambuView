@@ -17,7 +17,7 @@ function renderWithProviders(path = "/auth") {
       <MemoryRouter initialEntries={[path]}>
         <AuthPage />
       </MemoryRouter>
-    </QueryClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -28,18 +28,20 @@ it("shows bootstrap copy when bootstrap is required", async () => {
         authenticated: false,
         bootstrapRequired: true,
         user: null,
-        appearance: null
+        appearance: null,
       }),
       {
-        headers: { "Content-Type": "application/json" }
-      }
-    )
+        headers: { "Content-Type": "application/json" },
+      },
+    ),
   );
 
   renderWithProviders();
 
   expect(await screen.findByText("Create the first admin")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: /Print more\.\s*Worry less\./ })).toBeInTheDocument();
+  expect(
+    screen.getByRole("heading", { name: /Print more\.\s*Worry less\./ }),
+  ).toBeInTheDocument();
   expect(screen.queryByText("Printers Online")).not.toBeInTheDocument();
   expect(screen.queryByText("Camera Sources")).not.toBeInTheDocument();
 });
@@ -51,15 +53,19 @@ it("shows invite signup copy for invite routes", async () => {
         authenticated: false,
         bootstrapRequired: false,
         user: null,
-        appearance: null
+        appearance: null,
       }),
       {
-        headers: { "Content-Type": "application/json" }
-      }
-    )
+        headers: { "Content-Type": "application/json" },
+      },
+    ),
   );
 
-  renderWithProviders("/auth/invite/550e8400-e29b-41d4-a716-446655440000?token=invite-token-123456789");
+  renderWithProviders(
+    "/auth/invite/550e8400-e29b-41d4-a716-446655440000?token=invite-token-123456789",
+  );
 
-  expect(await screen.findByText("Finish your invited account")).toBeInTheDocument();
+  expect(
+    await screen.findByText("Finish your invited account"),
+  ).toBeInTheDocument();
 });
