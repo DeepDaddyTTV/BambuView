@@ -17,6 +17,10 @@ const stageDir =
     `bambuview-companion-stage-${Date.now().toString(36)}`,
   );
 
+function shouldUseWindowsShell(command) {
+  return process.platform === "win32" && /\.(?:cmd|bat)$/i.test(command);
+}
+
 function run(command, args, cwd) {
   const result = spawnSync(command, args, {
     cwd,
@@ -25,6 +29,7 @@ function run(command, args, cwd) {
       BAMBUVIEW_SKIP_POSTINSTALL: "1",
       CI: "true",
     },
+    shell: shouldUseWindowsShell(command),
     stdio: "inherit",
   });
 

@@ -42,6 +42,10 @@ function resolveElectronBuilderCli() {
   return cliPath;
 }
 
+function shouldUseWindowsShell(command) {
+  return process.platform === "win32" && /\.(?:cmd|bat)$/i.test(command);
+}
+
 function run(command, args, cwd, extraEnv = {}) {
   const result = spawnSync(command, args, {
     cwd,
@@ -49,6 +53,7 @@ function run(command, args, cwd, extraEnv = {}) {
       ...process.env,
       ...extraEnv,
     },
+    shell: shouldUseWindowsShell(command),
     stdio: "inherit",
   });
 

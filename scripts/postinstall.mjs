@@ -23,6 +23,10 @@ function resolvePnpmInvocation(args) {
   };
 }
 
+function shouldUseWindowsShell(command) {
+  return process.platform === "win32" && /\.(?:cmd|bat)$/i.test(command);
+}
+
 const pnpmInvocation = resolvePnpmInvocation([
   "--filter",
   "@bambuview/contracts",
@@ -30,7 +34,7 @@ const pnpmInvocation = resolvePnpmInvocation([
 ]);
 const result = spawnSync(pnpmInvocation.command, pnpmInvocation.args, {
   env: process.env,
-  shell: false,
+  shell: shouldUseWindowsShell(pnpmInvocation.command),
   stdio: "inherit",
 });
 
