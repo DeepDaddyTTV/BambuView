@@ -35,6 +35,118 @@ const electronBuilderArgs = passthroughArgs.filter(
 );
 const pnpmCli = process.env.npm_execpath ?? process.env.PNPM_EXECUTABLE ?? null;
 
+function buildAssetName({ name, version, osName, extra, style, extension }) {
+  return `${name}-${version}-${osName}-${extra}-${style}.${extension}`;
+}
+
+function replaceReleaseFile(matcher, nextFileName) {
+  const existingFile = readdirSync(outputDir).find((entry) => matcher(entry));
+
+  if (!existingFile) {
+    return;
+  }
+
+  const currentPath = path.join(outputDir, existingFile);
+  const nextPath = path.join(outputDir, nextFileName);
+
+  if (currentPath === nextPath) {
+    return;
+  }
+
+  rmSync(nextPath, { force: true, recursive: true });
+  renameSync(currentPath, nextPath);
+}
+
+function normalizeDesktopReleaseArtifacts(version) {
+  const baseName = "BambuView";
+
+  if (process.platform === "darwin") {
+    replaceReleaseFile(
+      (entry) => entry.endsWith(".dmg"),
+      buildAssetName({
+        name: baseName,
+        version,
+        osName: "MACOS",
+        extra: "Installer",
+        style: "DMG",
+        extension: "dmg",
+      }),
+    );
+    replaceReleaseFile(
+      (entry) => entry.endsWith(".zip"),
+      buildAssetName({
+        name: baseName,
+        version,
+        osName: "MACOS",
+        extra: "Portable",
+        style: "ZIP",
+        extension: "zip",
+      }),
+    );
+    return;
+  }
+
+  if (process.platform === "win32") {
+    replaceReleaseFile(
+      (entry) => entry.endsWith(".exe"),
+      buildAssetName({
+        name: baseName,
+        version,
+        osName: "WIN",
+        extra: "Installer",
+        style: "NSIS",
+        extension: "exe",
+      }),
+    );
+    replaceReleaseFile(
+      (entry) => entry.endsWith(".zip"),
+      buildAssetName({
+        name: baseName,
+        version,
+        osName: "WIN",
+        extra: "Portable",
+        style: "ZIP",
+        extension: "zip",
+      }),
+    );
+    return;
+  }
+
+  replaceReleaseFile(
+    (entry) => entry.endsWith(".AppImage"),
+    buildAssetName({
+      name: baseName,
+      version,
+      osName: "LINUX",
+      extra: "Portable",
+      style: "APPIMAGE",
+      extension: "AppImage",
+    }),
+  );
+  replaceReleaseFile(
+    (entry) => entry.endsWith(".deb"),
+    buildAssetName({
+      name: baseName,
+      version,
+      osName: "LINUX",
+      extra: "Installer",
+      style: "DEB",
+      extension: "deb",
+    }),
+  );
+  replaceReleaseFile(
+    (entry) => entry.endsWith(".rpm"),
+    buildAssetName({
+      name: baseName,
+      version,
+      osName: "LINUX",
+      extra: "Installer",
+      style: "RPM",
+      extension: "rpm",
+    }),
+  );
+}
+
 function resolveElectronBuilderCli() {
   const pnpmDir = path.join(repoRoot, "node_modules/.pnpm");
   const entry = readdirSync(pnpmDir).find((candidate) =>
@@ -201,7 +313,14 @@ function createWindowsPortableZip() {
     packageData.productName ??
     packageData.name
   ).replace(/[<>:"/\\|?*\x00-\x1F]/g, "-");
-  const portableName = `${productName}-${packageData.version}-Portable-${arch}`;
+  const portableName = buildAssetName({
+    name: productName,
+    version: packageData.version,
+    osName: "WIN",
+    extra: "Portable",
+    style: "ZIP",
+    extension: "dir",
+  }).replace(/\.dir$/, "");
   const unpackedDir = path.join(outputDir, "win-unpacked");
   const portableDir = path.join(outputDir, portableName);
   const portableZip = path.join(outputDir, `${portableName}.zip`);
@@ -323,6 +442,13 @@ run(
 
 if (manualWindowsPortableZip) {
   createWindowsPortableZip();
+}
+
+{
+  const packageData = JSON.parse(
+    readFileSync(path.join(desktopDir, "package.json"), "utf8"),
+  );
+  normalizeDesktopReleaseArtifacts(packageData.version);
 }
 
 rmSync(stageDir, { force: true, recursive: true });

@@ -1,4 +1,11 @@
-import { existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -16,6 +23,85 @@ const skipBuild = process.argv.includes("--skip-build");
 const passthroughArgs = process.argv
   .slice(2)
   .filter((arg) => arg !== "--skip-build" && arg !== "--");
+
+function buildAssetName({ name, version, osName, extra, style, extension }) {
+  return `${name}-${version}-${osName}-${extra}-${style}.${extension}`;
+}
+
+function replaceReleaseFile(matcher, nextFileName) {
+  const existingFile = readdirSync(outputDir).find((entry) => matcher(entry));
+
+  if (!existingFile) {
+    return;
+  }
+
+  const currentPath = path.join(outputDir, existingFile);
+  const nextPath = path.join(outputDir, nextFileName);
+
+  if (currentPath === nextPath) {
+    return;
+  }
+
+  rmSync(nextPath, { force: true, recursive: true });
+  renameSync(currentPath, nextPath);
+}
+
+function normalizeCompanionReleaseArtifacts(version) {
+  const baseName = "BVCompanion";
+
+  if (process.platform === "darwin") {
+    replaceReleaseFile(
+      (entry) => entry.endsWith(".dmg"),
+      buildAssetName({
+        name: baseName,
+        version,
+        osName: "MACOS",
+        extra: "Installer",
+        style: "DMG",
+        extension: "dmg",
+      }),
+    );
+    return;
+  }
+
+  if (process.platform === "win32") {
+    replaceReleaseFile(
+      (entry) => entry.endsWith(".exe"),
+      buildAssetName({
+        name: baseName,
+        version,
+        osName: "WIN",
+        extra: "Installer",
+        style: "NSIS",
+        extension: "exe",
+      }),
+    );
+    return;
+  }
+
+  replaceReleaseFile(
+    (entry) => entry.endsWith(".deb"),
+    buildAssetName({
+      name: baseName,
+      version,
+      osName: "LINUX",
+      extra: "Installer",
+      style: "DEB",
+      extension: "deb",
+    }),
+  );
+  replaceReleaseFile(
+    (entry) => entry.endsWith(".rpm"),
+    buildAssetName({
+      name: baseName,
+      version,
+      osName: "LINUX",
+      extra: "Installer",
+      style: "RPM",
+      extension: "rpm",
+    }),
+  );
+}
 
 function resolveElectronBuilderCli() {
   const pnpmDir = path.join(repoRoot, "node_modules/.pnpm");
@@ -92,6 +178,14 @@ run(
     PNPM_CONFIG_CONFIRM_MODULES_PURGE: "false",
   },
 );
+
+{
+  const packageDataPath = path.join(companionDir, "package.json");
+  const packageData = JSON.parse(
+    readFileSync(packageDataPath, "utf8"),
+  );
+  normalizeCompanionReleaseArtifacts(packageData.version);
+}
 
 rmSync(stageDir, { force: true, recursive: true });
 
