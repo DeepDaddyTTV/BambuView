@@ -1,70 +1,83 @@
 # Changelog
 
-This file tracks the purpose of each alpha release and the changes that matter when you update BambuView.
+This file tracks the changes that matter when you update BambuView.
+Recent and future release notes should follow the same simple format:
+
+- `Bug Fixes & Stability`
+- `Improvements & What's New`
+
+## v0.0.35 - 2026-07-06
+
+### Bug Fixes & Stability
+
+- Fixed Companion Pairing Tokens: generating a pairing token no longer fails just because the request body is empty.
+- Safer API Requests: the shared web request helper now keeps custom headers intact and avoids forcing JSON headers onto form uploads.
+
+### Improvements & What's New
+
+- Clearer Alpha Notes: generated GitHub release notes now follow the `Changelog: Latest Updates` format with the same section layout shown inside this changelog.
 
 ## v0.0.34 - 2026-07-05
 
-### General Purpose
+### Bug Fixes & Stability
 
-Make BambuView Companion easier to manage and easier to keep current by moving Companion controls into Settings, surfacing version and update status in the native app, and tightening the release flow around those downloads.
+- Fixed Companion Pairing Feedback: generating a Companion pairing token now gives immediate success or error feedback instead of feeling like a dead button.
+- More Reliable Companion Updating: Companion can now download the latest installer inside the app and open it directly for a smoother update flow.
 
-### Changes
+### Improvements & What's New
 
 - Better Companion Management: the web app now keeps Companion under `Settings`, alongside Appearance, so pairing and bridge management live in one clearer place.
-- Clearer Pairing Flow: generating a Companion pairing token now gives immediate feedback and keeps the token ready to copy instead of feeling like a dead button.
-- In-App Update Visibility: BambuView Companion now shows its installed version, latest release status, last update check, and whether a newer alpha is ready.
-- Smarter Update Checks: Companion can now check for updates on launch, keep scanning on a saved interval with a default of 30 minutes, and download the latest installer directly from inside the app.
-- Cleaner Alpha Downloads: release automation now prepares BambuView and BVCompanion downloads with the corrected installer and portable naming pattern for future alpha releases.
+- In-App Update Visibility: BambuView Companion now shows its installed version, latest release status, and last update check.
+- Smarter Update Checks: Companion can now check for updates on launch and keep scanning on a saved interval with a default of 30 minutes.
+- Cleaner Alpha Downloads: release automation now prepares BambuView and BVCompanion downloads with the corrected installer and portable naming pattern for future releases.
 
 ## v0.0.33 - 2026-07-05
 
-### General Purpose
+### Bug Fixes & Stability
 
-Standardize the published BambuView and BVCompanion release asset filenames so every installer and portable build follows one predictable naming format, and simplify changelog sections so releases read more cleanly.
+- Reduced Download Confusion: release assets now use one predictable naming pattern so it is easier to grab the correct file for the correct machine.
 
-### Changes
+### Improvements & What's New
 
-- Cleaner Downloads: BambuView and BVCompanion release files now follow one consistent naming format, so it is easier to spot the right installer or portable package at a glance.
+- Cleaner Downloads: BambuView and BVCompanion release files now follow one consistent naming format.
 - Easier Platform Matching: download names now clearly call out `WIN`, `LINUX`, or `MACOS`, along with whether the file is an `Installer` or `Portable` build.
-- Clearer Release Notes: changelog entries and generated GitHub alpha release notes now use a simpler `Changes` section focused on user-facing updates.
+- Clearer Release Notes: alpha release notes now use a more user-facing structure instead of the older purpose-and-summary format.
 
 ## v0.0.32 - 2026-07-05
 
-### General Purpose
+### Bug Fixes & Stability
 
-Correct the production container startup path so the Docker image and Portainer deployment can boot successfully with the live Companion telemetry and camera bridge changes introduced in the prior alpha.
+- Fixed Server Startup: resolved an issue where self-hosted servers would fail to start up properly or crash immediately upon launch.
+- Smoother Updates: upgrading your self-hosted setup through Docker Compose or Portainer now works more cleanly without manual repair work.
 
-### Changes
+### Improvements & What's New
 
-- Fixed Server Startup: self-hosted servers now start correctly instead of crashing during launch.
-- Smoother Updates: updating through Docker Compose or Portainer now works cleanly without manual workarounds just to get the server online.
-- Camera and Telemetry Support: self-hosted installs can now move forward to the Companion telemetry and camera bridge build with a working server package.
-- Reliable Alpha Testing: GitHub alpha releases continue to include standard installers for BambuView and BambuView Companion alongside a working self-hosted server image for easier testing.
+- Camera & Telemetry Support: self-hosted deployments can now move forward with the latest Companion telemetry and camera bridge features on a working server package.
+- Reliable Alpha Testing: GitHub alpha releases continue to include standard installers for BambuView and BambuView Companion, paired with a working self-hosted server package for easier testing.
 
 ## v0.0.31 - 2026-07-05
 
-### General Purpose
+### Bug Fixes & Stability
 
-Bridge live printer telemetry and linked camera feeds from BambuView Companion into the main BambuView Fleet and printer-detail APIs so saved printers can show real status even when the server container cannot reach the printer directly over LAN MQTT.
+- Smarter Live Fallbacks: BambuView now prefers direct LAN telemetry when available, then falls back to Companion telemetry when a paired local bridge exists.
 
-### Changes
+### Improvements & What's New
 
 - Live Companion Status: paired BambuView Companion printers can now feed real print progress and status back into Fleet when the same printer serial is saved in the main app.
-- Better Bambu Connect Visibility: saved Bambu Connect style printer profiles can now show temperatures, layers, firmware details, and AMS slot state through Companion instead of staying heavily limited.
+- Better Bambu Connect Visibility: saved Bambu Connect profiles can now show temperatures, layers, firmware details, and AMS slot state through Companion instead of staying heavily limited.
 - Linked Camera Feeds: assigned Companion cameras can now appear directly in printer detail views through BambuView's own API proxy routes.
-- Smarter Live Fallbacks: BambuView now prefers direct LAN telemetry when available, then falls back to Companion telemetry when a paired local bridge exists.
 
 ## v0.0.30 - 2026-07-04
 
-### General Purpose
+### Bug Fixes & Stability
 
-Bring the first native BambuView and BVCompanion alpha downloads onto GitHub Releases so testing can happen outside the Docker container as well.
+- Easier Testing Access: native desktop builds are now packaged into repeatable alpha downloads so testing does not rely only on Docker.
 
-### Changes
+### Improvements & What's New
 
 - Native Downloads: GitHub alpha releases now include BambuView installers for Windows, macOS, and Linux.
 - Companion Downloads: BambuView Companion now ships as a separate desktop download for supported platforms.
-- Easier Testing: you can test the desktop builds directly from GitHub Releases while Docker Hub continues to host the server image.
+- More Flexible Testing: you can now test the desktop builds directly from GitHub Releases while Docker Hub continues to host the server image.
 
 ## v0.0.29 - 2026-06-30
 

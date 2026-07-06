@@ -40,6 +40,7 @@ for (let index = headingIndex + 1; index < lines.length; index += 1) {
 const sectionBody = lines
   .slice(headingIndex + 1, endIndex)
   .join("\n")
+  .replace(/^### /gm, "## ")
   .trim();
-const body = [`# ${normalizedVersion} Alpha`, "", sectionBody, ""].join("\n");
+const body = ["# Changelog: Latest Updates", "", sectionBody, ""].join("\n");
 fs.writeFileSync(path.resolve(process.cwd(), outputPath), body, "utf8");

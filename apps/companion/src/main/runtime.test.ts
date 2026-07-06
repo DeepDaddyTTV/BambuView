@@ -28,7 +28,7 @@ function createRuntime() {
   const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
   tempDirs.push(dir);
   return new CompanionRuntime({
-    appVersion: "0.0.34",
+    appVersion: "0.0.35",
     codec: {
       available: false,
       decrypt: (value) => value,
@@ -260,7 +260,7 @@ describe("companion runtime", () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
     tempDirs.push(dir);
     const runtime = new CompanionRuntime({
-      appVersion: "0.0.34",
+      appVersion: "0.0.35",
       codec: {
         available: false,
         decrypt: (value) => value,
