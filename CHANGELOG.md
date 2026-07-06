@@ -6,6 +6,19 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.38 - 2026-07-06
+
+### Bug Fixes & Stability
+
+- Clearer Companion Pairing Errors: BambuView Companion no longer shows the raw remote-method crash text when pairing fails, so you now get a readable message that explains what actually went wrong.
+- Fixed Remote Pairing Guidance: Companion now stops you before a bad remote pair attempt when the bridge is still locked to `localhost`, instead of failing later with a vague fetch error.
+- Better Remote Setup Recovery: same-machine `localhost` pairing still works, while remote and Docker-hosted pair attempts now point you straight to `LAN` bind mode and `Bind Host` when that bridge callback path is missing.
+
+### Improvements & What's New
+
+- Easier Cross-Machine Pairing: the Companion pairing screen now explains the full remote flow more clearly, including when to keep `localhost` and when to switch to your BambuView server's LAN URL.
+- Better Beginner Docs: the Companion setup guide now walks first-time users through remote pairing step by step, including the required `LAN` bridge setting when BambuView is not running on the same computer.
+
 ## v0.0.37 - 2026-07-06
 
 ### Bug Fixes & Stability

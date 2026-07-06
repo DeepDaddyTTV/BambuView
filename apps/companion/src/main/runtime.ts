@@ -181,6 +181,15 @@ function isLocalhostAddress(hostname: string): boolean {
   );
 }
 
+function isWildcardAddress(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  return (
+    normalized === "0.0.0.0" ||
+    normalized === "::" ||
+    normalized === "[::]"
+  );
+}
+
 function normalizeServerUrlInput(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
@@ -209,6 +218,31 @@ function normalizeServerUrlInput(value: string): string {
   }
 
   return url.toString().replace(/\/+$/, "");
+}
+
+function validatePairingRoute(
+  serverUrl: string,
+  bridgeBaseUrl: string,
+): string | null {
+  try {
+    const server = new URL(serverUrl);
+    if (isLocalhostAddress(server.hostname)) {
+      return null;
+    }
+
+    const bridge = new URL(bridgeBaseUrl);
+    if (isLocalhostAddress(bridge.hostname)) {
+      return `BambuView is not running on this computer, but Companion is still using ${bridgeBaseUrl}. Open Settings, switch Bind Mode to LAN, set Bind Host to this computer's LAN IP or hostname, save, then pair again.`;
+    }
+
+    if (isWildcardAddress(bridge.hostname)) {
+      return `Companion is listening on every interface, but BambuView cannot call back to ${bridgeBaseUrl}. Open Settings and replace the Bind Host with this computer's LAN IP or hostname, save, then pair again.`;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function formatPairingFetchError(serverUrl: string, error: unknown): string {
@@ -1159,6 +1193,14 @@ export class CompanionRuntime extends EventEmitter {
       throw new Error(
         "Paste the full one-time pairing token from BambuView before pairing.",
       );
+    }
+
+    const pairingRouteError = validatePairingRoute(
+      serverUrl,
+      this.bridgeState.baseUrl,
+    );
+    if (pairingRouteError) {
+      throw new Error(pairingRouteError);
     }
 
     const payload: CompanionPairingRequest = {

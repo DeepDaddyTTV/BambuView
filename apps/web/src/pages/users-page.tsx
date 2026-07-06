@@ -126,7 +126,7 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
           <span className="font-medium">Admin access required</span>
         </div>
         <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-400">
-          Invite creation and role management are real in `0.0.37` alpha, but
+          Invite creation and role management are real in `0.0.38` alpha, but
           they stay locked behind the local admin model you approved for
           first-run bootstrap.
         </p>

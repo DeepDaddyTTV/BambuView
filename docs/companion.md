@@ -44,9 +44,12 @@ Install the build for your platform, launch `BambuView Companion`, and keep it r
 3. Copy the BambuView server URL shown there.
 4. Open BambuView Companion.
 5. Paste the BambuView server URL.
-6. Paste the pairing token.
-7. Set a friendly Companion name.
-8. Finish pairing.
+6. Leave the default `http://localhost:4173` only when BambuView and Companion are running on the same computer.
+7. If BambuView is running in Docker or on another device, enter that machine's LAN URL instead.
+8. If BambuView is remote, open Companion `Settings`, switch `Bind Mode` to `LAN`, and set `Bind Host` to this computer's LAN IP or hostname before pairing.
+9. Paste the pairing token.
+10. Set a friendly Companion name.
+11. Finish pairing.
 
 After pairing, BambuView stores the Companion base URL and bridge token server-side.
 
@@ -107,7 +110,8 @@ If a printer still has no working camera, Fleet shows:
 ### localhost connection issues
 
 - Make sure Companion is running on the same trusted machine BambuView expects to reach.
-- If BambuView runs in Docker and cannot reach `localhost`, use the Companion settings page and only opt into LAN binding when you truly need it.
+- If BambuView runs in Docker or on another device, do not leave the Companion pair target on `localhost`.
+- When BambuView is remote, open Companion `Settings`, switch `Bind Mode` to `LAN`, set `Bind Host` to this computer's LAN IP or hostname, save, and then pair again.
 - Test the Companion from BambuView again after changing bind mode or port.
 
 ### busy ports

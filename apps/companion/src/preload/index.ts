@@ -3,38 +3,56 @@ import { contextBridge, ipcRenderer } from "electron";
 import type { CompanionDesktopApi } from "@common/electron-api";
 import { companionChannels } from "@common/ipc";
 
+function cleanIpcErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "Action failed.";
+  }
+
+  return error.message
+    .replace(/^Error invoking remote method '[^']+':\s*/i, "")
+    .replace(/^Error:\s*/i, "")
+    .trim();
+}
+
+async function invoke<T>(channel: string, ...args: unknown[]): Promise<T> {
+  try {
+    return (await ipcRenderer.invoke(channel, ...args)) as T;
+  } catch (error) {
+    throw new Error(cleanIpcErrorMessage(error));
+  }
+}
+
 const api: CompanionDesktopApi = {
-  checkForUpdates: () => ipcRenderer.invoke(companionChannels.checkForUpdates),
-  copyBridgeUrl: () => ipcRenderer.invoke(companionChannels.copyBridgeUrl),
+  checkForUpdates: () => invoke(companionChannels.checkForUpdates),
+  copyBridgeUrl: () => invoke(companionChannels.copyBridgeUrl),
   createPrinter: (input) =>
-    ipcRenderer.invoke(companionChannels.createPrinter, input),
+    invoke(companionChannels.createPrinter, input),
   createStream: (input) =>
-    ipcRenderer.invoke(companionChannels.createStream, input),
+    invoke(companionChannels.createStream, input),
   deletePrinter: (printerId) =>
-    ipcRenderer.invoke(companionChannels.deletePrinter, printerId),
+    invoke(companionChannels.deletePrinter, printerId),
   deleteStream: (streamId) =>
-    ipcRenderer.invoke(companionChannels.deleteStream, streamId),
-  getSnapshot: () => ipcRenderer.invoke(companionChannels.getSnapshot),
+    invoke(companionChannels.deleteStream, streamId),
+  getSnapshot: () => invoke(companionChannels.getSnapshot),
   handleFileHandoff: (printerId, input) =>
-    ipcRenderer.invoke(companionChannels.fileHandoff, printerId, input),
-  openExternal: (url) =>
-    ipcRenderer.invoke(companionChannels.openExternal, url),
+    invoke(companionChannels.fileHandoff, printerId, input),
+  openExternal: (url) => invoke(companionChannels.openExternal, url),
   openUpdateDownload: () =>
-    ipcRenderer.invoke(companionChannels.openUpdateDownload),
-  pair: (input) => ipcRenderer.invoke(companionChannels.pair, input),
+    invoke(companionChannels.openUpdateDownload),
+  pair: (input) => invoke(companionChannels.pair, input),
   readTelemetry: (printerId) =>
-    ipcRenderer.invoke(companionChannels.readTelemetry, printerId),
+    invoke(companionChannels.readTelemetry, printerId),
   regenerateBridgeToken: () =>
-    ipcRenderer.invoke(companionChannels.regenerateBridgeToken),
-  resetPairing: () => ipcRenderer.invoke(companionChannels.resetPairing),
+    invoke(companionChannels.regenerateBridgeToken),
+  resetPairing: () => invoke(companionChannels.resetPairing),
   saveSettings: (input) =>
-    ipcRenderer.invoke(companionChannels.saveSettings, input),
+    invoke(companionChannels.saveSettings, input),
   testPrinter: (printerId) =>
-    ipcRenderer.invoke(companionChannels.testPrinter, printerId),
+    invoke(companionChannels.testPrinter, printerId),
   updatePrinter: (printerId, input) =>
-    ipcRenderer.invoke(companionChannels.updatePrinter, printerId, input),
+    invoke(companionChannels.updatePrinter, printerId, input),
   updateStream: (streamId, input) =>
-    ipcRenderer.invoke(companionChannels.updateStream, streamId, input),
+    invoke(companionChannels.updateStream, streamId, input),
 };
 
 contextBridge.exposeInMainWorld("companion", api);

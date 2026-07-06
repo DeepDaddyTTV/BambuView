@@ -398,10 +398,11 @@ export function App() {
                   </label>
                 </div>
                 <div className="field-hint">
-                    Use <strong>http://localhost:4173</strong> only when
-                    BambuView and Companion are running on the same computer.
-                    If BambuView is running in Docker or on another device, use
-                    that machine&apos;s LAN URL instead.
+                  Use <strong>http://localhost:4173</strong> only when
+                  BambuView and Companion are running on the same computer. If
+                  BambuView is running in Docker or on another device, use that
+                  machine&apos;s LAN URL here and switch the Companion bridge to
+                  <strong> LAN</strong> in Settings before pairing.
                 </div>
                 <label>
                   <span>Pairing Token</span>
@@ -487,6 +488,12 @@ export function App() {
                 BambuView can authenticate future bridge calls. It is separate
                 from the one-time pairing token you copy from BambuView during
                 setup.
+              </div>
+              <div className="field-hint">
+                Remote pairing requires a bridge URL that BambuView can reach.
+                If your server is on another machine, open Settings and change
+                Bind Mode to <strong>LAN</strong>, then set Bind Host to this
+                computer&apos;s LAN IP or hostname before pairing.
               </div>
               <div className="button-row">
                 <button
