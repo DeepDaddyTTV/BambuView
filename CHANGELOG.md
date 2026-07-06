@@ -6,6 +6,18 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.36 - 2026-07-06
+
+### Bug Fixes & Stability
+
+- Fixed Companion Pairing Guidance: the Companion app no longer defaults the server field to `localhost`, which kept causing failed pair attempts against remote BambuView servers.
+- Clearer Pairing Errors: when Companion cannot reach the BambuView server, the error now explains when `localhost` is valid and when you need the server's LAN URL instead.
+- Better Pairing Validation: Companion now catches blank server URLs, incomplete pairing tokens, and missing `http://` or `https://` schemes before the request is sent.
+
+### Improvements & What's New
+
+- Easier First-Time Pairing: the server URL field now starts blank with an inline hint that explains the correct URL to use for same-machine versus remote or Docker-hosted installs.
+
 ## v0.0.35 - 2026-07-06
 
 ### Bug Fixes & Stability

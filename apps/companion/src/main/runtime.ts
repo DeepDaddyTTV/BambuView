@@ -128,6 +128,7 @@ interface RuntimeOptions {
   logger?: CompanionLogger;
   shellActions?: ShellActions;
   stateFile: string;
+  updateChecksEnabled?: boolean;
 }
 
 const defaultSettings: CompanionSettings = {
@@ -168,6 +169,72 @@ function joinUrl(baseUrl: string, pathname: string): string {
     pathname,
     baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
   ).toString();
+}
+
+function isLocalhostAddress(hostname: string): boolean {
+  const normalized = hostname.trim().toLowerCase();
+  return (
+    normalized === "localhost" ||
+    normalized === "127.0.0.1" ||
+    normalized === "::1" ||
+    normalized === "[::1]"
+  );
+}
+
+function normalizeServerUrlInput(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    throw new Error(
+      "Enter the BambuView server URL before pairing. Use localhost only when BambuView and Companion are on the same computer.",
+    );
+  }
+
+  const candidate = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed)
+    ? trimmed
+    : `http://${trimmed}`;
+
+  let url: URL;
+  try {
+    url = new URL(candidate);
+  } catch {
+    throw new Error(
+      "Enter a full BambuView server URL like http://192.168.1.50:4173 or http://localhost:4173.",
+    );
+  }
+
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error(
+      "Use an http:// or https:// BambuView server URL before pairing.",
+    );
+  }
+
+  return url.toString().replace(/\/+$/, "");
+}
+
+function formatPairingFetchError(serverUrl: string, error: unknown): string {
+  const errorName =
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    typeof (error as { name?: unknown }).name === "string"
+      ? (error as { name: string }).name
+      : "";
+
+  const prefix =
+    errorName === "TimeoutError"
+      ? `BambuView did not answer at ${serverUrl} before the pairing request timed out.`
+      : `BambuView could not be reached at ${serverUrl}.`;
+
+  try {
+    const url = new URL(serverUrl);
+    if (isLocalhostAddress(url.hostname)) {
+      return `${prefix} localhost only works when BambuView and Companion are running on the same computer. If your BambuView server is running in Docker or on another device, enter that machine's LAN URL instead.`;
+    }
+  } catch {
+    return prefix;
+  }
+
+  return `${prefix} Confirm the URL, port, and that the BambuView server is online.`;
 }
 
 function timeoutSignal(timeoutMs: number): AbortSignal {
@@ -527,8 +594,13 @@ export class CompanionRuntime extends EventEmitter {
     this.logger = options.logger ?? new CompanionLogger();
     this.shellActions = options.shellActions;
     this.state = this.loadState();
-    this.armUpdateChecks();
-    if (this.state.settings.checkForUpdatesOnLaunch) {
+    if (this.options.updateChecksEnabled !== false) {
+      this.armUpdateChecks();
+    }
+    if (
+      this.options.updateChecksEnabled !== false &&
+      this.state.settings.checkForUpdatesOnLaunch
+    ) {
       void this.checkForUpdates();
     }
   }
@@ -1081,24 +1153,36 @@ export class CompanionRuntime extends EventEmitter {
       );
     }
 
-    const serverUrl = input.serverUrl.trim().replace(/\/+$/, "");
+    const serverUrl = normalizeServerUrlInput(input.serverUrl);
+    const pairingToken = input.pairingToken.trim();
+    if (pairingToken.length < 16) {
+      throw new Error(
+        "Paste the full one-time pairing token from BambuView before pairing.",
+      );
+    }
+
     const payload: CompanionPairingRequest = {
       baseUrl: this.bridgeState.baseUrl,
       bridgeToken: this.getBridgeAuth().token,
       capabilities: this.getCapabilitySummary().capabilities,
       capabilityNotes: this.getCapabilitySummary().capabilityNotes,
       companionName: maskCompanionName(input.companionName),
-      pairingToken: input.pairingToken.trim(),
+      pairingToken,
     };
 
-    const response = await fetch(joinUrl(serverUrl, "/api/companions/pair"), {
-      body: JSON.stringify(payload),
-      headers: {
-        "content-type": "application/json",
-      },
-      method: "POST",
-      signal: timeoutSignal(7000),
-    });
+    let response: Response;
+    try {
+      response = await fetch(joinUrl(serverUrl, "/api/companions/pair"), {
+        body: JSON.stringify(payload),
+        headers: {
+          "content-type": "application/json",
+        },
+        method: "POST",
+        signal: timeoutSignal(7000),
+      });
+    } catch (error) {
+      throw new Error(formatPairingFetchError(serverUrl, error));
+    }
 
     const data = (await response.json().catch(() => null)) as {
       companion?: CompanionRegistration;
@@ -1416,6 +1500,10 @@ export class CompanionRuntime extends EventEmitter {
   }
 
   private armUpdateChecks() {
+    if (this.options.updateChecksEnabled === false) {
+      return;
+    }
+
     if (this.updateTimer) {
       clearInterval(this.updateTimer);
       this.updateTimer = null;

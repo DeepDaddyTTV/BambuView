@@ -28,7 +28,7 @@ function createRuntime() {
   const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
   tempDirs.push(dir);
   return new CompanionRuntime({
-    appVersion: "0.0.35",
+    appVersion: "0.0.36",
     codec: {
       available: false,
       decrypt: (value) => value,
@@ -36,6 +36,7 @@ function createRuntime() {
     },
     logger: new CompanionLogger(),
     stateFile: path.join(dir, "companion-state.json"),
+    updateChecksEnabled: false,
   });
 }
 
@@ -53,6 +54,30 @@ async function listen(server: ReturnType<typeof createServer>) {
     throw new Error("Server address unavailable.");
   }
   return address.port;
+}
+
+async function closeServer(server: ReturnType<typeof createServer>) {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+async function closeNetServer(server: net.Server) {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
 }
 
 describe("companion runtime", () => {
@@ -128,12 +153,31 @@ describe("companion runtime", () => {
     const snapshot = await runtime.pair({
       companionName: "Studio Bridge",
       pairingToken: "pairing-token-1234567890",
-      serverUrl: `http://127.0.0.1:${port}`,
+      serverUrl: `127.0.0.1:${port}`,
     });
 
     expect(snapshot.pairing.paired).toBe(true);
     expect(snapshot.pairing.companionName).toBe("Studio Bridge");
-    mockServer.close();
+    await closeServer(mockServer);
+  });
+
+  it("explains localhost pairing failures more clearly", async () => {
+    const runtime = createRuntime();
+    await runtime.applyBridgeListening(true, null);
+
+    globalThis.fetch = (async () => {
+      throw new Error("fetch failed");
+    }) as typeof fetch;
+
+    await expect(
+      runtime.pair({
+        companionName: "Studio Bridge",
+        pairingToken: "pairing-token-1234567890",
+        serverUrl: "http://localhost:4173",
+      }),
+    ).rejects.toThrow(
+      /localhost only works when BambuView and Companion are running on the same computer/i,
+    );
   });
 
   it("creates, updates, and deletes printers and streams", async () => {
@@ -189,7 +233,7 @@ describe("companion runtime", () => {
       afterPrinter.printers[0].id,
     );
     expect(afterDeletePrinter.printers).toHaveLength(0);
-    mediaServer.close();
+    await closeServer(mediaServer);
   });
 
   it("finds a new port when the preferred one is busy", async () => {
@@ -204,7 +248,7 @@ describe("companion runtime", () => {
 
     const suggestion = await findAvailablePort("127.0.0.1", address.port);
     expect(suggestion).not.toBe(address.port);
-    occupied.close();
+    await closeNetServer(occupied);
   });
 
   it("checks GitHub releases for a newer Companion build", async () => {
@@ -222,7 +266,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.36-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.37-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify([
@@ -234,10 +278,10 @@ describe("companion runtime", () => {
               },
             ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.36",
-              name: "BVCompanion v0.0.36 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.37",
+              name: "BVCompanion v0.0.37 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.36",
+              tag_name: "bvcompanion-v0.0.37",
             },
           ]),
         {
@@ -251,8 +295,8 @@ describe("companion runtime", () => {
     const snapshot = await runtime.checkForUpdates();
 
     expect(snapshot.update.available).toBe(true);
-    expect(snapshot.update.latestVersion).toBe("0.0.36");
-    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.36");
+    expect(snapshot.update.latestVersion).toBe("0.0.37");
+    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.37");
   });
 
   it("downloads and opens the latest Companion installer", async () => {
@@ -260,7 +304,7 @@ describe("companion runtime", () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
     tempDirs.push(dir);
     const runtime = new CompanionRuntime({
-      appVersion: "0.0.35",
+      appVersion: "0.0.36",
       codec: {
         available: false,
         decrypt: (value) => value,
@@ -276,6 +320,7 @@ describe("companion runtime", () => {
         showItemInFolder: () => undefined,
       },
       stateFile: path.join(dir, "companion-state.json"),
+      updateChecksEnabled: false,
     });
     const osName =
       process.platform === "darwin"
@@ -290,7 +335,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.35-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.36-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async (input) => {
       const url = String(input);
       if (url.includes("/releases?per_page=20")) {
@@ -304,10 +349,10 @@ describe("companion runtime", () => {
                 },
               ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.35",
-              name: "BVCompanion v0.0.35 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.36",
+              name: "BVCompanion v0.0.36 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.35",
+              tag_name: "bvcompanion-v0.0.36",
             },
           ]),
           {

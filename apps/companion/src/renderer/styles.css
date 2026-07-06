@@ -90,6 +90,7 @@ textarea {
 .notice,
 .empty-state,
 label span,
+.field-hint,
 .data-list dt,
 .data-list dd,
 .telemetry-grid span {
@@ -242,6 +243,15 @@ label span,
 label {
   display: grid;
   gap: 8px;
+}
+
+.field-hint {
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.field-hint strong {
+  color: #e8ebee;
 }
 
 input,

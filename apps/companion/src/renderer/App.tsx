@@ -80,7 +80,7 @@ function emptyPairForm(): PairCompanionInput {
   return {
     companionName: "BambuView Companion",
     pairingToken: "",
-    serverUrl: "http://localhost:4173",
+    serverUrl: "",
   };
 }
 
@@ -291,8 +291,15 @@ export function App() {
                         serverUrl: event.target.value,
                       }))
                     }
+                    placeholder="http://192.168.1.50:4173"
                     value={pairForm.serverUrl}
                   />
+                  <div className="field-hint">
+                    Use <strong>http://localhost:4173</strong> only when
+                    BambuView and Companion are running on the same computer.
+                    If BambuView is running in Docker or on another device, use
+                    that machine&apos;s LAN URL instead.
+                  </div>
                 </label>
                 <label>
                   <span>Pairing Token</span>
