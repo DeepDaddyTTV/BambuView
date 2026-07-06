@@ -1682,6 +1682,16 @@ export async function listCompanions(
   return rows.map((row) => mapCompanionPublic(mapCompanion(row)));
 }
 
+export async function listCompanionSecrets(
+  db: AppDatabase,
+): Promise<CompanionSecretRecord[]> {
+  const rows = allRows<CompanionRow>(
+    db,
+    `${COMPANION_SELECT} ORDER BY updated_at DESC`,
+  );
+  return rows.map(mapCompanion);
+}
+
 export async function getCompanionSecretById(
   db: AppDatabase,
   companionId: string,

@@ -208,10 +208,13 @@ jobs:
           pattern: "*-*"
           path: release-artifacts
 
+      - name: Build release notes from changelog
+        run: node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" release-notes.md
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: release-artifacts/**/*
-          generate_release_notes: true
+          body_path: release-notes.md
           prerelease: true
           name: BambuView ${{ github.ref_name }} Alpha

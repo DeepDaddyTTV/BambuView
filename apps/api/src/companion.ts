@@ -4,6 +4,7 @@ import type {
   CompanionConnectionSnapshot,
   CompanionHealthResponse,
   CompanionPrinter,
+  CompanionPrinterTelemetry,
   CompanionStream,
 } from "@bambuview/contracts";
 
@@ -103,4 +104,24 @@ export async function testCompanionConnection(
     printers: snapshot.printers,
     streams: snapshot.streams,
   };
+}
+
+export async function fetchCompanionPrinterTelemetry(
+  companion: Pick<
+    CompanionSecretRecord,
+    "baseUrl" | "bridgeToken" | "bridgeUsername"
+  >,
+  printerId: string,
+): Promise<CompanionPrinterTelemetry> {
+  const headers = {
+    authorization: basicAuth(companion.bridgeUsername, companion.bridgeToken),
+  };
+  const response = await fetchJson<{ telemetry: CompanionPrinterTelemetry }>(
+    `${companion.baseUrl}/printers/${encodeURIComponent(printerId)}/telemetry`,
+    {
+      headers,
+    },
+  );
+
+  return response.telemetry;
 }

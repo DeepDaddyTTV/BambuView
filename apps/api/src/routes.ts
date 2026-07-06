@@ -317,6 +317,21 @@ function buildSessionResponse(
   };
 }
 
+function basicAuth(username: string, password: string): string | null {
+  if (!username && !password) {
+    return null;
+  }
+
+  return `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
+}
+
+function joinBaseUrl(baseUrl: string, pathname: string): string {
+  return new URL(
+    pathname,
+    baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`,
+  ).toString();
+}
+
 async function requireSession(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -1045,6 +1060,92 @@ export async function registerRoutes(
 
     return reply.code(204).send();
   });
+
+  async function proxyCompanionCamera(
+    companionId: string,
+    printerId: string,
+    mode: "snapshot" | "stream",
+    reply: FastifyReply,
+  ) {
+    const companion = await getCompanionSecretById(
+      dependencies.db,
+      companionId,
+    );
+    if (!companion) {
+      return reply.code(404).send({ message: "Companion not found." });
+    }
+
+    try {
+      const upstream = await fetch(
+        joinBaseUrl(
+          companion.baseUrl,
+          mode === "snapshot"
+            ? `/printers/${encodeURIComponent(printerId)}/camera/snapshot`
+            : `/printers/${encodeURIComponent(printerId)}/camera/mjpeg`,
+        ),
+        {
+          headers: {
+            authorization:
+              basicAuth(companion.bridgeUsername, companion.bridgeToken) ?? "",
+          },
+        },
+      );
+      if (!upstream.ok || !upstream.body) {
+        return reply.code(upstream.status || 502).send({
+          message: `Companion camera upstream returned HTTP ${upstream.status}.`,
+        });
+      }
+
+      reply.header("cache-control", "no-store");
+      reply.type(
+        upstream.headers.get("content-type") ??
+          (mode === "snapshot" ? "image/jpeg" : "multipart/x-mixed-replace"),
+      );
+
+      return reply.send(
+        Readable.from(upstream.body as AsyncIterable<Uint8Array>),
+      );
+    } catch {
+      return reply.code(502).send({
+        message: "BambuView could not reach the Companion camera stream.",
+      });
+    }
+  }
+
+  app.get(
+    "/api/companions/:id/printers/:printerId/camera/snapshot",
+    async (request, reply) => {
+      const session = await requireSession(request, reply, dependencies);
+      if (!session || "statusCode" in session) {
+        return session;
+      }
+
+      const params = z
+        .object({ id: z.uuid(), printerId: z.string().trim().min(1) })
+        .parse(request.params);
+      return proxyCompanionCamera(
+        params.id,
+        params.printerId,
+        "snapshot",
+        reply,
+      );
+    },
+  );
+
+  app.get(
+    "/api/companions/:id/printers/:printerId/camera/stream",
+    async (request, reply) => {
+      const session = await requireSession(request, reply, dependencies);
+      if (!session || "statusCode" in session) {
+        return session;
+      }
+
+      const params = z
+        .object({ id: z.uuid(), printerId: z.string().trim().min(1) })
+        .parse(request.params);
+      return proxyCompanionCamera(params.id, params.printerId, "stream", reply);
+    },
+  );
 
   app.get("/api/fleet/overview", async (request, reply) => {
     const session = await requireSession(request, reply, dependencies);

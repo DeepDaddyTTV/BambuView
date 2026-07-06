@@ -721,7 +721,7 @@ describe("companion integration", () => {
         response.end(
           JSON.stringify({
             appName: "BambuView Companion",
-            appVersion: "0.0.30",
+            appVersion: "0.0.31",
             bridge: {
               baseUrl: "http://127.0.0.1:41738",
               bindMode: "localhost",
@@ -873,6 +873,329 @@ describe("companion integration", () => {
     });
     expect(cameras.statusCode).toBe(200);
     expect(cameras.json().sources[0].provider).toBe("bambuview-companion");
+
+    companionServer.close();
+    await app.close();
+  });
+
+  it("uses paired companion telemetry and camera feeds in live fleet responses", async () => {
+    const app = await buildApp({
+      appOrigin: "http://localhost:4173",
+      databaseFile: createTestDbPath(),
+    });
+
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap",
+      payload: {
+        email: "admin@example.com",
+        name: "Admin User",
+        password: "supersecure",
+      },
+    });
+    const cookie = bootstrap.headers["set-cookie"];
+
+    const pairingCodeResponse = await app.inject({
+      method: "POST",
+      url: "/api/companions/pairing-codes",
+      headers: {
+        cookie,
+      },
+    });
+    const pairingCode = pairingCodeResponse.json().pairingCode.code as string;
+    const bridgeToken = "bridge-token-telemetry-123456";
+    const snapshotBytes = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+
+    const companionServer = createServer((request, response) => {
+      if (
+        request.headers.authorization !==
+        `Basic ${Buffer.from(`companion:${bridgeToken}`).toString("base64")}`
+      ) {
+        response.statusCode = 401;
+        response.end(JSON.stringify({ message: "Unauthorized" }));
+        return;
+      }
+
+      if (request.url === "/printers/companion-printer-1/camera/snapshot") {
+        response.statusCode = 200;
+        response.setHeader("content-type", "image/jpeg");
+        response.end(snapshotBytes);
+        return;
+      }
+
+      if (request.url === "/printers/companion-printer-1/camera/mjpeg") {
+        response.statusCode = 200;
+        response.setHeader("content-type", "multipart/x-mixed-replace");
+        response.end("--frame\r\n");
+        return;
+      }
+
+      response.setHeader("content-type", "application/json");
+      if (request.url === "/health") {
+        response.end(
+          JSON.stringify({
+            appName: "BambuView Companion",
+            appVersion: "0.0.31",
+            bridge: {
+              baseUrl: "http://127.0.0.1:41738",
+              bindMode: "localhost",
+              host: "localhost",
+              port: 41738,
+              suggestedPort: null,
+            },
+            pairing: {
+              paired: true,
+              companionId: "companion-telemetry",
+              companionName: "Telemetry Bridge",
+              pairedAt: new Date().toISOString(),
+              serverUrl: "http://localhost:4173",
+            },
+            status: "streaming",
+            capabilities: {
+              discovery: "unavailable",
+              telemetry: "available",
+              camera: "available",
+              controls: "unavailable",
+              fileUpload: "unavailable",
+              ams: "available",
+              slicingAssist: "future",
+            },
+            capabilityNotes: {},
+            warnings: [],
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/capabilities") {
+        response.end(
+          JSON.stringify({
+            capabilities: {
+              discovery: "unavailable",
+              telemetry: "available",
+              camera: "available",
+              controls: "unavailable",
+              fileUpload: "unavailable",
+              ams: "available",
+              slicingAssist: "future",
+            },
+            capabilityNotes: {
+              telemetry: "Local telemetry is available.",
+              camera: "Local companion camera is available.",
+            },
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/printers") {
+        response.end(
+          JSON.stringify({
+            printers: [
+              {
+                id: "companion-printer-1",
+                name: "The Forge",
+                provider: "bambu-lab",
+                model: "P1S",
+                hostname: "p1s.local",
+                serial: "P1S-TEST-001",
+                connectionMode: "lan",
+                notes: "",
+                streamId: "stream-1",
+                accessCodeSet: true,
+                capabilities: {
+                  discovery: "unavailable",
+                  telemetry: "available",
+                  camera: "available",
+                  controls: "unavailable",
+                  fileUpload: "unavailable",
+                  ams: "available",
+                  slicingAssist: "future",
+                },
+                capabilityNotes: {},
+                lastSeenAt: new Date().toISOString(),
+                lastTestedAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ],
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/streams") {
+        response.end(
+          JSON.stringify({
+            streams: [
+              {
+                id: "stream-1",
+                name: "Printer Cam",
+                sourceKind: "mjpeg",
+                outputKind: "mjpeg",
+                upstreamUrl: "http://camera.local/live.mjpg",
+                linkedPrinterId: "companion-printer-1",
+                status: "online",
+                details: "Browser-compatible stream ready.",
+                snapshotPath: "/printers/companion-printer-1/camera/snapshot",
+                mjpegPath: "/printers/companion-printer-1/camera/mjpeg",
+                hlsPath: null,
+                lastTestedAt: new Date().toISOString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ],
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/printers/companion-printer-1/telemetry") {
+        response.end(
+          JSON.stringify({
+            telemetry: {
+              available: true,
+              checkedAt: new Date().toISOString(),
+              elapsedMinutes: 97,
+              eta: new Date(Date.now() + 43 * 60 * 1000).toISOString(),
+              fanState: null,
+              fileName: "Forge_Test_Part.3mf",
+              firmwareVersion: "01.09.00.00",
+              layerCurrent: 87,
+              layerTotal: 240,
+              message: "Printing over companion telemetry.",
+              nozzleTemperature: 219.7,
+              nozzleTargetTemperature: 220,
+              bedTemperature: 59.8,
+              bedTargetTemperature: 60,
+              chamberTemperature: 34.9,
+              chamberTargetTemperature: 35,
+              printStatus: "printing",
+              progress: 47,
+              readiness: "busy",
+              remainingMinutes: 43,
+              state: "Printing",
+              warnings: [],
+              amsState: "loaded",
+              slots: [
+                {
+                  slot: "A1",
+                  material: "PLA",
+                  color: "#66d139",
+                  colorName: "Matte Green",
+                  active: true,
+                },
+                {
+                  slot: "B2",
+                  material: "PLA",
+                  color: "#b8babd",
+                  colorName: "Gray",
+                  active: false,
+                },
+              ],
+            },
+          }),
+        );
+        return;
+      }
+
+      response.statusCode = 404;
+      response.end(JSON.stringify({ message: "Not found" }));
+    });
+
+    await new Promise<void>((resolve) =>
+      companionServer.listen(0, "127.0.0.1", resolve),
+    );
+    const address = companionServer.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Expected companion server address.");
+    }
+
+    const pair = await app.inject({
+      method: "POST",
+      url: "/api/companions/pair",
+      payload: {
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        bridgeToken,
+        capabilities: {
+          discovery: "unavailable",
+          telemetry: "available",
+          camera: "available",
+          controls: "unavailable",
+          fileUpload: "unavailable",
+          ams: "available",
+          slicingAssist: "future",
+        },
+        capabilityNotes: {},
+        companionName: "Telemetry Bridge",
+        pairingToken: pairingCode,
+      },
+    });
+
+    expect(pair.statusCode).toBe(201);
+    const companionId = pair.json().companion.id as string;
+
+    const printerCreate = await app.inject({
+      method: "POST",
+      url: "/api/printers/bambu",
+      headers: {
+        cookie,
+      },
+      payload: {
+        connectionMode: "bambu-connect",
+        host: "",
+        model: "P1S",
+        name: "The Forge",
+        serial: "P1S-TEST-001",
+      },
+    });
+    expect(printerCreate.statusCode).toBe(201);
+    const printerId = printerCreate.json().printer.id as string;
+
+    const fleet = await app.inject({
+      method: "GET",
+      url: "/api/fleet/overview?mode=live",
+      headers: {
+        cookie,
+      },
+    });
+    expect(fleet.statusCode).toBe(200);
+    const fleetPrinter = fleet
+      .json()
+      .printers.find((printer: { id: string }) => printer.id === printerId);
+    expect(fleetPrinter).toMatchObject({
+      fileName: "Forge_Test_Part.3mf",
+      progress: 47,
+      status: "printing",
+      telemetryState: "live",
+    });
+    expect(fleetPrinter.telemetryMessage).toContain("BambuView Companion");
+
+    const detail = await app.inject({
+      method: "GET",
+      url: `/api/printers/${printerId}?mode=live`,
+      headers: {
+        cookie,
+      },
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().cameraFeeds[0]).toMatchObject({
+      label: "Printer Cam",
+      snapshotUrl: `/api/companions/${companionId}/printers/companion-printer-1/camera/snapshot`,
+      streamUrl: `/api/companions/${companionId}/printers/companion-printer-1/camera/stream`,
+      streamKind: "mjpeg",
+    });
+
+    const snapshot = await app.inject({
+      method: "GET",
+      url: `/api/companions/${companionId}/printers/companion-printer-1/camera/snapshot`,
+      headers: {
+        cookie,
+      },
+    });
+    expect(snapshot.statusCode).toBe(200);
+    expect(snapshot.headers["content-type"]).toContain("image/jpeg");
+    expect(snapshot.rawPayload).toEqual(snapshotBytes);
 
     companionServer.close();
     await app.close();

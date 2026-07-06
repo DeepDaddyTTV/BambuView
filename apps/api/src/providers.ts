@@ -1,5 +1,8 @@
 import type {
   CameraOverview,
+  CompanionPrinter,
+  CompanionPrinterTelemetry,
+  CompanionStream,
   FleetDataMode,
   FleetOverview,
   PrepareStatus,
@@ -11,8 +14,10 @@ import type {
 import {
   listCameraAssignments,
   listCameraSources,
+  listCompanionSecrets,
   listPrinterConnectionSecrets,
   type AppDatabase,
+  type CompanionSecretRecord,
   type PrinterConnectionSecretRecord,
   updatePrinterConnectionStatus,
 } from "./db.js";
@@ -21,6 +26,7 @@ import {
   parseBambuTelemetry,
   type BambuPrinterTelemetry,
 } from "./bambu.js";
+import { fetchCompanionPrinterTelemetry } from "./companion.js";
 
 export interface PrinterProvider {
   getFleetOverview(mode?: FleetDataMode): Promise<FleetOverview>;
@@ -39,6 +45,19 @@ export interface SliceProvider {
 }
 
 const TELEMETRY_CACHE_MS = 8000;
+
+type TelemetrySource = "direct-lan" | "companion";
+
+interface CompanionPrinterMatch {
+  companion: CompanionSecretRecord;
+  printer: CompanionPrinter;
+  stream: CompanionStream | null;
+}
+
+interface TelemetryResolution {
+  source: TelemetrySource | null;
+  telemetry: BambuPrinterTelemetry | null;
+}
 
 function mockCameraFeed(
   id: string,
@@ -520,7 +539,12 @@ function modeLabelForConnection(connection: PrinterConnectionRecord): string {
 
 function integrationCopyForConnection(
   connection: PrinterConnectionRecord,
+  telemetrySource: TelemetrySource | null = null,
 ): string {
+  if (telemetrySource === "companion") {
+    return "Live telemetry is bridged through BambuView Companion. Pair the same printer serial in Companion to keep progress, temperatures, AMS state, and camera access available even when the server cannot talk to the printer directly.";
+  }
+
   if (connection.connectionMode === "bambu-connect") {
     return "Bambu Connect profile saved for slicer handoff. Live telemetry and cameras need LAN/Developer telemetry or an assigned browser-compatible restream.";
   }
@@ -675,6 +699,107 @@ function cameraFeedsForConnection(
       ];
 }
 
+function normalizeSlotColor(value: string | null): string {
+  if (!value) {
+    return "#b8babd";
+  }
+
+  return value.startsWith("#")
+    ? value
+    : `#${value.replace(/^#/, "").slice(0, 6)}`;
+}
+
+function mapCompanionTelemetry(
+  telemetry: CompanionPrinterTelemetry,
+): BambuPrinterTelemetry | null {
+  if (!telemetry.available) {
+    return null;
+  }
+
+  return {
+    activeTray: telemetry.slots.find((slot) => slot.active)?.slot ?? null,
+    bedTargetTemperature: telemetry.bedTargetTemperature,
+    bedTemperature: telemetry.bedTemperature,
+    chamberTargetTemperature: telemetry.chamberTargetTemperature,
+    chamberTemperature: telemetry.chamberTemperature,
+    elapsedMinutes: telemetry.elapsedMinutes,
+    fileName:
+      telemetry.fileName ??
+      (telemetry.printStatus === "idle"
+        ? "Ready for a print job."
+        : "Live print"),
+    firmwareVersion: telemetry.firmwareVersion,
+    layerCurrent: telemetry.layerCurrent,
+    layerTotal: telemetry.layerTotal,
+    nozzleTargetTemperature: telemetry.nozzleTargetTemperature,
+    nozzleTemperature: telemetry.nozzleTemperature,
+    partFanSpeed: null,
+    printStatus: telemetry.printStatus,
+    progress: telemetry.progress ?? 0,
+    raw: telemetry,
+    remainingMinutes: telemetry.remainingMinutes,
+    slots: telemetry.slots.map((slot) => ({
+      active: slot.active,
+      color: normalizeSlotColor(slot.color),
+      colorName: slot.colorName ?? "Loaded",
+      material: slot.material,
+      slot: slot.slot,
+    })),
+    statusLabel:
+      telemetry.state?.trim() || telemetry.message || "Live telemetry",
+  };
+}
+
+function companionCameraFeed(
+  connection: PrinterConnectionRecord,
+  match: CompanionPrinterMatch | null,
+): PrinterCameraFeed | null {
+  if (!match || !match.stream) {
+    return null;
+  }
+
+  const kind =
+    match.stream.outputKind === "mjpeg"
+      ? "mjpeg"
+      : match.stream.outputKind === "snapshot"
+        ? "snapshot"
+        : match.stream.outputKind === "hls"
+          ? "hls"
+          : "unknown";
+
+  if (kind === "unknown") {
+    return null;
+  }
+
+  const basePath = `/api/companions/${match.companion.id}/printers/${match.printer.id}/camera`;
+
+  return {
+    id: `${connection.id}-companion-${match.companion.id}-${match.printer.id}`,
+    kind: cameraFeedKind(match.stream.name),
+    label: match.stream.name || "Printer Cam",
+    snapshotUrl: `${basePath}/snapshot`,
+    sourceId: null,
+    status: match.stream.status,
+    streamKind: kind,
+    streamUrl: `${basePath}/stream`,
+  };
+}
+
+function mergeCameraFeeds(
+  assignedFeeds: PrinterCameraFeed[],
+  extraFeed: PrinterCameraFeed | null,
+): PrinterCameraFeed[] {
+  if (!extraFeed) {
+    return assignedFeeds;
+  }
+
+  if (assignedFeeds.some((feed) => feed.id === extraFeed.id)) {
+    return assignedFeeds;
+  }
+
+  return [extraFeed, ...assignedFeeds];
+}
+
 function isRawLanConnection(connection: PrinterConnectionRecord): boolean {
   return (
     connection.connectionMode === "lan" ||
@@ -697,13 +822,18 @@ function detailForConnection(
   connection: PrinterConnectionRecord,
   telemetry: BambuPrinterTelemetry | null = null,
   assignedFeeds: PrinterCameraFeed[] = [],
+  telemetrySource: TelemetrySource | null = null,
 ): PrinterDetail {
   const isReachable = connection.connectionStatus === "online";
   const isCloudMode = connection.connectionMode === "cloud";
   const isBambuConnectMode = connection.connectionMode === "bambu-connect";
   const modeLabel = modeLabelForConnection(connection);
-  const integrationCopy = integrationCopyForConnection(connection);
-  const status = telemetry?.printStatus ?? (isReachable ? "idle" : "offline");
+  const integrationCopy = integrationCopyForConnection(
+    connection,
+    telemetrySource,
+  );
+  const resolvedStatus =
+    telemetry?.printStatus ?? (isReachable ? "idle" : "offline");
   const telemetryState = telemetryStateForConnection(connection, telemetry);
   const slots = telemetrySlots(telemetry);
   const selectedCameraFeeds = cameraFeedsForConnection(
@@ -728,7 +858,9 @@ function detailForConnection(
     id: connection.id,
     shortCode: shortCodeForConnection(connection),
     name: connection.name,
-    status: isCloudMode || isBambuConnectMode ? "idle" : status,
+    status:
+      telemetry?.printStatus ??
+      (isCloudMode || isBambuConnectMode ? "idle" : resolvedStatus),
     statusLabel: telemetryLabelForConnection(connection, telemetry),
     telemetryMessage: integrationCopy,
     telemetryState,
@@ -799,60 +931,133 @@ function detailForConnection(
 class DatabaseBackedPrinterProvider implements PrinterProvider {
   private readonly telemetryCache = new Map<
     string,
-    { expiresAt: number; telemetry: BambuPrinterTelemetry | null }
+    {
+      expiresAt: number;
+      source: TelemetrySource | null;
+      telemetry: BambuPrinterTelemetry | null;
+    }
   >();
 
   constructor(private readonly db: AppDatabase) {}
 
+  private companionMatchesBySerial(
+    companions: CompanionSecretRecord[],
+  ): Map<string, CompanionPrinterMatch> {
+    const matches = new Map<string, CompanionPrinterMatch>();
+
+    for (const companion of companions) {
+      for (const printer of companion.printers) {
+        const serial = printer.serial.trim().toUpperCase();
+        if (!serial || matches.has(serial)) {
+          continue;
+        }
+
+        matches.set(serial, {
+          companion,
+          printer,
+          stream:
+            companion.streams.find(
+              (stream) => stream.id === printer.streamId,
+            ) ?? null,
+        });
+      }
+    }
+
+    return matches;
+  }
+
   private async telemetryForConnection(
     connection: PrinterConnectionSecretRecord,
-  ): Promise<BambuPrinterTelemetry | null> {
-    if (!isRawLanConnection(connection) || !connection.accessCode) {
-      return null;
-    }
-
+    companionMatch: CompanionPrinterMatch | null,
+  ): Promise<TelemetryResolution> {
     const cached = this.telemetryCache.get(connection.id);
     if (cached && cached.expiresAt > Date.now()) {
-      return cached.telemetry;
+      return {
+        source: cached.source,
+        telemetry: cached.telemetry,
+      };
     }
 
-    try {
-      const report = await fetchBambuMqttReport({
-        accessCode: connection.accessCode,
-        connectionMode: connection.connectionMode,
-        host: connection.host,
-        model: connection.model,
-        name: connection.name,
-        serial: connection.serial,
-      });
-      const telemetry = parseBambuTelemetry(report.payload);
-      const seenAt = new Date().toISOString();
-      await updatePrinterConnectionStatus(
-        this.db,
-        connection.id,
-        "online",
-        seenAt,
-      );
-      this.telemetryCache.set(connection.id, {
-        expiresAt: Date.now() + TELEMETRY_CACHE_MS,
-        telemetry,
-      });
+    let resolved: TelemetryResolution = {
+      source: null,
+      telemetry: null,
+    };
+    let attemptedDirectLan = false;
 
-      return telemetry;
-    } catch {
+    if (isRawLanConnection(connection) && connection.accessCode) {
+      attemptedDirectLan = true;
+
+      try {
+        const report = await fetchBambuMqttReport({
+          accessCode: connection.accessCode,
+          connectionMode: connection.connectionMode,
+          host: connection.host,
+          model: connection.model,
+          name: connection.name,
+          serial: connection.serial,
+        });
+        const telemetry = parseBambuTelemetry(report.payload);
+        const seenAt = new Date().toISOString();
+        await updatePrinterConnectionStatus(
+          this.db,
+          connection.id,
+          "online",
+          seenAt,
+        );
+        resolved = {
+          source: "direct-lan",
+          telemetry,
+        };
+      } catch {
+        resolved = {
+          source: null,
+          telemetry: null,
+        };
+      }
+    }
+
+    if (!resolved.telemetry && companionMatch) {
+      try {
+        const telemetry = mapCompanionTelemetry(
+          await fetchCompanionPrinterTelemetry(
+            companionMatch.companion,
+            companionMatch.printer.id,
+          ),
+        );
+
+        if (telemetry) {
+          await updatePrinterConnectionStatus(
+            this.db,
+            connection.id,
+            "online",
+            new Date().toISOString(),
+          );
+          resolved = {
+            source: "companion",
+            telemetry,
+          };
+        }
+      } catch {
+        // Keep the last known state if the companion bridge is temporarily unreachable.
+      }
+    }
+
+    if (!resolved.telemetry && attemptedDirectLan) {
       await updatePrinterConnectionStatus(
         this.db,
         connection.id,
         "offline",
         null,
       );
-      this.telemetryCache.set(connection.id, {
-        expiresAt: Date.now() + TELEMETRY_CACHE_MS,
-        telemetry: null,
-      });
-
-      return null;
     }
+
+    this.telemetryCache.set(connection.id, {
+      expiresAt: Date.now() + TELEMETRY_CACHE_MS,
+      source: resolved.source,
+      telemetry: resolved.telemetry,
+    });
+
+    return resolved;
   }
 
   private async cameraFeedsByPrinter(): Promise<
@@ -893,19 +1098,33 @@ class DatabaseBackedPrinterProvider implements PrinterProvider {
   }
 
   private async getStoredPrinterDetails(): Promise<PrinterDetail[]> {
-    const [connections, feedsByPrinter] = await Promise.all([
+    const [connections, feedsByPrinter, companions] = await Promise.all([
       listPrinterConnectionSecrets(this.db),
       this.cameraFeedsByPrinter(),
+      listCompanionSecrets(this.db),
     ]);
+    const companionMatches = this.companionMatchesBySerial(companions);
 
     return Promise.all(
-      connections.map(async (connection) =>
-        detailForConnection(
+      connections.map(async (connection) => {
+        const companionMatch =
+          companionMatches.get(connection.serial.trim().toUpperCase()) ?? null;
+        const telemetry = await this.telemetryForConnection(
           connection,
-          await this.telemetryForConnection(connection),
+          companionMatch,
+        );
+        const feeds = mergeCameraFeeds(
           feedsByPrinter.get(connection.id) ?? [],
-        ),
-      ),
+          companionCameraFeed(connection, companionMatch),
+        );
+
+        return detailForConnection(
+          connection,
+          telemetry.telemetry,
+          feeds,
+          telemetry.source,
+        );
+      }),
     );
   }
 
