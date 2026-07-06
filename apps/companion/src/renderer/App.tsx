@@ -30,6 +30,8 @@ import type {
 
 import type { PairCompanionInput } from "@common/electron-api";
 
+type PairServerProtocol = "http" | "https";
+
 type SectionKey =
   | "pairing"
   | "printers"
@@ -50,6 +52,18 @@ const sections: Array<{
   { icon: Logs, key: "logs", label: "Logs" },
   { icon: Settings2, key: "settings", label: "Settings" },
 ];
+
+const DEFAULT_PAIR_SERVER_PROTOCOL: PairServerProtocol = "http";
+const DEFAULT_PAIR_SERVER_HOST = "localhost";
+const DEFAULT_PAIR_SERVER_PORT = "4173";
+
+interface PairFormState {
+  companionName: string;
+  pairingToken: string;
+  serverHost: string;
+  serverPort: string;
+  serverProtocol: PairServerProtocol;
+}
 
 function emptyPrinterForm(): CompanionPrinterInput {
   return {
@@ -76,11 +90,53 @@ function emptyStreamForm(): CompanionStreamInput {
   };
 }
 
-function emptyPairForm(): PairCompanionInput {
+function emptyPairForm(): PairFormState {
   return {
     companionName: "BambuView Companion",
     pairingToken: "",
-    serverUrl: "",
+    serverHost: DEFAULT_PAIR_SERVER_HOST,
+    serverPort: DEFAULT_PAIR_SERVER_PORT,
+    serverProtocol: DEFAULT_PAIR_SERVER_PROTOCOL,
+  };
+}
+
+function parsePairServerUrl(serverUrl: string | null | undefined): Pick<
+  PairFormState,
+  "serverHost" | "serverPort" | "serverProtocol"
+> {
+  if (!serverUrl) {
+    return {
+      serverHost: DEFAULT_PAIR_SERVER_HOST,
+      serverPort: DEFAULT_PAIR_SERVER_PORT,
+      serverProtocol: DEFAULT_PAIR_SERVER_PROTOCOL,
+    };
+  }
+
+  try {
+    const url = new URL(serverUrl);
+    return {
+      serverHost: url.hostname || DEFAULT_PAIR_SERVER_HOST,
+      serverPort: url.port || DEFAULT_PAIR_SERVER_PORT,
+      serverProtocol:
+        url.protocol === "https:" ? "https" : DEFAULT_PAIR_SERVER_PROTOCOL,
+    };
+  } catch {
+    return {
+      serverHost: DEFAULT_PAIR_SERVER_HOST,
+      serverPort: DEFAULT_PAIR_SERVER_PORT,
+      serverProtocol: DEFAULT_PAIR_SERVER_PROTOCOL,
+    };
+  }
+}
+
+function buildPairInput(form: PairFormState): PairCompanionInput {
+  const host = form.serverHost.trim() || DEFAULT_PAIR_SERVER_HOST;
+  const port = form.serverPort.trim() || DEFAULT_PAIR_SERVER_PORT;
+
+  return {
+    companionName: form.companionName,
+    pairingToken: form.pairingToken,
+    serverUrl: `${form.serverProtocol}://${host}${port ? `:${port}` : ""}`,
   };
 }
 
@@ -100,7 +156,7 @@ export function App() {
   const [snapshot, setSnapshot] = useState<CompanionSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [pairForm, setPairForm] = useState<PairCompanionInput>(emptyPairForm);
+  const [pairForm, setPairForm] = useState<PairFormState>(emptyPairForm);
   const [printerForm, setPrinterForm] =
     useState<CompanionPrinterInput>(emptyPrinterForm);
   const [streamForm, setStreamForm] =
@@ -117,11 +173,22 @@ export function App() {
     startTransition(() => {
       setSnapshot(next);
       setSettingsForm(next.settings);
-      setPairForm((current) => ({
-        ...current,
-        companionName: next.pairing.companionName || next.settings.friendlyName,
-        serverUrl: next.pairing.serverUrl ?? current.serverUrl,
-      }));
+      setPairForm((current) => {
+        const serverState = next.pairing.serverUrl
+          ? parsePairServerUrl(next.pairing.serverUrl)
+          : {
+              serverHost: current.serverHost,
+              serverPort: current.serverPort,
+              serverProtocol: current.serverProtocol,
+            };
+
+        return {
+          ...current,
+          companionName:
+            next.pairing.companionName || next.settings.friendlyName,
+          ...serverState,
+        };
+      });
     });
   }
 
@@ -279,28 +346,63 @@ export function App() {
                 className="stack-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void runAction(() => window.companion.pair(pairForm));
+                  void runAction(() =>
+                    window.companion.pair(buildPairInput(pairForm)),
+                  );
                 }}
               >
-                <label>
-                  <span>BambuView Server URL</span>
-                  <input
-                    onChange={(event) =>
-                      setPairForm((current) => ({
-                        ...current,
-                        serverUrl: event.target.value,
-                      }))
-                    }
-                    placeholder="http://192.168.1.50:4173"
-                    value={pairForm.serverUrl}
-                  />
-                  <div className="field-hint">
+                <div className="stack-form__row stack-form__row--server">
+                  <label>
+                    <span>Protocol</span>
+                    <select
+                      onChange={(event) =>
+                        setPairForm((current) => ({
+                          ...current,
+                          serverProtocol: event.target.value as PairServerProtocol,
+                        }))
+                      }
+                      value={pairForm.serverProtocol}
+                    >
+                      <option value="http">http</option>
+                      <option value="https">https</option>
+                    </select>
+                  </label>
+                  <label className="stack-form__field--wide">
+                    <span>Host</span>
+                    <input
+                      onChange={(event) =>
+                        setPairForm((current) => ({
+                          ...current,
+                          serverHost: event.target.value,
+                        }))
+                      }
+                      placeholder={DEFAULT_PAIR_SERVER_HOST}
+                      required
+                      value={pairForm.serverHost}
+                    />
+                  </label>
+                  <label>
+                    <span>Port</span>
+                    <input
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      onChange={(event) =>
+                        setPairForm((current) => ({
+                          ...current,
+                          serverPort: event.target.value,
+                        }))
+                      }
+                      placeholder={DEFAULT_PAIR_SERVER_PORT}
+                      value={pairForm.serverPort}
+                    />
+                  </label>
+                </div>
+                <div className="field-hint">
                     Use <strong>http://localhost:4173</strong> only when
                     BambuView and Companion are running on the same computer.
                     If BambuView is running in Docker or on another device, use
                     that machine&apos;s LAN URL instead.
-                  </div>
-                </label>
+                </div>
                 <label>
                   <span>Pairing Token</span>
                   <input
@@ -311,6 +413,7 @@ export function App() {
                       }))
                     }
                     placeholder="Paste the token from BambuView"
+                    required
                     value={pairForm.pairingToken}
                   />
                 </label>
@@ -343,7 +446,8 @@ export function App() {
                         async () => window.companion.resetPairing(),
                         () => {
                           setPairForm((current) => ({
-                            ...current,
+                            ...emptyPairForm(),
+                            companionName: current.companionName,
                             pairingToken: "",
                           }));
                         },
@@ -378,6 +482,12 @@ export function App() {
                   <dd>{snapshot.pairing.serverUrl ?? "Not paired"}</dd>
                 </div>
               </dl>
+              <div className="field-hint">
+                Advanced only: the bridge secret is generated locally so
+                BambuView can authenticate future bridge calls. It is separate
+                from the one-time pairing token you copy from BambuView during
+                setup.
+              </div>
               <div className="button-row">
                 <button
                   className="ghost-button"
@@ -392,7 +502,7 @@ export function App() {
                   type="button"
                 >
                   <Network className="button-icon" />
-                  Regenerate Bridge Token
+                  Rotate Bridge Secret
                 </button>
               </div>
             </article>

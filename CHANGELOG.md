@@ -6,6 +6,20 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.37 - 2026-07-06
+
+### Bug Fixes & Stability
+
+- Neutral Companion Pairing Defaults: BambuView no longer shows the live browser origin as the default Companion server URL, so personal LAN addresses do not leak into the pairing screen.
+- More Reliable Copy Actions: pairing tokens and invite links now use a browser-safe clipboard fallback so copy actions still work when direct clipboard access is blocked on LAN or local installs.
+- Cleaner Pairing Guidance: the web pairing view now keeps a neutral localhost-style default while still explaining when to replace it with the real BambuView host for remote Companion installs.
+
+### Improvements & What's New
+
+- More Consistent Setup Screens: Companion pairing now follows the same neutral-first setup direction across the app instead of mixing live deployment values into the onboarding flow.
+- Easier Companion Pairing: the Companion app now splits the server target into protocol, host, and port fields with `http`, `localhost`, and `4173` prefilled by default.
+- Less Pairing Confusion: Companion now labels the bridge secret as an advanced internal credential so it is easier to tell it apart from the one-time pairing token from BambuView.
+
 ## v0.0.36 - 2026-07-06
 
 ### Bug Fixes & Stability

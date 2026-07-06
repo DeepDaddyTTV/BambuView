@@ -240,6 +240,19 @@ label span,
   gap: 14px;
 }
 
+.stack-form__row {
+  display: grid;
+  gap: 14px;
+}
+
+.stack-form__row--server {
+  grid-template-columns: 140px minmax(0, 1fr) 120px;
+}
+
+.stack-form__field--wide {
+  min-width: 0;
+}
+
 label {
   display: grid;
   gap: 8px;
@@ -257,11 +270,25 @@ label {
 input,
 select,
 textarea {
+  appearance: none;
   border: none;
+  min-height: 48px;
   padding: 12px 14px;
   color: inherit;
   background: rgba(255, 255, 255, 0.04);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+select {
+  padding-right: 42px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(229, 232, 235, 0.88) 50%),
+    linear-gradient(135deg, rgba(229, 232, 235, 0.88) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px);
+  background-repeat: no-repeat;
+  background-size: 6px 6px;
 }
 
 textarea {
@@ -387,6 +414,7 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .stack-form__row--server,
   .panel-grid--two-up,
   .capability-grid,
   .telemetry-grid--capabilities {

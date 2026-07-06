@@ -9,6 +9,7 @@ import {
   type StyledSelectOption,
 } from "../components/styled-select";
 import { ApiError, apiFetch } from "../lib/api";
+import { copyText } from "../lib/copy-text";
 
 interface UsersPayload {
   currentUserId: string;
@@ -41,6 +42,9 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
     invite: InviteRecord;
     inviteToken: string;
   } | null>(null);
+  const [copyInviteMessage, setCopyInviteMessage] = useState<string | null>(
+    null,
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const usersQuery = useQuery({
@@ -95,6 +99,25 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
     });
   }
 
+  async function copyInviteLink() {
+    if (!latestInvite) {
+      return;
+    }
+
+    try {
+      await copyText(
+        `${latestInvite.invite.inviteUrl}?token=${latestInvite.inviteToken}`,
+      );
+      setCopyInviteMessage("Invite link copied.");
+    } catch (error) {
+      setCopyInviteMessage(
+        error instanceof Error ? error.message : "Could not copy the invite link.",
+      );
+    }
+
+    window.setTimeout(() => setCopyInviteMessage(null), 2200);
+  }
+
   if (currentUser.role !== "admin") {
     return (
       <div className="panel">
@@ -103,7 +126,7 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
           <span className="font-medium">Admin access required</span>
         </div>
         <p className="mt-4 max-w-2xl text-base leading-7 text-zinc-400">
-          Invite creation and role management are real in `0.0.36` alpha, but
+          Invite creation and role management are real in `0.0.37` alpha, but
           they stay locked behind the local admin model you approved for
           first-run bootstrap.
         </p>
@@ -173,16 +196,17 @@ export function UsersPage({ currentUser }: { currentUser: UserProfile }) {
               </div>
               <button
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 px-4 py-2 text-sm text-white"
-                onClick={() =>
-                  navigator.clipboard.writeText(
-                    `${latestInvite.invite.inviteUrl}?token=${latestInvite.inviteToken}`,
-                  )
-                }
+                onClick={() => {
+                  void copyInviteLink();
+                }}
                 type="button"
               >
                 <Copy className="h-4 w-4" />
                 Copy invite link
               </button>
+              {copyInviteMessage ? (
+                <div className="text-xs text-zinc-400">{copyInviteMessage}</div>
+              ) : null}
             </div>
           ) : (
             <p className="mt-5 text-sm leading-7 text-zinc-400">

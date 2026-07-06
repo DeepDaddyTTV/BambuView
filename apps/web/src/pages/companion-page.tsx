@@ -18,11 +18,13 @@ import type {
 } from "@bambuview/contracts";
 
 import { apiFetch } from "../lib/api";
+import { copyText } from "../lib/copy-text";
 
 const COMPANION_DOCS_URL =
   "https://deepdaddyttv.github.io/BambuView/companion.html";
 const COMPANION_RELEASE_URL =
   "https://github.com/DeepDaddyTTV/BambuView/releases";
+const COMPANION_DEFAULT_SERVER_URL = "http://localhost:4173";
 
 function toneClasses(status: CompanionRegistration["status"]) {
   if (status === "online") {
@@ -141,8 +143,15 @@ export function CompanionPage() {
   });
 
   async function copyPairingCode(code: string) {
-    await navigator.clipboard.writeText(code);
-    setCopyMessage("Pairing token copied.");
+    try {
+      await copyText(code);
+      setCopyMessage("Pairing token copied.");
+    } catch (error) {
+      setCopyMessage(
+        error instanceof Error ? error.message : "Could not copy the token.",
+      );
+    }
+
     window.setTimeout(() => setCopyMessage(null), 2200);
   }
 
@@ -197,7 +206,12 @@ export function CompanionPage() {
               BambuView Server URL
             </div>
             <div className="mt-2 text-base font-medium text-white">
-              {globalThis.location.origin}
+              {COMPANION_DEFAULT_SERVER_URL}
+            </div>
+            <div className="mt-2 text-sm leading-7 text-zinc-400">
+              Keep the default neutral while pairing. If Companion is running
+              on another machine, replace <strong>localhost</strong> with the
+              hostname or IP for the BambuView server.
             </div>
             <button
               className="fleet-console-toolbar__button mt-5"
