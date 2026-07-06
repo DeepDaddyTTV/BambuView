@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import net from "node:net";
 import os from "node:os";
@@ -14,18 +14,21 @@ import { findAvailablePort } from "./ports";
 import { CompanionRuntime } from "./runtime";
 
 const tempDirs: string[] = [];
+const originalFetch = globalThis.fetch;
 
 afterEach(() => {
   while (tempDirs.length > 0) {
     rmSync(tempDirs.pop()!, { force: true, recursive: true });
   }
+
+  globalThis.fetch = originalFetch;
 });
 
 function createRuntime() {
   const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
   tempDirs.push(dir);
   return new CompanionRuntime({
-    appVersion: "0.0.33",
+    appVersion: "0.0.34",
     codec: {
       available: false,
       decrypt: (value) => value,
@@ -202,5 +205,136 @@ describe("companion runtime", () => {
     const suggestion = await findAvailablePort("127.0.0.1", address.port);
     expect(suggestion).not.toBe(address.port);
     occupied.close();
+  });
+
+  it("checks GitHub releases for a newer Companion build", async () => {
+    const runtime = createRuntime();
+    const osName =
+      process.platform === "darwin"
+        ? "MACOS"
+        : process.platform === "win32"
+          ? "WIN"
+          : "LINUX";
+    const arch = process.arch === "arm64" ? "ARM64" : "X64";
+    const extension =
+      process.platform === "darwin"
+        ? "dmg"
+        : process.platform === "win32"
+          ? "exe"
+          : "deb";
+    const assetName = `BVCompanion-0.0.35-${osName}-Installer-${arch}.${extension}`;
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify([
+          {
+            assets: [
+              {
+                browser_download_url: `https://example.com/${assetName}`,
+                name: assetName,
+              },
+            ],
+              html_url:
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.35",
+              name: "BVCompanion v0.0.35 Alpha",
+              prerelease: true,
+              tag_name: "bvcompanion-v0.0.35",
+            },
+          ]),
+        {
+          headers: {
+            "content-type": "application/json",
+          },
+          status: 200,
+        },
+      )) as typeof fetch;
+
+    const snapshot = await runtime.checkForUpdates();
+
+    expect(snapshot.update.available).toBe(true);
+    expect(snapshot.update.latestVersion).toBe("0.0.35");
+    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.35");
+  });
+
+  it("downloads and opens the latest Companion installer", async () => {
+    let openedPath: string | null = null;
+    const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
+    tempDirs.push(dir);
+    const runtime = new CompanionRuntime({
+      appVersion: "0.0.34",
+      codec: {
+        available: false,
+        decrypt: (value) => value,
+        encrypt: (value) => value,
+      },
+      logger: new CompanionLogger(),
+      shellActions: {
+        openExternal: async () => undefined,
+        openPath: async (filePath) => {
+          openedPath = filePath;
+          return "";
+        },
+        showItemInFolder: () => undefined,
+      },
+      stateFile: path.join(dir, "companion-state.json"),
+    });
+    const osName =
+      process.platform === "darwin"
+        ? "MACOS"
+        : process.platform === "win32"
+          ? "WIN"
+          : "LINUX";
+    const arch = process.arch === "arm64" ? "ARM64" : "X64";
+    const extension =
+      process.platform === "darwin"
+        ? "dmg"
+        : process.platform === "win32"
+          ? "exe"
+          : "deb";
+    const assetName = `BVCompanion-0.0.35-${osName}-Installer-${arch}.${extension}`;
+    globalThis.fetch = (async (input) => {
+      const url = String(input);
+      if (url.includes("/releases?per_page=20")) {
+        return new Response(
+          JSON.stringify([
+            {
+              assets: [
+                {
+                  browser_download_url: `https://example.com/${assetName}`,
+                  name: assetName,
+                },
+              ],
+              html_url:
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.35",
+              name: "BVCompanion v0.0.35 Alpha",
+              prerelease: true,
+              tag_name: "bvcompanion-v0.0.35",
+            },
+          ]),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+            status: 200,
+          },
+        );
+      }
+
+      return new Response("installer-binary", {
+        headers: {
+          "content-type": "application/octet-stream",
+        },
+        status: 200,
+      });
+    }) as typeof fetch;
+
+    await runtime.checkForUpdates();
+    const snapshot = await runtime.openUpdateDownload();
+
+    expect(openedPath).not.toBeNull();
+    expect(openedPath).toContain(assetName);
+    expect(existsSync(openedPath!)).toBe(true);
+    expect(readFileSync(openedPath!, "utf8")).toBe("installer-binary");
+    expect(snapshot.update.downloadedFileName).toBe(assetName);
+    expect(snapshot.update.message).toContain("Installer opened");
   });
 });

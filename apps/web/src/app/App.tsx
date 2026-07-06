@@ -17,7 +17,6 @@ import { AppearanceProvider } from "./appearance";
 import { AppShell } from "../components/shell";
 import { AuthPage } from "../pages/auth-page";
 import { CamerasPage } from "../pages/cameras-page";
-import { CompanionPage } from "../pages/companion-page";
 import { FleetPage } from "../pages/fleet-page";
 import { PreparePage } from "../pages/prepare-page";
 import { SettingsPage } from "../pages/settings-page";
@@ -59,14 +58,6 @@ function ProtectedRoutes() {
           }
         />
         <Route
-          path="/companion"
-          element={
-            <AppShell title="Companion" user={sessionQuery.data.user}>
-              <CompanionPage />
-            </AppShell>
-          }
-        />
-        <Route
           path="/users"
           element={
             <AppShell title="Users" user={sessionQuery.data.user}>
@@ -74,10 +65,11 @@ function ProtectedRoutes() {
             </AppShell>
           }
         />
+        <Route path="/settings" element={<Navigate replace to="/settings/appearance" />} />
         <Route
-          path="/settings"
+          path="/settings/:section"
           element={
-            <AppShell title="Appearance" user={sessionQuery.data.user}>
+            <AppShell title="Settings" user={sessionQuery.data.user}>
               <SettingsPage />
             </AppShell>
           }

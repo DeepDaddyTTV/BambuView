@@ -1,4 +1,5 @@
 export const companionChannels = {
+  checkForUpdates: "companion:check-for-updates",
   copyBridgeUrl: "companion:copy-bridge-url",
   createPrinter: "companion:create-printer",
   createStream: "companion:create-stream",
@@ -7,6 +8,7 @@ export const companionChannels = {
   fileHandoff: "companion:file-handoff",
   getSnapshot: "companion:get-snapshot",
   openExternal: "companion:open-external",
+  openUpdateDownload: "companion:open-update-download",
   pair: "companion:pair",
   readTelemetry: "companion:read-telemetry",
   regenerateBridgeToken: "companion:regenerate-bridge-token",

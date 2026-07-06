@@ -6,7 +6,6 @@ import {
   Grid2x2,
   Moon,
   Palette,
-  PlugZap,
   RefreshCcw,
   Settings,
   SunMedium,
@@ -24,19 +23,16 @@ const navigationItems = [
   { icon: Grid2x2, label: "Fleet", to: "/fleet" },
   { icon: FileCode2, label: "Prepare & Slice", to: "/prepare" },
   { icon: Camera, label: "Cameras", to: "/cameras" },
-  { icon: PlugZap, label: "Companion", to: "/companion" },
   { icon: Users2, label: "Users", to: "/users" },
-  { icon: Settings, label: "Settings", to: "/settings" },
+  { icon: Settings, label: "Settings", to: "/settings/appearance" },
 ];
 
 const shellDescriptions: Record<string, string> = {
-  Appearance:
-    "Tune the approved shell and personalize how the app feels day to day.",
   Cameras:
     "Assign feeds, check stream health, and map cameras to printers or farms.",
-  Companion:
-    "Pair native bridge apps, test local capabilities, and import Companion streams into BambuView.",
   "Prepare & Slice": "Stage print jobs and prep your next release-ready plate.",
+  Settings:
+    "Tune the shell, pair Companion bridges, and manage how BambuView behaves behind the scenes.",
   Users: "Manage invites, roles, and who can operate your fleet.",
 };
 
@@ -187,9 +183,12 @@ export function AppShell({
           </div>
           <div className="fleet-console-header__actions">
             <ModeToggle />
-            <Link className="fleet-console-toolbar__button" to="/settings">
+            <Link
+              className="fleet-console-toolbar__button"
+              to="/settings/appearance"
+            >
               <Palette className="h-4 w-4" />
-              <span>Appearance</span>
+              <span>Settings</span>
             </Link>
           </div>
         </header>

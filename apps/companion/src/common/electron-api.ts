@@ -22,6 +22,7 @@ export interface RegenerateBridgeTokenResult {
 }
 
 export interface CompanionDesktopApi {
+  checkForUpdates(): Promise<CompanionSnapshot>;
   copyBridgeUrl(): Promise<string>;
   createPrinter(input: CompanionPrinterInput): Promise<CompanionSnapshot>;
   createStream(input: CompanionStreamInput): Promise<CompanionSnapshot>;
@@ -33,6 +34,7 @@ export interface CompanionDesktopApi {
     input: CompanionFileHandoffInput,
   ): Promise<CompanionFileHandoffResult>;
   openExternal(url: string): Promise<void>;
+  openUpdateDownload(): Promise<CompanionSnapshot>;
   pair(input: PairCompanionInput): Promise<CompanionSnapshot>;
   readTelemetry(printerId: string): Promise<CompanionPrinterTelemetry>;
   regenerateBridgeToken(): Promise<RegenerateBridgeTokenResult>;

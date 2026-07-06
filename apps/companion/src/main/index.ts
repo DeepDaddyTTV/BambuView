@@ -132,6 +132,9 @@ function createWindow() {
 }
 
 function registerIpc() {
+  ipcMain.handle(companionChannels.checkForUpdates, () =>
+    runtime.checkForUpdates(),
+  );
   ipcMain.handle(companionChannels.getSnapshot, () => runtime.getSnapshot());
   ipcMain.handle(companionChannels.saveSettings, (_event, input) =>
     runtime.saveSettings(input),
@@ -176,6 +179,9 @@ function registerIpc() {
   );
   ipcMain.handle(companionChannels.openExternal, (_event, url) =>
     runtime.openExternal(url),
+  );
+  ipcMain.handle(companionChannels.openUpdateDownload, () =>
+    runtime.openUpdateDownload(),
   );
   ipcMain.handle(companionChannels.copyBridgeUrl, async () => {
     const url = await runtime.copyBridgeUrl();

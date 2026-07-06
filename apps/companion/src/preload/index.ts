@@ -4,6 +4,7 @@ import type { CompanionDesktopApi } from "@common/electron-api";
 import { companionChannels } from "@common/ipc";
 
 const api: CompanionDesktopApi = {
+  checkForUpdates: () => ipcRenderer.invoke(companionChannels.checkForUpdates),
   copyBridgeUrl: () => ipcRenderer.invoke(companionChannels.copyBridgeUrl),
   createPrinter: (input) =>
     ipcRenderer.invoke(companionChannels.createPrinter, input),
@@ -18,6 +19,8 @@ const api: CompanionDesktopApi = {
     ipcRenderer.invoke(companionChannels.fileHandoff, printerId, input),
   openExternal: (url) =>
     ipcRenderer.invoke(companionChannels.openExternal, url),
+  openUpdateDownload: () =>
+    ipcRenderer.invoke(companionChannels.openUpdateDownload),
   pair: (input) => ipcRenderer.invoke(companionChannels.pair, input),
   readTelemetry: (printerId) =>
     ipcRenderer.invoke(companionChannels.readTelemetry, printerId),

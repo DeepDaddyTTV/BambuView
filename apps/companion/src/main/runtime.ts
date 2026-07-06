@@ -1,13 +1,18 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
+  createWriteStream,
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { EventEmitter } from "node:events";
+import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
 
 import type {
   CompanionCapabilityFlags,
@@ -29,6 +34,7 @@ import type {
   CompanionStreamOutputKind,
   CompanionStreamSourceKind,
   CompanionStatusTone,
+  CompanionUpdateState,
 } from "@bambuview/contracts";
 import {
   COMPANION_APP_NAME,
@@ -127,10 +133,12 @@ interface RuntimeOptions {
 const defaultSettings: CompanionSettings = {
   accentColor: "#7ed321",
   bindMode: "localhost",
+  checkForUpdatesOnLaunch: true,
   friendlyName: "BambuView Companion",
   host: COMPANION_DEFAULT_HOST,
   port: COMPANION_DEFAULT_PORT,
   themeMode: "dark",
+  updateCheckIntervalMinutes: 30,
 };
 
 const defaultPairing: CompanionPairingState = {
@@ -182,6 +190,111 @@ function redactUrl(value: string): string {
   } catch {
     return value;
   }
+}
+
+interface GitHubReleaseAsset {
+  browser_download_url: string;
+  name: string;
+}
+
+interface GitHubReleaseRecord {
+  assets?: GitHubReleaseAsset[];
+  html_url?: string;
+  name?: string;
+  prerelease?: boolean;
+  tag_name?: string;
+}
+
+function normalizeReleaseVersion(value: string | null | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const match = value.match(/v?(\d+\.\d+\.\d+)/i);
+  return match?.[1] ?? null;
+}
+
+function compareVersions(left: string, right: string): number {
+  const leftParts = left.split(".").map((part) => Number(part));
+  const rightParts = right.split(".").map((part) => Number(part));
+
+  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
+    const leftValue = leftParts[index] ?? 0;
+    const rightValue = rightParts[index] ?? 0;
+
+    if (leftValue !== rightValue) {
+      return leftValue - rightValue;
+    }
+  }
+
+  return 0;
+}
+
+function companionOsLabel() {
+  if (process.platform === "darwin") {
+    return "MACOS";
+  }
+
+  if (process.platform === "win32") {
+    return "WIN";
+  }
+
+  return "LINUX";
+}
+
+function companionArchLabel() {
+  switch (process.arch) {
+    case "arm64":
+      return "ARM64";
+    case "ia32":
+      return "X86";
+    default:
+      return "X64";
+  }
+}
+
+function normalizeUpdateIntervalMinutes(value: number | null | undefined) {
+  if (!Number.isFinite(value)) {
+    return 30;
+  }
+
+  return Math.min(1440, Math.max(5, Math.round(value ?? 30)));
+}
+
+function selectCompanionReleaseAsset(release: GitHubReleaseRecord) {
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  const version = normalizeReleaseVersion(release.tag_name ?? release.name);
+  const osName = companionOsLabel();
+  const arch = companionArchLabel();
+  const primaryExtension =
+    process.platform === "darwin"
+      ? "dmg"
+      : process.platform === "win32"
+        ? "exe"
+        : "deb";
+  const fallbackExtension = process.platform === "linux" ? "rpm" : null;
+  const preferredPatterns = [
+    new RegExp(
+      `^BVCompanion-${version}-${osName}-Installer-${arch}\\.${primaryExtension}$`,
+      "i",
+    ),
+    fallbackExtension
+      ? new RegExp(
+          `^BVCompanion-${version}-${osName}-Installer-${arch}\\.${fallbackExtension}$`,
+          "i",
+        )
+      : null,
+    new RegExp(`^BVCompanion-${version}-${osName}-Installer-`, "i"),
+  ].filter(Boolean) as RegExp[];
+
+  for (const pattern of preferredPatterns) {
+    const match = assets.find((asset) => pattern.test(asset.name));
+    if (match) {
+      return match;
+    }
+  }
+
+  return assets.find((asset) => asset.name.startsWith("BVCompanion-")) ?? null;
 }
 
 function encryptSecret(codec: SecretCodec, value: string): PersistedSecret {
@@ -253,6 +366,41 @@ function contentTypeMatches(
     );
   }
   return false;
+}
+
+async function downloadFile(url: string, destinationPath: string) {
+  const response = await fetch(url, {
+    headers: {
+      "user-agent": "BambuView-Companion",
+    },
+    signal: timeoutSignal(300000),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Download failed with HTTP ${response.status}.`);
+  }
+
+  if (!response.body) {
+    throw new Error("GitHub did not return a downloadable file stream.");
+  }
+
+  mkdirSync(dirname(destinationPath), { recursive: true });
+  const tempPath = `${destinationPath}.download`;
+  const fileStream = createWriteStream(tempPath);
+
+  try {
+    await pipeline(
+      Readable.fromWeb(
+        response.body as unknown as import("node:stream/web").ReadableStream,
+      ),
+      fileStream,
+    );
+    rmSync(destinationPath, { force: true });
+    renameSync(tempPath, destinationPath);
+  } catch (error) {
+    rmSync(tempPath, { force: true });
+    throw error;
+  }
 }
 
 function targetFromUrl(
@@ -350,6 +498,23 @@ export class CompanionRuntime extends EventEmitter {
 
   private state: PersistedState;
 
+  private updateState: CompanionUpdateState = {
+    assetName: null,
+    assetUrl: null,
+    available: false,
+    downloadedAt: null,
+    downloadedFileName: null,
+    downloadedFilePath: null,
+    lastCheckedAt: null,
+    latestVersion: null,
+    message: null,
+    releaseName: null,
+    releaseUrl: null,
+    status: "idle",
+  };
+
+  private updateTimer: NodeJS.Timeout | null = null;
+
   constructor(private readonly options: RuntimeOptions) {
     super();
     this.codec =
@@ -362,6 +527,10 @@ export class CompanionRuntime extends EventEmitter {
     this.logger = options.logger ?? new CompanionLogger();
     this.shellActions = options.shellActions;
     this.state = this.loadState();
+    this.armUpdateChecks();
+    if (this.state.settings.checkForUpdatesOnLaunch) {
+      void this.checkForUpdates();
+    }
   }
 
   async applyBridgeListening(listening: boolean, errorMessage: string | null) {
@@ -596,6 +765,7 @@ export class CompanionRuntime extends EventEmitter {
       printers: this.listPrinters(),
       settings: { ...this.state.settings },
       streams: this.listStreams(),
+      update: { ...this.updateState },
     };
   }
 
@@ -696,6 +866,207 @@ export class CompanionRuntime extends EventEmitter {
     if (this.shellActions) {
       await this.shellActions.openExternal(url);
     }
+  }
+
+  async checkForUpdates(): Promise<CompanionSnapshot> {
+    const checkedAt = nowIso();
+    this.updateState = {
+      ...this.updateState,
+      lastCheckedAt: checkedAt,
+      message: "Checking GitHub Releases for a newer Companion build…",
+      status: "checking",
+    };
+    this.emitSnapshot();
+
+    try {
+      const response = await fetch(
+        "https://api.github.com/repos/DeepDaddyTTV/BambuView/releases?per_page=20",
+        {
+          headers: {
+            accept: "application/vnd.github+json",
+            "user-agent": "BambuView-Companion",
+          },
+          signal: timeoutSignal(7000),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`GitHub returned HTTP ${response.status}.`);
+      }
+
+      const releases = (await response.json()) as GitHubReleaseRecord[];
+      const currentVersion = normalizeReleaseVersion(this.options.appVersion);
+
+      if (!currentVersion) {
+        throw new Error("The current Companion version could not be parsed.");
+      }
+
+      const candidates = releases
+        .map((release) => {
+          const version = normalizeReleaseVersion(
+            release.tag_name ?? release.name,
+          );
+          const asset = version ? selectCompanionReleaseAsset(release) : null;
+          return {
+            asset,
+            release,
+            version,
+          };
+        })
+        .filter(
+          (
+            candidate,
+          ): candidate is {
+            asset: GitHubReleaseAsset;
+            release: GitHubReleaseRecord;
+            version: string;
+          } => Boolean(candidate.asset && candidate.version),
+        )
+        .sort((left, right) => compareVersions(right.version, left.version));
+
+      const latest = candidates[0] ?? null;
+
+      if (!latest) {
+        this.updateState = {
+          assetName: null,
+          assetUrl: null,
+          available: false,
+          downloadedAt: null,
+          downloadedFileName: null,
+          downloadedFilePath: null,
+          lastCheckedAt: checkedAt,
+          latestVersion: null,
+          message: "No Companion release assets were found yet.",
+          releaseName: null,
+          releaseUrl: null,
+          status: "error",
+        };
+        this.emitSnapshot();
+        return this.getSnapshot();
+      }
+
+      const available = compareVersions(latest.version, currentVersion) > 0;
+      this.updateState = {
+        assetName: latest.asset.name,
+        assetUrl: latest.asset.browser_download_url,
+        available,
+        downloadedAt:
+          this.updateState.assetName === latest.asset.name
+            ? this.updateState.downloadedAt
+            : null,
+        downloadedFileName:
+          this.updateState.assetName === latest.asset.name
+            ? this.updateState.downloadedFileName
+            : null,
+        downloadedFilePath:
+          this.updateState.assetName === latest.asset.name
+            ? this.updateState.downloadedFilePath
+            : null,
+        lastCheckedAt: checkedAt,
+        latestVersion: latest.version,
+        message: available
+          ? `BVCompanion v${latest.version} is ready to install.`
+          : "You're already on the latest Companion alpha.",
+        releaseName: latest.release.name ?? `BVCompanion v${latest.version}`,
+        releaseUrl: latest.release.html_url ?? null,
+        status: available ? "available" : "current",
+      };
+      this.logger.info(
+        available
+          ? `Companion update available: v${latest.version}.`
+          : `Companion is current at v${currentVersion}.`,
+      );
+    } catch (error) {
+      this.updateState = {
+        ...this.updateState,
+        available: false,
+        lastCheckedAt: checkedAt,
+        message:
+          error instanceof Error
+            ? error.message
+            : "BambuView Companion could not check for updates.",
+        status: "error",
+      };
+      this.logger.warn(
+        `Companion update check failed: ${this.updateState.message}`,
+      );
+    }
+
+    this.emitSnapshot();
+    return this.getSnapshot();
+  }
+
+  private getUpdateDownloadPath(assetName: string) {
+    return join(dirname(this.options.stateFile), "updates", basename(assetName));
+  }
+
+  async openUpdateDownload(): Promise<CompanionSnapshot> {
+    if (!this.updateState.assetUrl || !this.updateState.assetName) {
+      if (this.updateState.releaseUrl) {
+        await this.openExternal(this.updateState.releaseUrl);
+        this.logger.info(
+          `Opened Companion release page: ${this.updateState.releaseUrl}`,
+        );
+        return this.getSnapshot();
+      }
+
+      throw new Error("No Companion update download is available yet.");
+    }
+
+    const startedAt = nowIso();
+    const assetName = this.updateState.assetName;
+    const assetUrl = this.updateState.assetUrl;
+    const filePath = this.getUpdateDownloadPath(assetName);
+    const shouldDownload =
+      !existsSync(filePath) ||
+      this.updateState.downloadedFilePath !== filePath ||
+      this.updateState.downloadedFileName !== assetName;
+
+    this.updateState = {
+      ...this.updateState,
+      downloadedFileName: assetName,
+      downloadedFilePath: filePath,
+      message: shouldDownload
+        ? `Downloading ${assetName}…`
+        : `Opening ${assetName}…`,
+      status: "downloading",
+    };
+    this.emitSnapshot();
+
+    if (shouldDownload) {
+      await downloadFile(assetUrl, filePath);
+      this.updateState = {
+        ...this.updateState,
+        downloadedAt: startedAt,
+        downloadedFileName: assetName,
+        downloadedFilePath: filePath,
+        message: `${assetName} downloaded. Opening installer…`,
+        status: "available",
+      };
+      this.emitSnapshot();
+    }
+
+    if (this.shellActions) {
+      const result = await this.shellActions.openPath(filePath);
+      if (result) {
+        throw new Error(result);
+      }
+    } else {
+      await this.openExternal(assetUrl);
+    }
+
+    this.updateState = {
+      ...this.updateState,
+      downloadedAt: this.updateState.downloadedAt ?? startedAt,
+      downloadedFileName: assetName,
+      downloadedFilePath: filePath,
+      message:
+        "Installer opened. Follow the platform prompt to finish updating Companion.",
+      status: "available",
+    };
+    this.emitSnapshot();
+    this.logger.info(`Opened Companion installer from ${filePath}`);
+    return this.getSnapshot();
   }
 
   async pair(input: {
@@ -801,6 +1172,10 @@ export class CompanionRuntime extends EventEmitter {
       ),
       host: input.host?.trim() || this.state.settings.host,
       port: input.port ?? this.state.settings.port,
+      updateCheckIntervalMinutes: normalizeUpdateIntervalMinutes(
+        input.updateCheckIntervalMinutes ??
+          this.state.settings.updateCheckIntervalMinutes,
+      ),
     };
     if (this.state.settings.bindMode === "localhost") {
       this.state.settings.host = COMPANION_DEFAULT_HOST;
@@ -809,6 +1184,7 @@ export class CompanionRuntime extends EventEmitter {
       this.state.pairing.companionName = this.state.settings.friendlyName;
     }
     this.persistState();
+    this.armUpdateChecks();
     if (this.options.bridgeLifecycle) {
       await this.options.bridgeLifecycle.restart();
     }
@@ -1037,6 +1413,22 @@ export class CompanionRuntime extends EventEmitter {
     mkdirSync(dirname(this.options.stateFile), { recursive: true });
     writeFileSync(this.options.stateFile, JSON.stringify(this.state, null, 2));
     this.emitSnapshot();
+  }
+
+  private armUpdateChecks() {
+    if (this.updateTimer) {
+      clearInterval(this.updateTimer);
+      this.updateTimer = null;
+    }
+
+    const intervalMinutes = normalizeUpdateIntervalMinutes(
+      this.state.settings.updateCheckIntervalMinutes,
+    );
+    this.state.settings.updateCheckIntervalMinutes = intervalMinutes;
+    this.updateTimer = setInterval(() => {
+      void this.checkForUpdates();
+    }, intervalMinutes * 60 * 1000);
+    this.updateTimer.unref?.();
   }
 
   private toPrinterInput(printer: StoredPrinter): CompanionPrinterInput {

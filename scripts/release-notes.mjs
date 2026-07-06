@@ -15,8 +15,13 @@ const changelogPath = path.resolve(process.cwd(), "CHANGELOG.md");
 const changelog = fs.readFileSync(changelogPath, "utf8");
 const normalizedVersion = version.startsWith("v") ? version : `v${version}`;
 const lines = changelog.split("\n");
+
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const headingPattern = new RegExp(
+  `^## ${escapeRegExp(normalizedVersion)}(?:\\s+-|$)`,
+);
 const headingIndex = lines.findIndex((line) =>
-  line.startsWith(`## ${normalizedVersion}`),
+  headingPattern.test(line),
 );
 
 if (headingIndex === -1) {

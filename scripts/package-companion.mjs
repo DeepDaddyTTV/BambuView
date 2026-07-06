@@ -24,8 +24,20 @@ const passthroughArgs = process.argv
   .slice(2)
   .filter((arg) => arg !== "--skip-build" && arg !== "--");
 
-function buildAssetName({ name, version, osName, extra, style, extension }) {
-  return `${name}-${version}-${osName}-${extra}-${style}.${extension}`;
+function buildAssetName({ name, version, osName, extra, arch, extension }) {
+  return `${name}-${version}-${osName}-${extra}-${arch}.${extension}`;
+}
+
+function getArchLabel() {
+  if (passthroughArgs.includes("--arm64")) {
+    return "ARM64";
+  }
+
+  if (passthroughArgs.includes("--ia32")) {
+    return "X86";
+  }
+
+  return "X64";
 }
 
 function replaceReleaseFile(matcher, nextFileName) {
@@ -48,6 +60,7 @@ function replaceReleaseFile(matcher, nextFileName) {
 
 function normalizeCompanionReleaseArtifacts(version) {
   const baseName = "BVCompanion";
+  const arch = getArchLabel();
 
   if (process.platform === "darwin") {
     replaceReleaseFile(
@@ -57,7 +70,7 @@ function normalizeCompanionReleaseArtifacts(version) {
         version,
         osName: "MACOS",
         extra: "Installer",
-        style: "DMG",
+        arch,
         extension: "dmg",
       }),
     );
@@ -72,7 +85,7 @@ function normalizeCompanionReleaseArtifacts(version) {
         version,
         osName: "WIN",
         extra: "Installer",
-        style: "NSIS",
+        arch,
         extension: "exe",
       }),
     );
@@ -86,7 +99,7 @@ function normalizeCompanionReleaseArtifacts(version) {
       version,
       osName: "LINUX",
       extra: "Installer",
-      style: "DEB",
+      arch,
       extension: "deb",
     }),
   );
@@ -97,7 +110,7 @@ function normalizeCompanionReleaseArtifacts(version) {
       version,
       osName: "LINUX",
       extra: "Installer",
-      style: "RPM",
+      arch,
       extension: "rpm",
     }),
   );

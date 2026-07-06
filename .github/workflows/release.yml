@@ -211,10 +211,54 @@ jobs:
       - name: Build release notes from changelog
         run: node scripts/release-notes.mjs "${GITHUB_REF_NAME#v}" release-notes.md
 
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: release-artifacts/**/*
-          body_path: release-notes.md
-          prerelease: true
-          name: BambuView ${{ github.ref_name }} Alpha
+      - name: Publish BambuView release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mapfile -t bambuview_files < <(find release-artifacts -type f -name 'BambuView-*' | sort)
+
+          if [ "${#bambuview_files[@]}" -eq 0 ]; then
+            echo "No BambuView files were found to publish." >&2
+            exit 1
+          fi
+
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${bambuview_files[@]}" --clobber
+            gh release edit "${GITHUB_REF_NAME}" \
+              --title "BambuView ${GITHUB_REF_NAME} Alpha" \
+              --notes-file release-notes.md \
+              --prerelease
+          else
+            gh release create "${GITHUB_REF_NAME}" "${bambuview_files[@]}" \
+              --title "BambuView ${GITHUB_REF_NAME} Alpha" \
+              --notes-file release-notes.md \
+              --prerelease
+          fi
+
+      - name: Publish BVCompanion release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          companion_tag="bvcompanion-${GITHUB_REF_NAME}"
+          mapfile -t companion_files < <(find release-artifacts -type f -name 'BVCompanion-*' | sort)
+
+          if [ "${#companion_files[@]}" -eq 0 ]; then
+            echo "No BVCompanion files were found to publish." >&2
+            exit 1
+          fi
+
+          if gh release view "${companion_tag}" >/dev/null 2>&1; then
+            gh release upload "${companion_tag}" "${companion_files[@]}" --clobber
+            gh release edit "${companion_tag}" \
+              --title "BVCompanion ${GITHUB_REF_NAME} Alpha" \
+              --notes-file release-notes.md \
+              --prerelease
+          else
+            gh release create "${companion_tag}" "${companion_files[@]}" \
+              --target "${GITHUB_SHA}" \
+              --title "BVCompanion ${GITHUB_REF_NAME} Alpha" \
+              --notes-file release-notes.md \
+              --prerelease
+          fi

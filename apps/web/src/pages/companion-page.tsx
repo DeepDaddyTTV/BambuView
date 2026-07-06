@@ -22,7 +22,7 @@ import { apiFetch } from "../lib/api";
 const COMPANION_DOCS_URL =
   "https://deepdaddyttv.github.io/BambuView/companion.html";
 const COMPANION_RELEASE_URL =
-  "https://github.com/DeepDaddyTTV/BambuView/releases/latest";
+  "https://github.com/DeepDaddyTTV/BambuView/releases";
 
 function toneClasses(status: CompanionRegistration["status"]) {
   if (status === "online") {
@@ -44,6 +44,9 @@ export function CompanionPage() {
   const [latestPairingCode, setLatestPairingCode] =
     useState<CompanionPairingCode | null>(null);
   const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [pairingCodeMessage, setPairingCodeMessage] = useState<string | null>(
+    null,
+  );
 
   const companionsQuery = useQuery({
     queryKey: ["companions"],
@@ -76,6 +79,12 @@ export function CompanionPage() {
       ),
     onSuccess: ({ pairingCode }) => {
       setLatestPairingCode(pairingCode);
+      setPairingCodeMessage("Pairing token ready to copy.");
+    },
+    onError: (error) => {
+      setPairingCodeMessage(
+        error instanceof Error ? error.message : "Could not create a pairing token.",
+      );
     },
   });
 
@@ -158,7 +167,7 @@ export function CompanionPage() {
               target="_blank"
             >
               <ExternalLink className="h-4 w-4" />
-              <span>Open Latest Release</span>
+              <span>Open Companion Releases</span>
             </a>
             <a
               className="fleet-console-toolbar__button justify-center"
@@ -205,6 +214,11 @@ export function CompanionPage() {
                   : "Generate Pairing Token"}
               </span>
             </button>
+            {pairingCodeMessage ? (
+              <div className="mt-3 text-sm text-zinc-300">
+                {pairingCodeMessage}
+              </div>
+            ) : null}
             {latestPairingCode ? (
               <div className="mt-5 rounded-[18px] border border-emerald-500/20 bg-emerald-500/10 p-4">
                 <div className="text-xs uppercase tracking-[0.2em] text-emerald-200">

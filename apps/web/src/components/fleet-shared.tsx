@@ -989,7 +989,7 @@ export function LiveFleetPreview({
             </div>
             <div className="live-fleet-preview__nav-item">Prepare & Slice</div>
             <div className="live-fleet-preview__nav-item">Cameras</div>
-            <div className="live-fleet-preview__nav-item">Companion</div>
+            <div className="live-fleet-preview__nav-item">Settings</div>
             <div className="live-fleet-preview__rail-spacer" />
             <div className="live-fleet-preview__status-card">
               All Systems Operational

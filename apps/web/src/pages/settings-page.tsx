@@ -1,5 +1,6 @@
-import { Check, Loader2 } from "lucide-react";
+import { Check, Loader2, Palette, PlugZap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { Navigate, NavLink, useParams } from "react-router-dom";
 
 import {
   DARK_BACKGROUND_SWATCHES,
@@ -11,6 +12,7 @@ import {
 import { useAppearance } from "../app/appearance";
 import { LiveFleetPreview } from "../components/fleet-shared";
 import { apiFetch } from "../lib/api";
+import { CompanionPage } from "./companion-page";
 
 const backgroundOptions = [
   { key: "topo", label: "Topo" },
@@ -18,6 +20,22 @@ const backgroundOptions = [
   { key: "blueprint", label: "Blueprint" },
   { key: "sweep", label: "Sweep" },
   { key: "plain", label: "Plain" },
+] as const;
+
+const settingSections = [
+  {
+    description: "Tune the approved shell and personalize how BambuView feels.",
+    icon: Palette,
+    key: "appearance",
+    label: "Appearance",
+  },
+  {
+    description:
+      "Pair bridge apps, generate pairing tokens, and manage Companion links.",
+    icon: PlugZap,
+    key: "companion",
+    label: "Companion",
+  },
 ] as const;
 
 function ColorSwatch({
@@ -41,7 +59,7 @@ function ColorSwatch({
   );
 }
 
-export function SettingsPage() {
+function AppearanceSettingsSection() {
   const { appearance, errorMessage, isSaving, updateAppearance } =
     useAppearance();
   const previewQuery = useQuery({
@@ -208,6 +226,52 @@ export function SettingsPage() {
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+export function SettingsPage() {
+  const { section = "appearance" } = useParams<{
+    section?: "appearance" | "companion";
+  }>();
+  const activeSection = settingSections.find((item) => item.key === section);
+
+  if (!activeSection) {
+    return <Navigate replace to="/settings/appearance" />;
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="panel">
+        <div className="section-title">Settings Sections</div>
+        <p className="mt-3 text-sm leading-7 text-zinc-400">
+          Move between appearance controls and Companion management without
+          leaving Settings.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          {settingSections.map((item) => (
+            <NavLink
+              className={({ isActive }) =>
+                `fleet-console-toolbar__button justify-center ${isActive ? "border-[color:var(--accent)] bg-[color:rgba(126,211,33,0.12)] text-white" : ""}`
+              }
+              key={item.key}
+              to={`/settings/${item.key}`}
+            >
+              <item.icon className="h-4 w-4" />
+              <span>{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+        <div className="mt-4 text-sm text-zinc-400">
+          {activeSection.description}
+        </div>
+      </section>
+
+      {activeSection.key === "appearance" ? (
+        <AppearanceSettingsSection />
+      ) : (
+        <CompanionPage />
+      )}
     </div>
   );
 }

@@ -21,7 +21,6 @@ import {
   Palette,
   Pause,
   Plus,
-  PlugZap,
   RefreshCcw,
   Search,
   Send,
@@ -72,9 +71,8 @@ const navigationItems = [
   { icon: Grid2x2, label: "Fleet", to: "/fleet" },
   { icon: FileCode2, label: "Prepare & Slice", to: "/prepare" },
   { icon: Camera, label: "Cameras", to: "/cameras" },
-  { icon: PlugZap, label: "Companion", to: "/companion" },
   { icon: Users2, label: "Users", to: "/users" },
-  { icon: Settings, label: "Settings", to: "/settings" },
+  { icon: Settings, label: "Settings", to: "/settings/appearance" },
 ] as const;
 
 const scopeOptions = [
@@ -2227,9 +2225,12 @@ export function FleetPage({ user }: { user: UserProfile }) {
               ))}
             </div>
             <ModeToggle />
-            <Link className="fleet-console-toolbar__button" to="/settings">
+            <Link
+              className="fleet-console-toolbar__button"
+              to="/settings/appearance"
+            >
               <Palette className="h-4 w-4" />
-              <span>Appearance</span>
+              <span>Settings</span>
             </Link>
           </div>
         </header>

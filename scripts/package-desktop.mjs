@@ -35,8 +35,23 @@ const electronBuilderArgs = passthroughArgs.filter(
 );
 const pnpmCli = process.env.npm_execpath ?? process.env.PNPM_EXECUTABLE ?? null;
 
-function buildAssetName({ name, version, osName, extra, style, extension }) {
-  return `${name}-${version}-${osName}-${extra}-${style}.${extension}`;
+function buildAssetName({ name, version, osName, extra, arch, extension }) {
+  return `${name}-${version}-${osName}-${extra}-${arch}.${extension}`;
+}
+
+function getArchLabel() {
+  const arch = getTargetArch();
+
+  switch (arch) {
+    case "arm64":
+      return "ARM64";
+    case "ia32":
+      return "X86";
+    case "x64":
+      return "X64";
+    default:
+      return arch.toUpperCase();
+  }
 }
 
 function replaceReleaseFile(matcher, nextFileName) {
@@ -59,6 +74,7 @@ function replaceReleaseFile(matcher, nextFileName) {
 
 function normalizeDesktopReleaseArtifacts(version) {
   const baseName = "BambuView";
+  const arch = getArchLabel();
 
   if (process.platform === "darwin") {
     replaceReleaseFile(
@@ -68,7 +84,7 @@ function normalizeDesktopReleaseArtifacts(version) {
         version,
         osName: "MACOS",
         extra: "Installer",
-        style: "DMG",
+        arch,
         extension: "dmg",
       }),
     );
@@ -79,7 +95,7 @@ function normalizeDesktopReleaseArtifacts(version) {
         version,
         osName: "MACOS",
         extra: "Portable",
-        style: "ZIP",
+        arch,
         extension: "zip",
       }),
     );
@@ -94,7 +110,7 @@ function normalizeDesktopReleaseArtifacts(version) {
         version,
         osName: "WIN",
         extra: "Installer",
-        style: "NSIS",
+        arch,
         extension: "exe",
       }),
     );
@@ -105,7 +121,7 @@ function normalizeDesktopReleaseArtifacts(version) {
         version,
         osName: "WIN",
         extra: "Portable",
-        style: "ZIP",
+        arch,
         extension: "zip",
       }),
     );
@@ -119,7 +135,7 @@ function normalizeDesktopReleaseArtifacts(version) {
       version,
       osName: "LINUX",
       extra: "Portable",
-      style: "APPIMAGE",
+      arch,
       extension: "AppImage",
     }),
   );
@@ -130,7 +146,7 @@ function normalizeDesktopReleaseArtifacts(version) {
       version,
       osName: "LINUX",
       extra: "Installer",
-      style: "DEB",
+      arch,
       extension: "deb",
     }),
   );
@@ -141,7 +157,7 @@ function normalizeDesktopReleaseArtifacts(version) {
       version,
       osName: "LINUX",
       extra: "Installer",
-      style: "RPM",
+      arch,
       extension: "rpm",
     }),
   );
@@ -307,7 +323,6 @@ function createWindowsPortableZip() {
   const packageData = JSON.parse(
     readFileSync(path.join(desktopDir, "package.json"), "utf8"),
   );
-  const arch = getTargetArch();
   const productName = (
     packageData.build?.productName ??
     packageData.productName ??
@@ -318,7 +333,7 @@ function createWindowsPortableZip() {
     version: packageData.version,
     osName: "WIN",
     extra: "Portable",
-    style: "ZIP",
+    arch: getArchLabel(),
     extension: "dir",
   }).replace(/\.dir$/, "");
   const unpackedDir = path.join(outputDir, "win-unpacked");

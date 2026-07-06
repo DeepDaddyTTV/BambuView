@@ -175,6 +175,9 @@ export function App() {
             <div className="companion-brand__copy">
               Local bridge for printers, cameras, telemetry, and file handoff
             </div>
+            <div className="companion-brand__copy">
+              Version {snapshot.health.appVersion}
+            </div>
           </div>
         </div>
 
@@ -959,6 +962,44 @@ export function App() {
                     <option value="light">Light</option>
                   </select>
                 </label>
+                <label>
+                  <span>Check for updates on launch</span>
+                  <input
+                    checked={settingsForm.checkForUpdatesOnLaunch}
+                    onChange={(event) =>
+                      setSettingsForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              checkForUpdatesOnLaunch: event.target.checked,
+                            }
+                          : current,
+                      )
+                    }
+                    type="checkbox"
+                  />
+                </label>
+                <label>
+                  <span>Update check interval (minutes)</span>
+                  <input
+                    min={5}
+                    onChange={(event) =>
+                      setSettingsForm((current) =>
+                        current
+                          ? {
+                              ...current,
+                              updateCheckIntervalMinutes: Number(
+                                event.target.value ||
+                                  current.updateCheckIntervalMinutes,
+                              ),
+                            }
+                          : current,
+                      )
+                    }
+                    type="number"
+                    value={settingsForm.updateCheckIntervalMinutes}
+                  />
+                </label>
                 <button className="solid-button" disabled={busy} type="submit">
                   <Settings2 className="button-icon" />
                   Save Settings
@@ -985,7 +1026,53 @@ export function App() {
                   <dt>Active Streams</dt>
                   <dd>{snapshot.streams.length}</dd>
                 </div>
+                <div>
+                  <dt>Current Version</dt>
+                  <dd>v{snapshot.health.appVersion}</dd>
+                </div>
+                <div>
+                  <dt>Latest Release</dt>
+                  <dd>
+                    {snapshot.update.latestVersion
+                      ? `v${snapshot.update.latestVersion}`
+                      : "Not checked yet"}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Update Status</dt>
+                  <dd>{snapshot.update.message ?? "Idle"}</dd>
+                </div>
+                <div>
+                  <dt>Last Checked</dt>
+                  <dd>{snapshot.update.lastCheckedAt ?? "Never"}</dd>
+                </div>
               </dl>
+              <div className="button-row">
+                <button
+                  className="ghost-button"
+                  disabled={busy}
+                  onClick={() => {
+                    void runAction(() => window.companion.checkForUpdates());
+                  }}
+                  type="button"
+                >
+                  <RefreshCcw className="button-icon" />
+                  Check Now
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={busy || !snapshot.update.releaseUrl}
+                  onClick={() => {
+                    void runAction(() => window.companion.openUpdateDownload());
+                  }}
+                  type="button"
+                >
+                  <HardDriveDownload className="button-icon" />
+                  {snapshot.update.available
+                    ? "Download Installer"
+                    : "Open Release"}
+                </button>
+              </div>
               <div className="notice notice--warning">
                 <FileUp className="button-icon" />
                 <span>

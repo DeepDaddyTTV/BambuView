@@ -39,7 +39,7 @@ Install the build for your platform, launch `BambuView Companion`, and keep it r
 
 ## Pair Companion With BambuView
 
-1. In BambuView, open `Companion`.
+1. In BambuView, open `Settings`, then choose `Companion`.
 2. Generate a one-time pairing token.
 3. Copy the BambuView server URL shown there.
 4. Open BambuView Companion.
@@ -49,6 +49,16 @@ Install the build for your platform, launch `BambuView Companion`, and keep it r
 8. Finish pairing.
 
 After pairing, BambuView stores the Companion base URL and bridge token server-side.
+
+## Keep Companion Updated
+
+1. Open `Settings` in Companion.
+2. Leave `Check for updates on launch` enabled if you want Companion to look for new alpha builds every time it opens.
+3. Set `Update check interval (minutes)` to how often Companion should scan in the background. The default is `30`.
+4. Use `Check Now` any time you want an immediate update check.
+5. When a new build is ready, choose `Download Installer` to download the latest release and open the installer for your platform.
+
+Companion always shows its current version in the sidebar so you can quickly confirm what is installed before testing a new server release.
 
 ## Add A Printer Through Companion
 
@@ -79,7 +89,7 @@ For a Bambu native camera source:
 
 ## Assign Companion Feeds In BambuView
 
-1. Open `Companion` in BambuView.
+1. Open `Settings`, then `Companion`, in BambuView.
 2. Select the paired Companion.
 3. Test the connection to pull the latest streams.
 4. Import the desired Companion stream as a camera source.

@@ -240,10 +240,33 @@ export interface CompanionLogEntry {
 export interface CompanionSettings {
   accentColor: string;
   bindMode: CompanionBridgeBindMode;
+  checkForUpdatesOnLaunch: boolean;
   friendlyName: string;
   host: string;
   port: number;
   themeMode: "dark" | "light";
+  updateCheckIntervalMinutes: number;
+}
+
+export interface CompanionUpdateState {
+  assetName: string | null;
+  assetUrl: string | null;
+  available: boolean;
+  downloadedAt: string | null;
+  downloadedFileName: string | null;
+  downloadedFilePath: string | null;
+  lastCheckedAt: string | null;
+  latestVersion: string | null;
+  message: string | null;
+  releaseName: string | null;
+  releaseUrl: string | null;
+  status:
+    | "idle"
+    | "checking"
+    | "downloading"
+    | "available"
+    | "current"
+    | "error";
 }
 
 export interface CompanionSnapshot {
@@ -253,6 +276,7 @@ export interface CompanionSnapshot {
   printers: CompanionPrinter[];
   settings: CompanionSettings;
   streams: CompanionStream[];
+  update: CompanionUpdateState;
 }
 
 export interface CompanionPairingCode {
