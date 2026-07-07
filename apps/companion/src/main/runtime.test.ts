@@ -315,7 +315,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.41-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.42-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify([
@@ -327,10 +327,10 @@ describe("companion runtime", () => {
               },
             ],
             html_url:
-              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.41",
-            name: "BVCompanion v0.0.41 Alpha",
+              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.42",
+            name: "BVCompanion v0.0.42 Alpha",
             prerelease: true,
-            tag_name: "bvcompanion-v0.0.41",
+            tag_name: "bvcompanion-v0.0.42",
           },
         ]),
         {
@@ -344,8 +344,8 @@ describe("companion runtime", () => {
     const snapshot = await runtime.checkForUpdates();
 
     expect(snapshot.update.available).toBe(true);
-    expect(snapshot.update.latestVersion).toBe("0.0.41");
-    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.41");
+    expect(snapshot.update.latestVersion).toBe("0.0.42");
+    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.42");
   });
 
   it("downloads and opens the latest Companion installer", async () => {
@@ -384,7 +384,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.41-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.42-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async (input) => {
       const url = String(input);
       if (url.includes("/releases?per_page=20")) {
@@ -398,10 +398,10 @@ describe("companion runtime", () => {
                 },
               ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.41",
-              name: "BVCompanion v0.0.41 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.42",
+              name: "BVCompanion v0.0.42 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.41",
+              tag_name: "bvcompanion-v0.0.42",
             },
           ]),
           {

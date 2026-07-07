@@ -1,4 +1,10 @@
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  type Dirent,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -198,9 +204,12 @@ function collectScanFiles(
       continue;
     }
 
-    let entries: ReturnType<typeof readdirSync>;
+    let entries: Dirent<string>[];
     try {
-      entries = readdirSync(current.location, { withFileTypes: true });
+      entries = readdirSync(current.location, {
+        encoding: "utf8",
+        withFileTypes: true,
+      });
     } catch {
       continue;
     }

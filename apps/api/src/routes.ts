@@ -540,9 +540,7 @@ async function dispatchPrinterCommand(
     accepted: false,
     action: request.action,
     detail:
-      connection.connectionMode === "lan"
-        ? "This printer still needs either saved local credentials for the supported LAN commands or a paired Companion bridge for deeper controls."
-        : "This printer profile needs a paired Companion bridge before BambuView can attempt that action.",
+      "This printer profile needs a paired Companion bridge before BambuView can attempt that action.",
     mode: connection.connectionMode,
   };
 }

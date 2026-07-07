@@ -1696,7 +1696,6 @@ export class CompanionRuntime extends EventEmitter {
     stream: StoredStream,
   ): CameraBridgeSource | null {
     return resolveStreamCameraBridgeSource({
-      linkedPrinterId: stream.linkedPrinterId,
       name: stream.name,
       password: decryptSecret(this.codec, stream.password),
       sourceKind: stream.sourceKind,

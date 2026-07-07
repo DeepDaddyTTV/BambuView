@@ -6,6 +6,18 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.42 - 2026-07-07
+
+### Bug Fixes & Stability
+
+- Smoother Alpha Updates: the bridge-aware Prepare and Companion pass now clears the stricter release validation path, so the next Docker and installer alpha can publish cleanly instead of stalling before release.
+- Steadier Companion Bridge Setup: local bridge-surface discovery and linked camera-stream handling are now more reliable during validation, which makes printer import and camera assignment flows safer to update.
+- Better Release Readiness: the web app, API server, desktop shell, and Companion bridge now rebuild together more consistently after this Bambu workflow pass.
+
+### Improvements & What's New
+
+- More Reliable Bridge-Aware Bambu Testing: the direct LAN path, paired Companion path, and saved workbench shelf from the last feature pass are now packaged as a corrected alpha revision that is ready for deployment.
+
 ## v0.0.41 - 2026-07-07
 
 ### Bug Fixes & Stability
