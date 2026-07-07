@@ -85,6 +85,11 @@ function prepareStatusPayload() {
         summary: "Use Prusa for resin jobs.",
       },
     ],
+    workspace: {
+      activeProjectId: null,
+      projects: [],
+      rootDirectory: "/workspace",
+    },
   };
 }
 
@@ -172,8 +177,14 @@ it("sends a developer-mode job through the printer file endpoint", async () => {
         },
       );
     }
-    if (url.endsWith("/api/printers/dev-printer-1/files") && method === "POST") {
-      requestBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    if (
+      url.endsWith("/api/printers/dev-printer-1/files") &&
+      method === "POST"
+    ) {
+      requestBody = JSON.parse(String(init?.body ?? "{}")) as Record<
+        string,
+        unknown
+      >;
       return new Response(
         JSON.stringify({
           accepted: true,
@@ -257,7 +268,10 @@ it("generates a Bambu Connect fallback link for staged cloud printers", async ()
       );
     }
     if (url.endsWith("/api/bambu-connect/import-url") && method === "POST") {
-      requestBody = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      requestBody = JSON.parse(String(init?.body ?? "{}")) as Record<
+        string,
+        unknown
+      >;
       return new Response(
         JSON.stringify({
           importUrl: {

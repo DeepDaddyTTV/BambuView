@@ -31,6 +31,12 @@ const CONNECTION_TIMEOUT_MS = 3000;
 const MQTT_REPORT_TIMEOUT_MS = 4500;
 const MQTT_COMMAND_TIMEOUT_MS = 4000;
 const SSDP_DISCOVERY_TIMEOUT_MS = 5500;
+const LIMITED_LOCAL_COMMANDS = new Set<PrinterCommandRequest["action"]>([
+  "pause",
+  "resume",
+  "stop",
+  "lamp",
+]);
 
 export interface BambuPrinterTelemetry {
   activeTray: string | null;
@@ -121,6 +127,14 @@ function normalizeRemoteFileName(inputPath: string, fileName?: string): string {
   }
 
   return preferred;
+}
+
+function hasLocalAccess(input: BambuPrinterConnectionInput): boolean {
+  return Boolean(
+    input.host.trim() &&
+    input.serial.trim() &&
+    (input.accessCode?.trim() ?? "").length > 0,
+  );
 }
 
 function buildSequenceId(): string {
@@ -1152,7 +1166,9 @@ async function uploadBambuFtpsFile(
 }> {
   const localPath = request.path.trim();
   if (!localPath) {
-    throw new Error("Choose a local file path before sending it to the printer.");
+    throw new Error(
+      "Choose a local file path before sending it to the printer.",
+    );
   }
 
   const stats = statSync(localPath);
@@ -1194,12 +1210,27 @@ export async function runDirectBambuCommand(
   input: BambuPrinterConnectionInput,
   request: PrinterCommandRequest,
 ): Promise<PrinterCommandResponse> {
-  if (input.connectionMode !== "developer") {
+  if (!hasLocalAccess(input)) {
     return {
       accepted: false,
       action: request.action,
       detail:
-        "Direct machine controls require LAN-only Developer Mode on the printer.",
+        "Direct machine controls require the printer host, serial number, and LAN access code.",
+      mode: input.connectionMode,
+    };
+  }
+
+  if (
+    input.connectionMode !== "developer" &&
+    !LIMITED_LOCAL_COMMANDS.has(request.action)
+  ) {
+    return {
+      accepted: false,
+      action: request.action,
+      detail:
+        input.connectionMode === "lan"
+          ? "This command still requires LAN-only Developer Mode on the printer."
+          : "This connection mode can currently route pause, resume, stop, and lamp commands locally. Full motion and extrusion controls still need Developer Mode.",
       mode: input.connectionMode,
     };
   }
@@ -1230,11 +1261,10 @@ export async function sendDirectBambuFile(
   input: BambuPrinterConnectionInput,
   request: PrinterFileSendRequest,
 ): Promise<PrinterFileSendResponse> {
-  if (input.connectionMode !== "developer") {
+  if (input.connectionMode !== "developer" && input.connectionMode !== "lan") {
     return {
       accepted: false,
-      detail:
-        "Direct printer upload requires LAN-only Developer Mode on the printer.",
+      detail: "This printer profile is not using the direct local upload path.",
       fileName: null,
       mode: input.connectionMode,
       sizeBytes: null,
@@ -1260,7 +1290,9 @@ export async function sendDirectBambuFile(
   return {
     accepted: true,
     detail: shouldStartPrint
-      ? "The file was uploaded over FTPS and a Developer Mode print-start request was published."
+      ? input.connectionMode === "developer"
+        ? "The file was uploaded over FTPS and a Developer Mode print-start request was published."
+        : "The file was uploaded over FTPS and a local start-print request was published through the saved LAN path."
       : "The file was uploaded to the printer over FTPS and is ready for a later start command.",
     fileName: uploaded.fileName,
     mode: input.connectionMode,

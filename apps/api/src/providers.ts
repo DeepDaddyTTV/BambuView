@@ -21,6 +21,7 @@ import {
   type PrinterConnectionSecretRecord,
   updatePrinterConnectionStatus,
 } from "./db.js";
+import { buildPrepareStatus } from "./prepare.js";
 import {
   fetchBambuMqttReport,
   parseBambuTelemetry,
@@ -785,7 +786,9 @@ function companionCameraFeed(
     sourceId: null,
     status:
       match.stream?.status ??
-      (match.printer.capabilities.camera === "available" ? "online" : "degraded"),
+      (match.printer.capabilities.camera === "available"
+        ? "online"
+        : "degraded"),
     streamKind,
     streamUrl: `${basePath}/stream`,
   };
@@ -1198,158 +1201,11 @@ class DatabaseBackedCameraProvider implements CameraProvider {
   }
 }
 
-class MockSliceProvider implements SliceProvider {
+class DatabaseBackedSliceProvider implements SliceProvider {
+  constructor(private readonly db: AppDatabase) {}
+
   async getStatus(): Promise<PrepareStatus> {
-    return {
-      status: "available",
-      headline: "Prepare around Orca for filament and Prusa for resin.",
-      description:
-        "The Prepare & Slice workspace now routes real printer targets, direct Developer Mode sends, paired Companion bridge handoff, and Bambu Connect fallback from one fork-aware shell. OrcaSlicer stays primary for filament work, while PrusaSlicer remains isolated for resin workflows.",
-      capabilities: [
-        "printer-aware Orca filament lane with real Bambu target selection",
-        "direct Developer Mode send and start-print handoff from the workspace",
-        "paired Companion bridge send path for staged printer profiles",
-        "Bambu Connect import-file URL generation as a desktop fallback",
-        "Prusa resin lane kept separate so SLA export can evolve cleanly",
-        "shared pipeline checklist for source path, target, output, and handoff",
-      ],
-      workflows: [
-        {
-          id: "filament",
-          label: "Filament / FDM",
-          summary:
-            "Use Orca as the default workbench for Bambu and other filament printers, with plate editing, printer presets, and Bambu Connect handoff.",
-          printerClass: "Bambu, farm, and FDM printers",
-          delivery:
-            "Slice to .3mf or Bambu-ready G-code, then route through direct upload, Companion bridge handoff, or Bambu Connect fallback.",
-          acceptedInputs: [".3mf", ".stl", ".step", ".obj", ".amf"],
-          activeSlicerId: "orcaslicer",
-        },
-        {
-          id: "resin",
-          label: "Resin / SLA",
-          summary:
-            "Reserve Prusa for resin printers only so supports, exposure presets, and SLA export stay isolated from the filament path.",
-          printerClass: "Resin and SLA printers only",
-          delivery:
-            "Prepare resin-specific jobs and export via the dedicated Prusa resin fork path.",
-          acceptedInputs: [".sl1", ".sl1s", ".stl", ".obj", ".3mf"],
-          activeSlicerId: "prusaslicer",
-        },
-      ],
-      slicers: [
-        {
-          id: "orcaslicer",
-          label: "Orca Workbench",
-          summary:
-            "Primary fork target for filament slicing, Bambu-centric presets, and multi-printer FDM preparation inside BambuView.",
-          status: "available",
-          upstreamName: "OrcaSlicer/OrcaSlicer",
-          upstreamUrl: "https://github.com/OrcaSlicer/OrcaSlicer",
-          license: "AGPL-3.0",
-          workflowKinds: ["filament"],
-          defaultFor: ["filament"],
-          notes: [
-            "Treat Orca as the first-class filament workspace.",
-            "Direct Developer Mode send is now wired through the Prepare workspace.",
-            "Bambu Connect fallback stays available for desktop import workflows.",
-            "Future adapters can still target CLI or native helper surfaces without changing the route.",
-          ],
-          plannedCapabilities: [
-            "plate layout and object transforms",
-            "printer and filament preset targeting",
-            "slice queue and export tracking",
-            "Bambu job handoff and direct upload resolution",
-          ],
-        },
-        {
-          id: "prusaslicer",
-          label: "Prusa Resin Workbench",
-          summary:
-            "Secondary fork target reserved for resin-only workflows so SLA tooling does not leak into the filament path.",
-          status: "scaffolded",
-          upstreamName: "prusa3d/PrusaSlicer",
-          upstreamUrl: "https://github.com/prusa3d/PrusaSlicer",
-          license: "AGPL-3.0",
-          workflowKinds: ["resin"],
-          defaultFor: ["resin"],
-          notes: [
-            "Only surface this workspace for resin workflows.",
-            "Do not present Prusa as a filament default inside BambuView.",
-            "Resin export and printer targeting stay separate from the Bambu handoff flow.",
-          ],
-          plannedCapabilities: [
-            "resin printer preset routing",
-            "support and exposure profile management",
-            "resin export staging",
-            "future resin queue and validation hooks",
-          ],
-        },
-      ],
-      pipeline: [
-        {
-          id: "import",
-          label: "Import Models",
-          summary:
-            "Bring in raw models and project containers before they are routed into the correct slicer workspace.",
-          status: "available",
-          slicerIds: ["orcaslicer", "prusaslicer"],
-        },
-        {
-          id: "prepare",
-          label: "Prepare Workspace",
-          summary:
-            "Apply printer presets, plate layout, transforms, and material context inside the workflow-specific slicer shell.",
-          status: "available",
-          slicerIds: ["orcaslicer", "prusaslicer"],
-        },
-        {
-          id: "slice",
-          label: "Slice Jobs",
-          summary:
-            "Run workflow-aware slicing so filament jobs stay in Orca and resin jobs stay in Prusa.",
-          status: "scaffolded",
-          slicerIds: ["orcaslicer", "prusaslicer"],
-        },
-        {
-          id: "handoff",
-          label: "Export And Send",
-          summary:
-            "Keep direct upload, Companion bridge send, and Bambu Connect fallback available without mixing resin and filament delivery paths.",
-          status: "available",
-          slicerIds: ["orcaslicer", "prusaslicer"],
-        },
-      ],
-      handoffActions: [
-        {
-          id: "bambu-connect-import",
-          label: "Bambu Connect import link",
-          description:
-            "Generate the official Bambu Connect import URL for sliced filament jobs that already exist on the computer running Bambu Connect.",
-          availableFor: ["filament"],
-          requirement:
-            "Requires an absolute local file path for a sliced .3mf or Bambu-ready G-code file.",
-        },
-        {
-          id: "direct-or-bridge-send",
-          label: "Direct or bridge send",
-          description:
-            "Send through direct Developer Mode upload when available, or resolve the same printer through a paired Companion bridge when that is the active route.",
-          availableFor: ["filament"],
-          requirement:
-            "Requires a saved printer target plus either LAN-only Developer Mode or a paired Companion for that serial.",
-        },
-        {
-          id: "resin-export-staging",
-          label: "Resin export staging",
-          description:
-            "Keep resin exports isolated for the future Prusa resin fork instead of forcing them through the Bambu Connect path.",
-          availableFor: ["resin"],
-          requirement:
-            "Resin printer delivery stays in the Prusa resin workspace until a dedicated upload path exists.",
-        },
-      ],
-    };
+    return buildPrepareStatus(this.db);
   }
 }
 
@@ -1361,6 +1217,6 @@ export function createProviders(db: AppDatabase): {
   return {
     cameraProvider: new DatabaseBackedCameraProvider(db),
     printerProvider: new DatabaseBackedPrinterProvider(db),
-    sliceProvider: new MockSliceProvider(),
+    sliceProvider: new DatabaseBackedSliceProvider(db),
   };
 }

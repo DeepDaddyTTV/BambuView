@@ -12,13 +12,16 @@ Companion listens on `http://localhost:<port>` by default and requires a Compani
 - Keep the local bridge on `localhost` by default
 - Warn on busy ports and let you choose another port
 - Discover LAN-broadcasting Bambu printers and prefill local profiles from the detected host, model, and serial details
+- Detect local Bambu Connect, Bambu Studio, OrcaSlicer, PrusaSlicer, Network Plugin, and camera-bridge surfaces on the same trusted machine
+- Surface cached desktop bridge printer profiles from those local apps back into BambuView discovery
 - Save local Bambu printer profiles manually with the same shared model list and connection-mode labels used by the main BambuView app
 - Read live Bambu telemetry over the local MQTT report path when hostname, serial number, and access code are present
-- Run direct machine commands for `LAN-only Developer Mode` printers, including pause, resume, stop, home, movement, lamp, fan, temperature, and extruder actions
-- Upload and send sliced files directly over the local Developer Mode FTPS path when the printer profile supports it
+- Run direct machine commands for saved local Bambu profiles, with the deepest motion and extrusion path still best in `LAN-only Developer Mode`
+- Upload and send sliced files directly over the local LAN or Developer Mode FTPS path when the printer profile supports it
 - Open Bambu Connect handoff workflows on the trusted machine for `Cloud / Normal` and `Bambu Connect` printer profiles
 - Save local stream sources such as MJPEG, HTTP snapshot, HLS, RTSP, and native Bambu camera targets
 - Expose browser-compatible Companion stream endpoints for saved MJPEG and snapshot sources
+- Restream supported native Bambu camera targets through the bundled local camera bridge when the saved printer profile includes the required local details
 - Let BambuView import Companion streams as `BambuView Companion` camera sources
 - Keep reporting capabilities honestly instead of pretending unavailable features work
 - Check for updates, show the installed version, and open the latest installer from inside Companion
@@ -140,10 +143,10 @@ If a printer still has no working camera, Fleet shows:
 - On macOS, Windows, and Linux, let the app keep listening on the local machine.
 - Only allow wider network access when you intentionally enabled LAN binding.
 
-### missing ffmpeg
+### camera bridge limits
 
-- This alpha does not rely on bundled ffmpeg yet.
-- Save RTSP and native Bambu camera targets honestly, then provide a browser-compatible bridge output for playback.
+- This alpha does bundle the local camera bridge now, but browser playback still depends on the saved source resolving into a browser-safe output.
+- Unsupported native Bambu families and raw RTSP-only paths may still need Frigate, go2rtc, or another browser-safe bridge layer before they preview cleanly in the web app.
 
 ### black or missing camera screens
 

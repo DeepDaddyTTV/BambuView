@@ -54,6 +54,10 @@ import {
   type CameraBridgeSource,
 } from "./camera-bridge.js";
 import {
+  inspectLocalBridgeInventory,
+  type LocalBridgeInventory,
+} from "./bridge-surfaces.js";
+import {
   discoverBambuPrinters,
   runBambuPrinterCommand,
   sendBambuPrinterFile,
@@ -206,9 +210,7 @@ function isLocalhostAddress(hostname: string): boolean {
 function isWildcardAddress(hostname: string): boolean {
   const normalized = hostname.trim().toLowerCase();
   return (
-    normalized === "0.0.0.0" ||
-    normalized === "::" ||
-    normalized === "[::]"
+    normalized === "0.0.0.0" || normalized === "::" || normalized === "[::]"
   );
 }
 
@@ -287,9 +289,10 @@ async function validateBambuViewServerTarget(
     return formatPairingFetchError(serverUrl, error);
   }
 
-  const data = (await response.json().catch(() => null)) as
-    | { message?: string; ok?: boolean }
-    | null;
+  const data = (await response.json().catch(() => null)) as {
+    message?: string;
+    ok?: boolean;
+  } | null;
   if (response.ok && data?.ok === true) {
     return null;
   }
@@ -369,7 +372,9 @@ interface GitHubReleaseRecord {
   tag_name?: string;
 }
 
-function normalizeReleaseVersion(value: string | null | undefined): string | null {
+function normalizeReleaseVersion(
+  value: string | null | undefined,
+): string | null {
   if (!value) {
     return null;
   }
@@ -382,7 +387,11 @@ function compareVersions(left: string, right: string): number {
   const leftParts = left.split(".").map((part) => Number(part));
   const rightParts = right.split(".").map((part) => Number(part));
 
-  for (let index = 0; index < Math.max(leftParts.length, rightParts.length); index += 1) {
+  for (
+    let index = 0;
+    index < Math.max(leftParts.length, rightParts.length);
+    index += 1
+  ) {
     const leftValue = leftParts[index] ?? 0;
     const rightValue = rightParts[index] ?? 0;
 
@@ -662,6 +671,11 @@ export class CompanionRuntime extends EventEmitter {
 
   private readonly logger: CompanionLogger;
 
+  private localBridgeInventory: LocalBridgeInventory = {
+    printers: [],
+    surfaces: [],
+  };
+
   private readonly shellActions?: ShellActions;
 
   private state: PersistedState;
@@ -695,6 +709,7 @@ export class CompanionRuntime extends EventEmitter {
     this.logger = options.logger ?? new CompanionLogger();
     this.shellActions = options.shellActions;
     this.state = this.loadState();
+    this.localBridgeInventory = inspectLocalBridgeInventory();
     if (this.options.updateChecksEnabled !== false) {
       this.armUpdateChecks();
     }
@@ -825,6 +840,7 @@ export class CompanionRuntime extends EventEmitter {
     capabilities: CompanionCapabilityFlags;
     capabilityNotes: CompanionCapabilityNotes;
   } {
+    const bridgeInventory = this.readLocalBridgeInventory();
     const printers = this.listPrinters();
     const streams = this.listStreams();
     const telemetryReady = printers.some(
@@ -840,7 +856,8 @@ export class CompanionRuntime extends EventEmitter {
     );
     const needsRestream = this.state.streams.some(
       (stream) =>
-        (stream.sourceKind === "rtsp" || stream.sourceKind === "bambu-native") &&
+        (stream.sourceKind === "rtsp" ||
+          stream.sourceKind === "bambu-native") &&
         !this.resolveStoredStreamCameraSource(stream),
     );
     const developerPrinter = printers.some(
@@ -852,6 +869,10 @@ export class CompanionRuntime extends EventEmitter {
     const sliceBridgeReady = printers.some(
       (printer) => printer.capabilities.slicingAssist === "available",
     );
+    const detectedDesktopSurfaces = bridgeInventory.surfaces.filter(
+      (surface) => surface.status !== "missing",
+    );
+    const discoveredDesktopPrinters = bridgeInventory.printers.length;
 
     return {
       capabilities: {
@@ -860,18 +881,20 @@ export class CompanionRuntime extends EventEmitter {
           : printers.length > 0
             ? "requires_setup"
             : "unavailable",
-        camera: streamReady || nativeCameraReady
-          ? "available"
-          : needsRestream
-            ? "requires_restream"
-            : streams.length > 0 || printers.length > 0
-              ? "requires_setup"
-              : "unavailable",
+        camera:
+          streamReady || nativeCameraReady
+            ? "available"
+            : needsRestream
+              ? "requires_restream"
+              : streams.length > 0 || printers.length > 0
+                ? "requires_setup"
+                : "unavailable",
         controls: developerPrinter ? "available" : "requires_developer_mode",
         discovery: "available",
-        fileUpload: developerPrinter || connectHandoffPrinter
-          ? "available"
-          : "requires_setup",
+        fileUpload:
+          developerPrinter || connectHandoffPrinter
+            ? "available"
+            : "requires_setup",
         slicingAssist: sliceBridgeReady
           ? "available"
           : printers.length > 0
@@ -889,33 +912,63 @@ export class CompanionRuntime extends EventEmitter {
           streamReady || nativeCameraReady
             ? "Companion can already expose at least one live browser-safe camera feed through a direct stream or native bridge."
             : "Use MJPEG, snapshot, or HLS sources directly, or save a supported RTSP/native Bambu source for the built-in camera bridge.",
-        controls:
-          developerPrinter
-            ? "At least one saved printer can accept direct Developer Mode MQTT commands from Companion."
-            : "Switch a printer to LAN-only Developer Mode before direct machine controls are available.",
+        controls: developerPrinter
+          ? "At least one saved printer can accept direct Developer Mode MQTT commands from Companion."
+          : "Switch a printer to LAN-only Developer Mode before direct machine controls are available.",
         discovery:
-          "Companion can now scan the LAN for Bambu SSDP broadcasts and still supports manual printer profiles.",
-        fileUpload:
-          developerPrinter
-            ? "Developer Mode printers can accept direct FTPS upload and start-print handoff."
-            : connectHandoffPrinter
-              ? "Cloud and Bambu Connect printers can use the local Bambu Connect import handoff from this machine."
-              : "Add a Developer Mode or Bambu Connect printer to unlock local send workflows.",
+          detectedDesktopSurfaces.length > 0
+            ? `Companion can now scan the LAN, inspect ${detectedDesktopSurfaces.length} local bridge surface${detectedDesktopSurfaces.length === 1 ? "" : "s"}, and surface ${discoveredDesktopPrinters} cached desktop printer profile${discoveredDesktopPrinters === 1 ? "" : "s"} when they are available.`
+            : "Companion can now scan the LAN for Bambu SSDP broadcasts and still supports manual printer profiles.",
+        fileUpload: developerPrinter
+          ? "Developer Mode printers can accept direct FTPS upload and start-print handoff."
+          : connectHandoffPrinter
+            ? "Cloud and Bambu Connect printers can use the local Bambu Connect import handoff from this machine."
+            : "Add a Developer Mode or Bambu Connect printer to unlock local send workflows.",
         slicingAssist: sliceBridgeReady
           ? "Companion can already receive prepared jobs from BambuView and route them through direct upload or local Bambu Connect handoff."
           : "Add a Developer Mode or Bambu Connect printer to unlock Companion-assisted send workflows.",
         telemetry:
-          "Live telemetry is available for LAN and Developer profiles with hostname, serial number, and access code.",
+          "Live telemetry is available for any saved printer profile that includes hostname, serial number, and LAN access code on this machine.",
       },
     };
   }
 
   async getDiscoveryResult() {
-    return discoverBambuPrinters();
+    const [lanDiscovery] = await Promise.all([discoverBambuPrinters()]);
+    const bridgeInventory = this.readLocalBridgeInventory(true);
+    const printers = new Map<string, CompanionPrinter>();
+
+    for (const printer of lanDiscovery.printers) {
+      printers.set(`${printer.serial}:${printer.hostname}`, printer);
+    }
+    for (const printer of bridgeInventory.printers) {
+      printers.set(
+        `${printer.serial}:${printer.hostname || printer.id}`,
+        printer,
+      );
+    }
+
+    return {
+      attemptedAt: lanDiscovery.attemptedAt,
+      bridgeSources: bridgeInventory.surfaces,
+      detail:
+        bridgeInventory.printers.length > 0
+          ? `${lanDiscovery.detail} Companion also found ${bridgeInventory.printers.length} printer profile${bridgeInventory.printers.length === 1 ? "" : "s"} from local desktop bridge data.`
+          : lanDiscovery.detail,
+      instructions: [
+        ...lanDiscovery.instructions,
+        "Desktop bridge detections come from local Bambu Connect, Bambu Studio, OrcaSlicer, or PrusaSlicer data when those apps are installed on this machine.",
+      ],
+      printers: [...printers.values()].sort((left, right) =>
+        left.name.localeCompare(right.name),
+      ),
+      supported: lanDiscovery.supported || bridgeInventory.printers.length > 0,
+    };
   }
 
   getHealth(): CompanionHealthResponse {
     const { capabilities, capabilityNotes } = this.getCapabilitySummary();
+    const bridgeInventory = this.readLocalBridgeInventory();
     const warnings = [
       this.bridgeState.errorMessage,
       !this.state.pairing.paired
@@ -937,6 +990,7 @@ export class CompanionRuntime extends EventEmitter {
         port: this.state.settings.port,
         suggestedPort: this.bridgeState.suggestedPort,
       },
+      bridgeSources: bridgeInventory.surfaces,
       capabilities,
       capabilityNotes,
       pairing: { ...this.state.pairing },
@@ -1097,10 +1151,13 @@ export class CompanionRuntime extends EventEmitter {
     const requestedAction = input.action ?? "stage";
 
     if (requestedAction === "upload" || requestedAction === "send") {
-      if (printer.connectionMode === "developer") {
+      if (
+        printer.connectionMode === "developer" ||
+        printer.connectionMode === "lan"
+      ) {
         const result = await sendBambuPrinterFile(printerInput, input);
         this.logger.info(
-          `${requestedAction === "send" ? "Sent" : "Uploaded"} a local job to ${printer.name} through the direct Developer Mode path.`,
+          `${requestedAction === "send" ? "Sent" : "Uploaded"} a local job to ${printer.name} through the direct printer path.`,
         );
         return result;
       }
@@ -1110,7 +1167,9 @@ export class CompanionRuntime extends EventEmitter {
         printer.connectionMode === "bambu-connect"
       ) {
         const fileName =
-          input.fileName?.trim() || nextPath.split("/").pop() || "BambuView job";
+          input.fileName?.trim() ||
+          nextPath.split("/").pop() ||
+          "BambuView job";
         const importUrl = createBambuConnectImportUrl({
           name: fileName.replace(/\.(gcode\.3mf|3mf|gcode)$/i, ""),
           path: nextPath,
@@ -1120,7 +1179,9 @@ export class CompanionRuntime extends EventEmitter {
           await this.shellActions.openExternal(importUrl);
         }
 
-        this.logger.info(`Opened Bambu Connect import handoff for ${printer.name}.`);
+        this.logger.info(
+          `Opened Bambu Connect import handoff for ${printer.name}.`,
+        );
         return {
           accepted: true,
           detail:
@@ -1284,7 +1345,11 @@ export class CompanionRuntime extends EventEmitter {
   }
 
   private getUpdateDownloadPath(assetName: string) {
-    return join(dirname(this.options.stateFile), "updates", basename(assetName));
+    return join(
+      dirname(this.options.stateFile),
+      "updates",
+      basename(assetName),
+    );
   }
 
   async openUpdateDownload(): Promise<CompanionSnapshot> {
@@ -1459,7 +1524,10 @@ export class CompanionRuntime extends EventEmitter {
       throw new Error("Printer not found.");
     }
 
-    const result = await runBambuPrinterCommand(this.toPrinterInput(printer), input);
+    const result = await runBambuPrinterCommand(
+      this.toPrinterInput(printer),
+      input,
+    );
     this.logger.info(
       result.accepted
         ? `Sent ${input.action} to ${printer.name}.`
@@ -1610,6 +1678,14 @@ export class CompanionRuntime extends EventEmitter {
     this.emit("snapshot", this.getSnapshot());
   }
 
+  private readLocalBridgeInventory(force = false): LocalBridgeInventory {
+    if (force || this.localBridgeInventory.surfaces.length === 0) {
+      this.localBridgeInventory = inspectLocalBridgeInventory();
+    }
+
+    return this.localBridgeInventory;
+  }
+
   private resolveStoredPrinterCameraSource(
     printer: StoredPrinter,
   ): CameraBridgeSource | null {
@@ -1637,11 +1713,10 @@ export class CompanionRuntime extends EventEmitter {
       const printerInput = this.toPrinterInput(printer);
       const nativeBridge = resolvePrinterCameraBridgeSource(printerInput);
       const nativeBridgeSupport = nativeBambuBridgeSupport(printer.model);
-      const telemetryConfigured =
+      const localTelemetryReady =
         Boolean(printer.hostname.trim()) &&
-        Boolean(decryptSecret(this.codec, printer.accessCode)) &&
-        (printer.connectionMode === "lan" ||
-          printer.connectionMode === "developer");
+        Boolean(printer.serial.trim()) &&
+        Boolean(decryptSecret(this.codec, printer.accessCode));
       const linkedStreamBridge = linkedStream
         ? this.resolveStoredStreamCameraSource(linkedStream)
         : null;
@@ -1653,35 +1728,35 @@ export class CompanionRuntime extends EventEmitter {
           : "available"
         : nativeBridge
           ? "available"
-          : telemetryConfigured && nativeBridgeSupport.supported
+          : localTelemetryReady && nativeBridgeSupport.supported
             ? "requires_setup"
-            : printer.connectionMode === "lan" ||
-                printer.connectionMode === "developer"
+            : localTelemetryReady
               ? "requires_restream"
               : "requires_setup";
       const controlsState =
-        printer.connectionMode === "developer"
+        printer.connectionMode === "developer" || localTelemetryReady
           ? "available"
-          : "requires_developer_mode";
+          : "requires_setup";
       const fileUploadState =
         printer.connectionMode === "developer" ||
+        printer.connectionMode === "lan" ||
         printer.connectionMode === "cloud" ||
         printer.connectionMode === "bambu-connect"
           ? "available"
-          : "requires_developer_mode";
+          : "requires_setup";
       const slicingAssistState =
         fileUploadState === "available" ? "available" : "requires_setup";
 
       return {
         accessCodeSet: Boolean(decryptSecret(this.codec, printer.accessCode)),
         capabilities: {
-          ams: telemetryConfigured ? "available" : "requires_setup",
+          ams: localTelemetryReady ? "available" : "requires_setup",
           camera: cameraState,
           controls: controlsState,
           discovery: "available",
           fileUpload: fileUploadState,
           slicingAssist: slicingAssistState,
-          telemetry: telemetryConfigured ? "available" : "requires_setup",
+          telemetry: localTelemetryReady ? "available" : "requires_setup",
         },
         capabilityNotes: {
           ams: "AMS status follows the same local printer report used for telemetry when the printer answers.",
@@ -1693,31 +1768,33 @@ export class CompanionRuntime extends EventEmitter {
               : "This printer already has a browser-compatible stream linked."
             : nativeBridge
               ? "Companion can expose this printer's native camera directly for browser playback."
-              : telemetryConfigured && nativeBridgeSupport.supported
+              : localTelemetryReady && nativeBridgeSupport.supported
                 ? "Add the matching LAN access code and host details, then Companion can expose this printer's native camera directly."
-                : printer.connectionMode === "developer" ||
-                    printer.connectionMode === "lan"
+                : localTelemetryReady
                   ? nativeBridgeSupport.detail
                   : "Link a browser-compatible MJPEG or snapshot stream to preview this printer in BambuView.",
           controls:
             printer.connectionMode === "developer"
               ? "Developer Mode direct machine controls are available through Companion."
-              : "Switch the printer to LAN-only Developer Mode to prepare for direct commands.",
+              : localTelemetryReady
+                ? "Companion can attempt local pause, resume, stop, and lamp actions with this saved printer profile. Full motion and extrusion controls still work best in Developer Mode."
+                : "Save the printer host, serial number, and LAN access code to prepare local controls on this machine.",
           discovery:
-            "BambuView Companion can scan the LAN for Bambu SSDP broadcasts and still lets you save printers manually.",
+            "BambuView Companion can scan the LAN, inspect local desktop bridge data, and still lets you save printers manually.",
           fileUpload:
-            printer.connectionMode === "developer"
-              ? "Companion can upload files directly over FTPS and optionally start the print through Developer Mode."
+            printer.connectionMode === "developer" ||
+            printer.connectionMode === "lan"
+              ? "Companion can upload files directly over the local printer FTPS path and optionally start the print from the same machine."
               : printer.connectionMode === "cloud" ||
                   printer.connectionMode === "bambu-connect"
                 ? "Companion can open the local Bambu Connect import-file handoff for send workflows on this machine."
-                : "Switch the printer to LAN-only Developer Mode to unlock direct local upload.",
+                : "Save the printer host and access code to unlock direct local upload.",
           slicingAssist:
             slicingAssistState === "available"
               ? "Prepared jobs can already route through this printer profile using direct upload or local Bambu Connect handoff."
               : "Finish the required upload path for this printer before using it as a send target from BambuView.",
-          telemetry: telemetryConfigured
-            ? "Companion can request live telemetry over the printer's local MQTT report channel."
+          telemetry: localTelemetryReady
+            ? "Companion can request live telemetry over the printer's local MQTT report channel from this saved profile."
             : "Add hostname, serial number, and LAN access code to request telemetry.",
         },
         connectionMode: printer.connectionMode,
@@ -1813,9 +1890,12 @@ export class CompanionRuntime extends EventEmitter {
       this.state.settings.updateCheckIntervalMinutes,
     );
     this.state.settings.updateCheckIntervalMinutes = intervalMinutes;
-    this.updateTimer = setInterval(() => {
-      void this.checkForUpdates();
-    }, intervalMinutes * 60 * 1000);
+    this.updateTimer = setInterval(
+      () => {
+        void this.checkForUpdates();
+      },
+      intervalMinutes * 60 * 1000,
+    );
     this.updateTimer.unref?.();
   }
 

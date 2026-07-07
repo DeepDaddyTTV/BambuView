@@ -209,16 +209,14 @@ export function nativeBambuBridgeSupport(
 
   if (!NATIVE_BAMBU_RTSP_FAMILIES.has(family)) {
     return {
-      detail:
-        `${family} family printers still need a separate browser-safe bridge feed for camera playback in this revision.`,
+      detail: `${family} family printers still need a separate browser-safe bridge feed for camera playback in this revision.`,
       family,
       supported: false,
     };
   }
 
   return {
-    detail:
-      `${family} family printers can use the native Companion camera bridge when the host and access code are saved.`,
+    detail: `${family} family printers can use the native Companion camera bridge when the host and access code are saved.`,
     family,
     supported: true,
   };
@@ -227,13 +225,6 @@ export function nativeBambuBridgeSupport(
 export function resolvePrinterCameraBridgeSource(
   printer: CompanionPrinterInput,
 ): CameraBridgeSource | null {
-  if (
-    printer.connectionMode !== "lan" &&
-    printer.connectionMode !== "developer"
-  ) {
-    return null;
-  }
-
   if (!cameraBridgeReady()) {
     return null;
   }

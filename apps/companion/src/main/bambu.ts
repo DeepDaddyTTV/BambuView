@@ -54,6 +54,10 @@ type RawTelemetry = {
   statusLabel: string;
 };
 
+const LIMITED_LOCAL_COMMANDS = new Set<
+  CompanionPrinterCommandRequest["action"]
+>(["pause", "resume", "stop", "lamp"]);
+
 function elapsed(startedAt: number): number {
   return Math.max(1, Math.round(performance.now() - startedAt));
 }
@@ -127,6 +131,14 @@ function readFileMd5(filePath: string): string {
   const hash = createHash("md5");
   hash.update(readFileSync(filePath));
   return hash.digest("hex").toLowerCase();
+}
+
+function hasLocalAccess(printer: CompanionPrinterInput): boolean {
+  return Boolean(
+    printer.hostname.trim() &&
+    printer.serial.trim() &&
+    (printer.accessCode?.trim() ?? "").length > 0,
+  );
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -523,14 +535,15 @@ export async function testBambuPrinter(
   const checkedAt = new Date().toISOString();
   const rawLan =
     printer.connectionMode === "lan" || printer.connectionMode === "developer";
+  const localAccess = hasLocalAccess(printer);
   const nativeCamera = resolvePrinterCameraBridgeSource(printer);
   const nativeCameraSupport = nativeBambuBridgeSupport(printer.model);
-  if (!rawLan) {
+  if (!rawLan && !localAccess) {
     return {
       capabilities: {
         ams: "unavailable",
         camera: "requires_setup",
-        controls: "requires_developer_mode",
+        controls: "requires_setup",
         discovery: "unavailable",
         fileUpload: "available",
         slicingAssist: "available",
@@ -539,7 +552,8 @@ export async function testBambuPrinter(
       capabilityNotes: {
         camera:
           "Cloud and Bambu Connect profiles still need a linked browser-compatible stream or bridge feed before video can render in the web UI.",
-        controls: "Direct controls require LAN-only Developer Mode.",
+        controls:
+          "Save the printer host, serial number, and LAN access code here if you want Companion to attempt limited local controls from the same machine.",
         fileUpload:
           "Companion can open the local Bambu Connect import handoff from this machine for sliced jobs.",
         slicingAssist:
@@ -556,12 +570,13 @@ export async function testBambuPrinter(
 
   const host = printer.hostname.trim();
   const reachable = host ? await probeTcp(host, BAMBU_LAN_CONTROL_PORT) : false;
-  const telemetryState =
-    host && printer.accessCode?.trim() ? "available" : "requires_setup";
-  const controlsState =
+  const telemetryState = localAccess ? "available" : "requires_setup";
+  const directControlsState =
     printer.connectionMode === "developer"
-      ? "unavailable"
-      : "requires_developer_mode";
+      ? "available"
+      : localAccess
+        ? "available"
+        : "requires_setup";
 
   return {
     capabilities: {
@@ -571,15 +586,20 @@ export async function testBambuPrinter(
         : telemetryState === "available" && nativeCameraSupport.supported
           ? "requires_setup"
           : "requires_restream",
-      controls:
-        printer.connectionMode === "developer" ? "available" : controlsState,
+      controls: directControlsState,
       discovery: "available",
       fileUpload:
-        printer.connectionMode === "developer"
-          ? "available"
-          : "requires_developer_mode",
+        printer.connectionMode === "developer" ||
+        printer.connectionMode === "lan"
+          ? telemetryState
+          : "available",
       slicingAssist:
-        printer.connectionMode === "developer" ? "available" : "requires_setup",
+        printer.connectionMode === "developer" ||
+        printer.connectionMode === "lan" ||
+        printer.connectionMode === "cloud" ||
+        printer.connectionMode === "bambu-connect"
+          ? "available"
+          : "requires_setup",
       telemetry: telemetryState,
     },
     capabilityNotes: {
@@ -592,17 +612,21 @@ export async function testBambuPrinter(
       controls:
         printer.connectionMode === "developer"
           ? "Developer Mode direct machine controls are available through Companion."
-          : "Switch this printer to LAN-only Developer Mode before enabling direct commands.",
+          : localAccess
+            ? "Companion can attempt pause, resume, stop, and lamp commands locally with the saved host and access code. Full motion and extrusion controls still work best in Developer Mode."
+            : "Save the printer host and LAN access code before enabling Companion-side direct controls.",
       discovery:
-        "BambuView Companion can now discover LAN-advertising Bambu printers and still lets you save printers manually.",
+        "BambuView Companion can now discover LAN-advertising Bambu printers, inspect local desktop bridge surfaces, and still lets you save printers manually.",
       fileUpload:
-        printer.connectionMode === "developer"
-          ? "Developer Mode direct FTPS upload and start-print handoff are available."
-          : "Direct file upload planning starts once Developer Mode is enabled.",
+        printer.connectionMode === "developer" ||
+        printer.connectionMode === "lan"
+          ? "Companion can upload directly over the printer FTPS path when the saved host and access code still match."
+          : "Companion can still hand jobs to the local Bambu Connect workflow from this machine.",
       slicingAssist:
-        printer.connectionMode === "developer"
+        printer.connectionMode === "developer" ||
+        printer.connectionMode === "lan"
           ? "Prepared jobs can already route through direct upload and start-print handoff on this printer."
-          : "Finish the required upload path before using this printer as a send target from BambuView.",
+          : "Prepared jobs can already hand off through the local Bambu Connect import flow on this machine.",
       telemetry:
         telemetryState === "available"
           ? "Telemetry can be requested directly from the printer's MQTT report channel."
@@ -611,7 +635,9 @@ export async function testBambuPrinter(
     checkedAt,
     message: reachable
       ? "The printer accepted a local LAN control connection."
-      : "The printer did not accept a local LAN control connection.",
+      : localAccess
+        ? "The printer profile is saved, but the printer did not accept a local LAN control connection."
+        : "The printer did not accept a local LAN control connection.",
     reachable,
   };
 }
@@ -1114,7 +1140,9 @@ async function uploadBambuFtpsFile(
 ) {
   const localPath = request.path.trim();
   if (!localPath) {
-    throw new Error("Choose a local file path before sending it to the printer.");
+    throw new Error(
+      "Choose a local file path before sending it to the printer.",
+    );
   }
 
   const stats = statSync(localPath);
@@ -1158,7 +1186,10 @@ export async function discoverBambuPrinters(
   const attemptedAt = new Date().toISOString();
 
   return new Promise((resolve) => {
-    const printers = new Map<string, CompanionPrinterDiscoveryResult["printers"][0]>();
+    const printers = new Map<
+      string,
+      CompanionPrinterDiscoveryResult["printers"][0]
+    >();
     const socket = dgram.createSocket({ reuseAddr: true, type: "udp4" });
 
     const finish = (supported: boolean, detail: string) => {
@@ -1171,6 +1202,7 @@ export async function discoverBambuPrinters(
 
       resolve({
         attemptedAt,
+        bridgeSources: [],
         detail,
         instructions: [
           "Open the printer network screen if nothing appears after one broadcast cycle.",
@@ -1232,7 +1264,8 @@ export async function discoverBambuPrinters(
             : nativeCameraSupport.detail,
           controls:
             "Switch the printer to LAN-only Developer Mode and add its access code before using direct controls.",
-          discovery: "This printer was discovered automatically over the local Bambu SSDP broadcast.",
+          discovery:
+            "This printer was discovered automatically over the local Bambu SSDP broadcast.",
           fileUpload:
             "Switch to LAN-only Developer Mode to allow direct FTPS upload and start-print handoff.",
           slicingAssist:
@@ -1278,13 +1311,24 @@ export async function runBambuPrinterCommand(
   printer: CompanionPrinterInput,
   request: CompanionPrinterCommandRequest,
 ): Promise<CompanionPrinterCommandResponse> {
-  if (printer.connectionMode !== "developer") {
+  if (!hasLocalAccess(printer)) {
+    return {
+      accepted: false,
+      detail:
+        "Save the printer hostname, serial number, and LAN access code before Companion can send direct commands.",
+    };
+  }
+
+  if (
+    printer.connectionMode !== "developer" &&
+    !LIMITED_LOCAL_COMMANDS.has(request.action)
+  ) {
     return {
       accepted: false,
       detail:
         printer.connectionMode === "lan"
-          ? "Direct machine controls require LAN-only Developer Mode on the printer."
-          : "This printer profile can monitor or hand off jobs, but direct machine controls are not exposed through its current connection mode.",
+          ? "This command still needs LAN-only Developer Mode on the printer."
+          : "This connection mode can currently route pause, resume, stop, and lamp commands locally, but deeper motion and extrusion commands still need Developer Mode.",
     };
   }
 
@@ -1310,13 +1354,13 @@ export async function sendBambuPrinterFile(
   printer: CompanionPrinterInput,
   request: CompanionFileHandoffInput,
 ): Promise<CompanionFileHandoffResult> {
-  if (printer.connectionMode !== "developer") {
+  if (
+    printer.connectionMode !== "developer" &&
+    printer.connectionMode !== "lan"
+  ) {
     return {
       accepted: false,
-      detail:
-        printer.connectionMode === "lan"
-          ? "Direct printer upload requires LAN-only Developer Mode on the printer."
-          : "This printer profile is not using the direct local upload path.",
+      detail: "This printer profile is not using the direct local upload path.",
       fileName: null,
       sizeBytes: null,
     };
@@ -1341,7 +1385,9 @@ export async function sendBambuPrinterFile(
   return {
     accepted: true,
     detail: shouldStartPrint
-      ? "The file was uploaded over FTPS and a Developer Mode print-start request was published."
+      ? printer.connectionMode === "developer"
+        ? "The file was uploaded over FTPS and a Developer Mode print-start request was published."
+        : "The file was uploaded over FTPS and a local start-print request was published through the saved LAN path."
       : "The file was uploaded to the printer over FTPS and is ready for a later start command.",
     fileName: uploaded.fileName,
     sizeBytes: uploaded.sizeBytes,

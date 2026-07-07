@@ -6,6 +6,20 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.41 - 2026-07-07
+
+### Bug Fixes & Stability
+
+- Broader Printer Discovery: Fleet and Companion no longer stop at simple LAN broadcast discovery, so cached desktop bridge profiles from paired Companion installs can now flow back into BambuView when they are available.
+- Better Prepare Persistence: Prepare & Slice no longer behaves like a disposable routing form, which means saved workbench projects now keep their source paths, export paths, presets, and last handoff state together.
+- Smoother Local Send Routing: LAN-backed printers can now use the direct local upload path more consistently instead of forcing every real send workflow through a narrower Developer-only assumption.
+
+### Improvements & What's New
+
+- Desktop Bridge Inventory: Companion now detects local Bambu Connect, Bambu Studio, OrcaSlicer, PrusaSlicer, Network Plugin, and camera-bridge surfaces and reports them back to BambuView.
+- Workbench Shelf For Prepare: the Orca filament lane and Prusa resin lane now share a real saved-project shelf with ready, sliced, sent, and warning states.
+- Better Bridge-Aware Setup: Fleet discovery and Companion management now expose the fact that paired Companion installs can contribute more than LAN SSDP alone, which makes importing bridge-backed printers much clearer during alpha setup.
+
 ## v0.0.40 - 2026-07-07
 
 ### Bug Fixes & Stability

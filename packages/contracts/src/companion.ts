@@ -21,6 +21,28 @@ export type CompanionCapabilityState =
   | "future"
   | "unsupported";
 
+export type CompanionBridgeSurfaceKind =
+  | "bambu-connect"
+  | "bambu-studio"
+  | "orca-slicer"
+  | "prusaslicer"
+  | "network-plugin"
+  | "camera-bridge";
+
+export type CompanionBridgeSurfaceStatus =
+  | "detected"
+  | "configured"
+  | "missing";
+
+export interface CompanionBridgeSurface {
+  detail: string;
+  id: string;
+  kind: CompanionBridgeSurfaceKind;
+  label: string;
+  location: string | null;
+  status: CompanionBridgeSurfaceStatus;
+}
+
 export interface CompanionCapabilityFlags {
   discovery: CompanionCapabilityState;
   telemetry: CompanionCapabilityState;
@@ -61,6 +83,7 @@ export interface CompanionHealthResponse {
   appName: string;
   appVersion: string;
   bridge: CompanionBridgeSettings;
+  bridgeSources: CompanionBridgeSurface[];
   pairing: CompanionPairingState;
   status: CompanionStatusTone;
   capabilities: CompanionCapabilityFlags;
@@ -109,6 +132,7 @@ export interface CompanionPrinter {
 
 export interface CompanionPrinterDiscoveryResult {
   attemptedAt: string;
+  bridgeSources: CompanionBridgeSurface[];
   instructions: string[];
   detail: string;
   printers: CompanionPrinter[];

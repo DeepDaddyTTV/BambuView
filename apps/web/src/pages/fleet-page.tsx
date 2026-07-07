@@ -1048,8 +1048,9 @@ function AddPrinterDialog({
               Network discovery
             </div>
             <div className="fleet-console-sidebar-card__copy">
-              Scan the LAN for Bambu printers that are advertising over the
-              local network, then click one to prefill the form.
+              Scan the LAN for advertising Bambu printers, then merge in any
+              paired Companion desktop bridge profiles that can also be imported
+              here.
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
@@ -1081,7 +1082,8 @@ function AddPrinterDialog({
                           {printer.name} • {printer.model}
                         </span>
                         <span className="text-zinc-500">
-                          {printer.host}
+                          {printer.host} •{" "}
+                          {printer.source === "companion" ? "Companion" : "LAN"}
                         </span>
                       </button>
                     ))}

@@ -38,7 +38,7 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.40` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, selectable background styles, and a first Companion management surface inside Settings.
+The `0.0.41` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, selectable background styles, and a first Companion management surface inside Settings.
 
 The Bambu connection profiles now expose honest capability states. Cloud / Normal and Bambu Connect are saved as handoff profiles for Bambu Connect import links and bridge-aware workflows, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers or the Fleet Overview target; RTSP and native Bambu feeds should still be routed through Frigate/go2rtc, a Network Plugin bridge endpoint, or a browser-compatible Companion stream before browser playback.
 
@@ -54,18 +54,19 @@ BambuView Companion is the native/local bridge app inside this repo.
 
 Use it when BambuView needs a trusted desktop process for local printer telemetry, local camera bridge output, or local file handoff that the browser app cannot reach directly.
 
-The current Companion bridge in `0.0.40` includes:
+The current Companion bridge in `0.0.41` includes:
 
 - Electron + TypeScript app inside `apps/companion`
 - bridge API on `http://localhost:<port>` by default
 - auth token required on Companion bridge endpoints
 - one-time pairing flow from the main BambuView app
 - Companion management section inside `Settings`
-- LAN printer discovery that can prefill Bambu printer profiles
+- LAN printer discovery plus local desktop bridge discovery from Bambu Connect, Bambu Studio, OrcaSlicer, and PrusaSlicer
 - manual Bambu printer records with honest capability reporting
 - local Bambu MQTT telemetry reads when LAN details are present
-- direct Developer Mode commands for movement, pause, resume, stop, lamp, fan, temperatures, and extruder actions
-- direct Developer Mode FTPS upload/send handoff when the selected printer supports it
+- local bridge-surface reporting back into BambuView for easier printer import decisions
+- direct local commands for saved Bambu profiles when the required LAN details are present, with the deepest motion/extruder path still best in Developer Mode
+- direct local FTPS upload/send handoff for LAN and Developer profiles when the selected printer supports it
 - local Bambu Connect handoff support on the trusted machine for Connect-backed workflows
 - importable Companion stream sources that land in `Cameras`
 - Companion version visibility, update checks on launch, scheduled update checks, and in-app installer download links

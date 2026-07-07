@@ -86,7 +86,9 @@ export function CompanionPage() {
     },
     onError: (error) => {
       setPairingCodeMessage(
-        error instanceof Error ? error.message : "Could not create a pairing token.",
+        error instanceof Error
+          ? error.message
+          : "Could not create a pairing token.",
       );
     },
   });
@@ -210,8 +212,8 @@ export function CompanionPage() {
               {COMPANION_DEFAULT_SERVER_URL}
             </div>
             <div className="mt-2 text-sm leading-7 text-zinc-400">
-              Keep the default neutral while pairing. If Companion is running
-              on another machine, replace <strong>localhost</strong> with the
+              Keep the default neutral while pairing. If Companion is running on
+              another machine, replace <strong>localhost</strong> with the
               hostname or IP for the BambuView server.
             </div>
             <div className="mt-4 flex flex-wrap gap-3">
@@ -345,8 +347,8 @@ export function CompanionPage() {
               <p className="mt-3 text-sm leading-7 text-zinc-400">
                 Refresh the connection to pull the latest health, capability,
                 printer, and stream data from the local bridge. Removing a
-                Companion also clears any camera feeds imported from that
-                bridge on this server.
+                Companion also clears any camera feeds imported from that bridge
+                on this server.
               </p>
             </div>
             {selectedCompanionId ? (
@@ -518,6 +520,40 @@ export function CompanionPage() {
                   </div>
                 </div>
               </div>
+
+              {selectedSnapshot.health?.bridgeSources?.length ? (
+                <div className="rounded-[22px] border border-white/8 bg-white/[0.03] p-5">
+                  <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">
+                    Detected Bridge Surfaces
+                  </div>
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    {selectedSnapshot.health.bridgeSources.map((surface) => (
+                      <div
+                        className="rounded-[18px] border border-white/8 bg-white/[0.03] p-4"
+                        key={surface.id}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-base font-medium text-white">
+                              {surface.label}
+                            </div>
+                            <div className="mt-1 text-sm text-zinc-400">
+                              {surface.kind} • {surface.status}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 text-sm leading-7 text-zinc-400">
+                          {surface.detail}
+                        </div>
+                        <div className="mt-2 text-xs text-zinc-500">
+                          {surface.location ??
+                            "No local install or config path detected"}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               <div className="rounded-[22px] border border-emerald-500/15 bg-emerald-500/8 p-5">
                 <div className="flex gap-3">

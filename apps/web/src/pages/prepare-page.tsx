@@ -4,17 +4,21 @@ import {
   ExternalLink,
   FileUp,
   FlaskConical,
+  HardDriveDownload,
   Layers3,
   Rocket,
+  RotateCcw,
   Send,
+  Trash2,
   Workflow,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
   BambuConnectImportResponse,
   BambuConnectionMode,
+  PrepareProjectRecord,
   PrepareStatus,
   PrepareWorkflowKind,
   PrinterConnectionRecord,
@@ -22,7 +26,10 @@ import type {
 } from "@bambuview/contracts";
 import { BAMBU_CONNECTION_MODE_OPTIONS } from "@bambuview/contracts";
 
-import { StyledSelect, type StyledSelectOption } from "../components/styled-select";
+import {
+  StyledSelect,
+  type StyledSelectOption,
+} from "../components/styled-select";
 import { APP_VERSION } from "../app/version";
 import { apiFetch } from "../lib/api";
 
@@ -141,15 +148,17 @@ function modeOption(mode: BambuConnectionMode) {
 }
 
 function supportsDirectSend(printer: PrinterConnectionRecord | null) {
-  return printer?.connectionMode === "developer";
+  return (
+    printer?.connectionMode === "developer" || printer?.connectionMode === "lan"
+  );
 }
 
 function supportsCompanionSend(printer: PrinterConnectionRecord | null) {
   return Boolean(
     printer &&
-      (printer.connectionMode === "cloud" ||
-        printer.connectionMode === "bambu-connect" ||
-        printer.connectionMode === "lan"),
+    (printer.connectionMode === "cloud" ||
+      printer.connectionMode === "bambu-connect" ||
+      printer.connectionMode === "lan"),
   );
 }
 
@@ -188,7 +197,7 @@ function pipelineChecklist(input: {
           ? input.printer
             ? `${input.printer.name} • ${modeOption(input.printer.connectionMode).label}`
             : "Select the printer this job should target."
-          : "Resin exports stay staged until the resin engine pass lands.",
+          : "Resin projects stay staged here until the dedicated export file is ready.",
       done: input.workflowId === "resin" || Boolean(input.printer),
       label: "Target selected",
     },
@@ -216,7 +225,7 @@ function sendRouteCopy(
   if (workflowId === "resin") {
     return {
       detail:
-        "Prusa stays reserved for resin-only prep. This lane is staged for export planning while the embedded resin engine pass is still being wired.",
+        "Prusa stays reserved for resin-only prep. Keep the project, notes, and export path saved here until the resin output file is ready.",
       label: "Resin export lane",
     };
   }
@@ -232,7 +241,9 @@ function sendRouteCopy(
   if (supportsDirectSend(printer)) {
     return {
       detail:
-        "This printer can use direct Developer Mode upload and optional start-print handoff from the server.",
+        printer.connectionMode === "developer"
+          ? "This printer can use direct Developer Mode upload and optional start-print handoff from the server."
+          : "This printer can use the direct local upload path from the server with its saved LAN credentials.",
       label: "Direct send available",
     };
   }
@@ -284,9 +295,13 @@ function canSubmitWorkspace(
 }
 
 export function PreparePage() {
+  const queryClient = useQueryClient();
   const [jobName, setJobName] = useState("");
   const [notes, setNotes] = useState("");
   const [outputPath, setOutputPath] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null,
+  );
   const [selectedInputType, setSelectedInputType] = useState(
     optionValue(filamentInputOptions),
   );
@@ -313,7 +328,9 @@ export function PreparePage() {
   const printersQuery = useQuery({
     queryKey: ["printer-connections"],
     queryFn: () =>
-      apiFetch<{ printers: PrinterConnectionRecord[] }>("/api/printers/connections"),
+      apiFetch<{ printers: PrinterConnectionRecord[] }>(
+        "/api/printers/connections",
+      ),
   });
   const importUrlMutation = useMutation({
     mutationFn: (payload: { name: string; path: string }) =>
@@ -339,18 +356,78 @@ export function PreparePage() {
       printerId: string;
       startPrint: boolean;
     }) =>
-      apiFetch<PrinterFileSendResponse>(`/api/printers/${payload.printerId}/files`, {
+      apiFetch<PrinterFileSendResponse>(
+        `/api/printers/${payload.printerId}/files`,
+        {
+          body: JSON.stringify({
+            action: payload.action,
+            fileName: payload.fileName,
+            path: payload.path,
+            startPrint: payload.startPrint,
+          }),
+          method: "POST",
+        },
+      ),
+  });
+  const saveProjectMutation = useMutation({
+    mutationFn: (payload: {
+      inputType: string;
+      jobName: string;
+      layerProfile: string;
+      materialProfile: string;
+      notes: string;
+      outputPath: string;
+      printerId: string | null;
+      sourcePath: string;
+      workflowId: PrepareWorkflowKind;
+    }) =>
+      apiFetch<{ project: { id: string } }>(
+        selectedProjectId
+          ? `/api/prepare/projects/${selectedProjectId}`
+          : "/api/prepare/projects",
+        {
+          body: JSON.stringify(payload),
+          method: selectedProjectId ? "PUT" : "POST",
+        },
+      ),
+    onSuccess: ({ project }) => {
+      setSelectedProjectId(project.id);
+      void queryClient.invalidateQueries({ queryKey: ["prepare-status"] });
+      setWorkspaceTone("success");
+      setWorkspaceMessage(
+        selectedProjectId
+          ? "Prepare project updated in the workbench."
+          : "Prepare project saved to the workbench.",
+      );
+    },
+  });
+  const deleteProjectMutation = useMutation({
+    mutationFn: (projectId: string) =>
+      apiFetch(`/api/prepare/projects/${projectId}`, {
+        method: "DELETE",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["prepare-status"] });
+      setWorkspaceTone("success");
+      setWorkspaceMessage("Prepare project removed from the workbench.");
+    },
+  });
+  const markProjectActionMutation = useMutation({
+    mutationFn: (payload: { id: string; label: string }) =>
+      apiFetch(`/api/prepare/projects/${payload.id}/actions`, {
         body: JSON.stringify({
-          action: payload.action,
-          fileName: payload.fileName,
-          path: payload.path,
-          startPrint: payload.startPrint,
+          label: payload.label,
         }),
         method: "POST",
       }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["prepare-status"] });
+    },
   });
 
   const workflows = statusQuery.data?.workflows ?? [];
+  const workspace = statusQuery.data?.workspace;
+  const savedProjects = workspace?.projects ?? [];
   const activeWorkflow =
     workflows.find((workflow) => workflow.id === selectedWorkflowId) ??
     workflows[0] ??
@@ -360,7 +437,9 @@ export function PreparePage() {
     : workflowIcons.filament;
   const slicers = statusQuery.data?.slicers ?? [];
   const visibleSlicers = activeWorkflow
-    ? slicers.filter((slicer) => slicer.workflowKinds.includes(activeWorkflow.id))
+    ? slicers.filter((slicer) =>
+        slicer.workflowKinds.includes(activeWorkflow.id),
+      )
     : [];
   const printers = printersQuery.data?.printers ?? [];
   const selectedPrinter =
@@ -369,7 +448,9 @@ export function PreparePage() {
   const layerOptions = activeLayerOptions(selectedWorkflowId);
   const materialOptions = activeMaterialOptions(selectedWorkflowId);
   const targetPrinters =
-    selectedWorkflowId === "filament" ? printers : ([] as PrinterConnectionRecord[]);
+    selectedWorkflowId === "filament"
+      ? printers
+      : ([] as PrinterConnectionRecord[]);
   const targetOptions = targetPrinters.map((printer) => ({
     description: `${printer.model} • ${modeOption(printer.connectionMode).label}`,
     label: printer.name,
@@ -384,6 +465,54 @@ export function PreparePage() {
     workflowId: selectedWorkflowId,
   });
   const progressCount = checklist.filter((item) => item.done).length;
+
+  function resetWorkspaceForm(
+    nextWorkflowId: PrepareWorkflowKind = "filament",
+  ) {
+    setSelectedProjectId(null);
+    setJobName("");
+    setNotes("");
+    setOutputPath("");
+    setSelectedWorkflowId(nextWorkflowId);
+    setSourcePath("");
+    setStartAfterSend(true);
+    setSelectedInputType(optionValue(activeInputOptions(nextWorkflowId)));
+    setSelectedLayerProfile(optionValue(activeLayerOptions(nextWorkflowId)));
+    setSelectedMaterialProfile(
+      optionValue(activeMaterialOptions(nextWorkflowId)),
+    );
+    setSelectedPrinterId("");
+  }
+
+  function loadProject(project: PrepareProjectRecord) {
+    setSelectedProjectId(project.id);
+    setJobName(project.jobName);
+    setNotes(project.notes);
+    setOutputPath(project.outputPath);
+    setSelectedWorkflowId(project.workflowId);
+    setSourcePath(project.sourcePath);
+    setSelectedInputType(project.inputType);
+    setSelectedLayerProfile(project.layerProfile);
+    setSelectedMaterialProfile(project.materialProfile);
+    setSelectedPrinterId(project.printerId ?? "");
+    setWorkspaceTone("neutral");
+    setWorkspaceMessage(`Loaded ${project.jobName} from the workbench.`);
+  }
+
+  async function saveCurrentProject() {
+    await saveProjectMutation.mutateAsync({
+      inputType: selectedInputType,
+      jobName: jobName.trim() || "Untitled BambuView Job",
+      layerProfile: selectedLayerProfile,
+      materialProfile: selectedMaterialProfile,
+      notes,
+      outputPath: outputPath.trim() || sourcePath.trim(),
+      printerId:
+        selectedWorkflowId === "filament" ? selectedPrinterId || null : null,
+      sourcePath: sourcePath.trim() || outputPath.trim(),
+      workflowId: selectedWorkflowId,
+    });
+  }
 
   useEffect(() => {
     if (
@@ -435,23 +564,38 @@ export function PreparePage() {
     return <div className="panel">Loading prepare workspace…</div>;
   }
 
-  async function handleGenerateBambuConnectLink(event: FormEvent<HTMLFormElement>) {
+  async function handleGenerateBambuConnectLink(
+    event: FormEvent<HTMLFormElement>,
+  ) {
     event.preventDefault();
 
     const resolvedPath = outputPath.trim() || sourcePath.trim();
     await importUrlMutation.mutateAsync({
-      name: jobName.trim() || resolvedPath.split(/[\\/]/).pop() || "BambuView job",
+      name:
+        jobName.trim() || resolvedPath.split(/[\\/]/).pop() || "BambuView job",
       path: resolvedPath,
     });
+    if (selectedProjectId) {
+      await markProjectActionMutation.mutateAsync({
+        id: selectedProjectId,
+        label: "Bambu Connect link generated",
+      });
+    }
   }
 
   async function handleWorkspaceSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (selectedWorkflowId === "resin") {
-      setWorkspaceTone("warning");
+      if (selectedProjectId) {
+        await markProjectActionMutation.mutateAsync({
+          id: selectedProjectId,
+          label: "Resin project staged",
+        });
+      }
+      setWorkspaceTone("success");
       setWorkspaceMessage(
-        "Resin staging is saved in this workspace, but the resin engine/export bridge is still waiting on the embedded Prusa pass.",
+        "Resin project staged. Keep working in the resin lane until the dedicated export file exists at the saved output path.",
       );
       return;
     }
@@ -475,6 +619,12 @@ export function PreparePage() {
       printerId: selectedPrinter.id,
       startPrint: action === "send" ? startAfterSend : false,
     });
+    if (selectedProjectId) {
+      await markProjectActionMutation.mutateAsync({
+        id: selectedProjectId,
+        label: response.accepted ? "Project sent" : "Send attempted",
+      });
+    }
 
     setWorkspaceTone(response.accepted ? "success" : "warning");
     setWorkspaceMessage(response.detail);
@@ -509,9 +659,7 @@ export function PreparePage() {
                 <div className="text-lg font-semibold">
                   {activeWorkflow?.label}
                 </div>
-                <div className="text-sm text-zinc-400">
-                  {routeCopy.label}
-                </div>
+                <div className="text-sm text-zinc-400">{routeCopy.label}</div>
               </div>
             </div>
             <p className="mt-4 text-sm leading-7 text-zinc-300">
@@ -561,6 +709,19 @@ export function PreparePage() {
             <FileUp className="h-5 w-5" />
             <div className="section-title">Job workspace</div>
           </div>
+          <div className="border border-white/8 bg-white/[0.03] px-4 py-4 text-sm leading-7 text-zinc-300">
+            <div className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+              Workspace root
+            </div>
+            <div className="mt-2 break-all text-white">
+              {statusQuery.data.workspace.rootDirectory}
+            </div>
+            <div className="mt-2 text-zinc-400">
+              {selectedProjectId
+                ? "Editing a saved Prepare project from the workbench."
+                : "Build a new project here, then save it into the workbench shelf for later slicing and handoff."}
+            </div>
+          </div>
           <form className="space-y-5" onSubmit={handleWorkspaceSubmit}>
             <div className="grid gap-4 lg:grid-cols-2">
               <label className="camera-field">
@@ -598,7 +759,8 @@ export function PreparePage() {
                   value={sourcePath}
                 />
                 <small>
-                  Use a path that exists where this BambuView instance is running.
+                  Use a path that exists where this BambuView instance is
+                  running.
                 </small>
               </label>
               <label className="camera-field">
@@ -615,8 +777,8 @@ export function PreparePage() {
                   value={outputPath}
                 />
                 <small>
-                  Direct send uses this path. Leave it aligned with where the sliced
-                  export will actually land.
+                  Direct send uses this path. Leave it aligned with where the
+                  sliced export will actually land.
                 </small>
               </label>
             </div>
@@ -641,7 +803,10 @@ export function PreparePage() {
               <label className="camera-field">
                 <span>Printer target</span>
                 <StyledSelect
-                  disabled={selectedWorkflowId !== "filament" || targetOptions.length === 0}
+                  disabled={
+                    selectedWorkflowId !== "filament" ||
+                    targetOptions.length === 0
+                  }
                   onChange={setSelectedPrinterId}
                   options={targetOptions}
                   placeholder={
@@ -670,8 +835,8 @@ export function PreparePage() {
                   Start print after upload
                 </div>
                 <p className="text-sm leading-7 text-zinc-400">
-                  Only direct Developer Mode printers can automatically start right
-                  after the file handoff completes.
+                  Only direct Developer Mode printers can automatically start
+                  right after the file handoff completes.
                 </p>
               </div>
               <label className="inline-flex items-center gap-3 text-sm text-zinc-200">
@@ -688,10 +853,37 @@ export function PreparePage() {
 
             <div className="flex flex-wrap gap-3">
               <button
+                className="fleet-console-controls__button"
+                disabled={
+                  saveProjectMutation.isPending ||
+                  (jobName.trim().length === 0 &&
+                    sourcePath.trim().length === 0 &&
+                    outputPath.trim().length === 0)
+                }
+                onClick={(event) => {
+                  event.preventDefault();
+                  void saveCurrentProject();
+                }}
+                type="button"
+              >
+                <HardDriveDownload className="h-4 w-4" />
+                <span>
+                  {saveProjectMutation.isPending
+                    ? "Saving…"
+                    : selectedProjectId
+                      ? "Update Workbench Project"
+                      : "Save To Workbench"}
+                </span>
+              </button>
+              <button
                 className="fleet-console-controls__button fleet-console-controls__button--primary"
                 disabled={
                   sendJobMutation.isPending ||
-                  !canSubmitWorkspace(selectedWorkflowId, sourcePath, outputPath)
+                  !canSubmitWorkspace(
+                    selectedWorkflowId,
+                    sourcePath,
+                    outputPath,
+                  )
                 }
                 type="submit"
               >
@@ -707,7 +899,8 @@ export function PreparePage() {
                   className="fleet-console-controls__button"
                   disabled={
                     importUrlMutation.isPending ||
-                    (outputPath.trim().length === 0 && sourcePath.trim().length === 0)
+                    (outputPath.trim().length === 0 &&
+                      sourcePath.trim().length === 0)
                   }
                   onClick={(event) => {
                     event.preventDefault();
@@ -722,6 +915,19 @@ export function PreparePage() {
                   </span>
                 </button>
               ) : null}
+              <button
+                className="fleet-console-controls__button"
+                onClick={(event) => {
+                  event.preventDefault();
+                  resetWorkspaceForm(selectedWorkflowId);
+                }}
+                type="button"
+              >
+                <RotateCcw className="h-4 w-4" />
+                <span>
+                  {selectedProjectId ? "Unload Project" : "Clear Form"}
+                </span>
+              </button>
             </div>
           </form>
         </section>
@@ -794,6 +1000,92 @@ export function PreparePage() {
             ))}
           </div>
 
+          <div className="border border-white/8 bg-black/20 px-5 py-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="section-title">Workbench shelf</div>
+                <div className="mt-2 text-sm leading-7 text-zinc-400">
+                  Saved projects persist their source path, export path,
+                  presets, and last handoff action.
+                </div>
+              </div>
+              <div className="text-xs uppercase tracking-[0.24em] text-zinc-500">
+                {savedProjects.length} saved
+              </div>
+            </div>
+            <div className="mt-4 space-y-3">
+              {savedProjects.length === 0 ? (
+                <div className="border border-white/8 bg-white/[0.03] px-4 py-4 text-sm leading-7 text-zinc-400">
+                  No Prepare projects are saved yet. Use the form on the left to
+                  create your first workbench project.
+                </div>
+              ) : null}
+              {savedProjects.map((project) => (
+                <div
+                  className={`border px-4 py-4 ${
+                    project.id === selectedProjectId
+                      ? "border-[color:var(--accent)] bg-[color:var(--accent-10)]"
+                      : "border-white/8 bg-white/[0.03]"
+                  }`}
+                  key={project.id}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-lg font-semibold text-white">
+                        {project.jobName}
+                      </div>
+                      <div className="mt-1 text-xs uppercase tracking-[0.24em] text-zinc-500">
+                        {project.workflowId} • {project.state}
+                      </div>
+                    </div>
+                    <div className="text-sm text-zinc-400">
+                      {project.lastActionLabel ?? "No handoff yet"}
+                    </div>
+                  </div>
+                  <div className="mt-3 text-sm leading-7 text-zinc-300">
+                    {project.summary}
+                  </div>
+                  <div className="mt-3 grid gap-2 text-sm text-zinc-400">
+                    <div>Source: {project.sourcePath}</div>
+                    <div>Output: {project.outputPath}</div>
+                    {project.fileName ? (
+                      <div>Artifact: {project.fileName}</div>
+                    ) : null}
+                  </div>
+                  {project.validationMessages.length > 0 ? (
+                    <div className="mt-3 border border-amber-500/25 bg-amber-500/10 px-3 py-3 text-sm leading-7 text-amber-100">
+                      {project.validationMessages[0]}
+                    </div>
+                  ) : null}
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <button
+                      className="fleet-console-controls__button"
+                      onClick={() => loadProject(project)}
+                      type="button"
+                    >
+                      <HardDriveDownload className="h-4 w-4" />
+                      <span>Load Project</span>
+                    </button>
+                    <button
+                      className="fleet-console-controls__button"
+                      disabled={deleteProjectMutation.isPending}
+                      onClick={() => {
+                        if (project.id === selectedProjectId) {
+                          resetWorkspaceForm(selectedWorkflowId);
+                        }
+                        deleteProjectMutation.mutate(project.id);
+                      }}
+                      type="button"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {workspaceMessage ? (
             <div
               className={`border px-5 py-5 text-sm leading-7 ${
@@ -828,21 +1120,25 @@ export function PreparePage() {
           ) : null}
 
           {selectedWorkflowId === "filament" ? (
-            <form className="border border-white/8 bg-black/20 px-5 py-5" onSubmit={handleGenerateBambuConnectLink}>
+            <form
+              className="border border-white/8 bg-black/20 px-5 py-5"
+              onSubmit={handleGenerateBambuConnectLink}
+            >
               <div className="flex items-center gap-3 text-[color:var(--accent)]">
                 <Send className="h-4 w-4" />
                 <div className="section-title">Generate Bambu Connect link</div>
               </div>
               <p className="mt-3 text-sm leading-7 text-zinc-400">
                 Use this fallback when the printer profile is Cloud / Normal or
-                Bambu Connect and you want a local desktop handoff without waiting
-                on Companion.
+                Bambu Connect and you want a local desktop handoff without
+                waiting on Companion.
               </p>
               <button
                 className="fleet-console-controls__button mt-5"
                 disabled={
                   importUrlMutation.isPending ||
-                  (outputPath.trim().length === 0 && sourcePath.trim().length === 0)
+                  (outputPath.trim().length === 0 &&
+                    sourcePath.trim().length === 0)
                 }
                 type="submit"
               >

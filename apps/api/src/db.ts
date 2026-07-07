@@ -166,12 +166,30 @@ interface CompanionRow {
   updatedAt: string;
 }
 
+export interface PrepareProjectRow {
+  createdAt: string;
+  id: string;
+  inputType: string;
+  jobName: string;
+  lastActionAt: string | null;
+  lastActionLabel: string | null;
+  layerProfile: string;
+  materialProfile: string;
+  notes: string;
+  outputPath: string;
+  printerId: string | null;
+  sourcePath: string;
+  updatedAt: string;
+  workflowId: "filament" | "resin";
+}
+
 export const schema = {
   cameraAssignments: "camera_assignments",
   cameraSources: "camera_sources",
   companionPairingCodes: "companion_pairing_codes",
   companions: "companions",
   invites: "invites",
+  prepareProjects: "prepare_projects",
   printerConnections: "printer_connections",
   sessions: "sessions",
   userPreferences: "user_preferences",
@@ -217,6 +235,18 @@ export interface CreateCameraSourceInput extends CameraSourceInput {
   status: CameraSource["status"];
   streamKind: CameraStreamKind;
   streamUrl: string;
+}
+
+export interface CreatePrepareProjectInput {
+  inputType: string;
+  jobName: string;
+  layerProfile: string;
+  materialProfile: string;
+  notes: string;
+  outputPath: string;
+  printerId: string | null;
+  sourcePath: string;
+  workflowId: "filament" | "resin";
 }
 
 export interface CameraSourceSecretRecord extends CameraSource {
@@ -391,6 +421,25 @@ const COMPANION_SELECT = `
   FROM companions
 `;
 
+const PREPARE_PROJECT_SELECT = `
+  SELECT
+    id,
+    workflow_id AS workflowId,
+    input_type AS inputType,
+    job_name AS jobName,
+    source_path AS sourcePath,
+    output_path AS outputPath,
+    printer_id AS printerId,
+    layer_profile AS layerProfile,
+    material_profile AS materialProfile,
+    notes,
+    last_action_at AS lastActionAt,
+    last_action_label AS lastActionLabel,
+    created_at AS createdAt,
+    updated_at AS updatedAt
+  FROM prepare_projects
+`;
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -527,6 +576,22 @@ export function createDatabase(databaseFile: string): DatabaseClient {
       printers_json TEXT,
       streams_json TEXT,
       paired_at TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS prepare_projects (
+      id TEXT PRIMARY KEY,
+      workflow_id TEXT NOT NULL,
+      input_type TEXT NOT NULL,
+      job_name TEXT NOT NULL,
+      source_path TEXT NOT NULL,
+      output_path TEXT NOT NULL,
+      printer_id TEXT REFERENCES printer_connections(id) ON DELETE SET NULL,
+      layer_profile TEXT NOT NULL,
+      material_profile TEXT NOT NULL,
+      notes TEXT NOT NULL,
+      last_action_at TEXT,
+      last_action_label TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -1104,6 +1169,167 @@ export async function updatePrinterConnectionStatus(
     `,
     [connectionStatus, seenAt, seenAt ?? nowIso(), nowIso(), connectionId],
   );
+}
+
+export async function listPrepareProjects(
+  db: AppDatabase,
+): Promise<PrepareProjectRow[]> {
+  return allRows<PrepareProjectRow>(
+    db,
+    `${PREPARE_PROJECT_SELECT} ORDER BY updated_at DESC`,
+  );
+}
+
+export async function getPrepareProjectById(
+  db: AppDatabase,
+  projectId: string,
+): Promise<PrepareProjectRow | undefined> {
+  return getRow<PrepareProjectRow>(
+    db,
+    `${PREPARE_PROJECT_SELECT} WHERE id = ? LIMIT 1`,
+    [projectId],
+  );
+}
+
+export async function createPrepareProject(
+  db: AppDatabase,
+  input: CreatePrepareProjectInput,
+): Promise<PrepareProjectRow> {
+  const timestamp = nowIso();
+  const row: PrepareProjectRow = {
+    createdAt: timestamp,
+    id: randomUUID(),
+    inputType: input.inputType.trim(),
+    jobName: input.jobName.trim(),
+    lastActionAt: null,
+    lastActionLabel: null,
+    layerProfile: input.layerProfile.trim(),
+    materialProfile: input.materialProfile.trim(),
+    notes: input.notes.trim(),
+    outputPath: input.outputPath.trim(),
+    printerId: input.printerId?.trim() || null,
+    sourcePath: input.sourcePath.trim(),
+    updatedAt: timestamp,
+    workflowId: input.workflowId,
+  };
+
+  runStatement(
+    db,
+    `
+      INSERT INTO prepare_projects (
+        id, workflow_id, input_type, job_name, source_path, output_path,
+        printer_id, layer_profile, material_profile, notes, last_action_at,
+        last_action_label, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `,
+    [
+      row.id,
+      row.workflowId,
+      row.inputType,
+      row.jobName,
+      row.sourcePath,
+      row.outputPath,
+      row.printerId,
+      row.layerProfile,
+      row.materialProfile,
+      row.notes,
+      row.lastActionAt,
+      row.lastActionLabel,
+      row.createdAt,
+      row.updatedAt,
+    ],
+  );
+
+  return row;
+}
+
+export async function updatePrepareProject(
+  db: AppDatabase,
+  projectId: string,
+  input: CreatePrepareProjectInput,
+): Promise<PrepareProjectRow | null> {
+  const existing = await getPrepareProjectById(db, projectId);
+  if (!existing) {
+    return null;
+  }
+
+  const row: PrepareProjectRow = {
+    ...existing,
+    inputType: input.inputType.trim(),
+    jobName: input.jobName.trim(),
+    layerProfile: input.layerProfile.trim(),
+    materialProfile: input.materialProfile.trim(),
+    notes: input.notes.trim(),
+    outputPath: input.outputPath.trim(),
+    printerId: input.printerId?.trim() || null,
+    sourcePath: input.sourcePath.trim(),
+    updatedAt: nowIso(),
+    workflowId: input.workflowId,
+  };
+
+  runStatement(
+    db,
+    `
+      UPDATE prepare_projects
+      SET
+        workflow_id = ?,
+        input_type = ?,
+        job_name = ?,
+        source_path = ?,
+        output_path = ?,
+        printer_id = ?,
+        layer_profile = ?,
+        material_profile = ?,
+        notes = ?,
+        updated_at = ?
+      WHERE id = ?
+    `,
+    [
+      row.workflowId,
+      row.inputType,
+      row.jobName,
+      row.sourcePath,
+      row.outputPath,
+      row.printerId,
+      row.layerProfile,
+      row.materialProfile,
+      row.notes,
+      row.updatedAt,
+      row.id,
+    ],
+  );
+
+  return row;
+}
+
+export async function markPrepareProjectAction(
+  db: AppDatabase,
+  projectId: string,
+  actionLabel: string,
+): Promise<void> {
+  const timestamp = nowIso();
+  runStatement(
+    db,
+    `
+      UPDATE prepare_projects
+      SET
+        last_action_at = ?,
+        last_action_label = ?,
+        updated_at = ?
+      WHERE id = ?
+    `,
+    [timestamp, actionLabel.trim(), timestamp, projectId],
+  );
+}
+
+export async function deletePrepareProject(
+  db: AppDatabase,
+  projectId: string,
+): Promise<boolean> {
+  const result = runStatement(db, "DELETE FROM prepare_projects WHERE id = ?", [
+    projectId,
+  ]);
+  return result.changes > 0;
 }
 
 export async function listCameraSources(

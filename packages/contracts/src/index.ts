@@ -403,6 +403,13 @@ export type PrepareWorkflowKind = "filament" | "resin";
 
 export type PrepareSlicerId = "orcaslicer" | "prusaslicer";
 
+export type PrepareProjectState =
+  | "draft"
+  | "ready"
+  | "sliced"
+  | "sent"
+  | "warning";
+
 export interface PrepareWorkflow {
   id: PrepareWorkflowKind;
   label: string;
@@ -443,6 +450,36 @@ export interface PrepareHandoffAction {
   requirement: string;
 }
 
+export interface PrepareProjectRecord {
+  createdAt: string;
+  fileName: string | null;
+  id: string;
+  inputType: string;
+  jobName: string;
+  lastActionAt: string | null;
+  lastActionLabel: string | null;
+  layerProfile: string;
+  materialProfile: string;
+  notes: string;
+  outputExists: boolean;
+  outputPath: string;
+  printerId: string | null;
+  sizeBytes: number | null;
+  sourceExists: boolean;
+  sourcePath: string;
+  state: PrepareProjectState;
+  summary: string;
+  updatedAt: string;
+  validationMessages: string[];
+  workflowId: PrepareWorkflowKind;
+}
+
+export interface PrepareWorkspace {
+  activeProjectId: string | null;
+  projects: PrepareProjectRecord[];
+  rootDirectory: string;
+}
+
 export interface PrepareStatus {
   status: PrepareWorkspaceStatus;
   headline: string;
@@ -452,6 +489,7 @@ export interface PrepareStatus {
   slicers: PrepareSlicerWorkspace[];
   pipeline: PreparePipelineStage[];
   handoffActions: PrepareHandoffAction[];
+  workspace: PrepareWorkspace;
 }
 
 export const DEFAULT_APPEARANCE: AppearanceSettings = {

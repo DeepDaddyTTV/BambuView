@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:http";
 import os from "node:os";
 import path from "node:path";
@@ -678,6 +678,246 @@ describe("auth and settings flows", () => {
 });
 
 describe("companion integration", () => {
+  it("merges paired companion discovery into printer discovery results", async () => {
+    const app = await buildApp({
+      appOrigin: "http://localhost:4173",
+      databaseFile: createTestDbPath(),
+    });
+
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap",
+      payload: {
+        email: "admin@example.com",
+        name: "Admin User",
+        password: "supersecure",
+      },
+    });
+    const cookie = bootstrap.headers["set-cookie"];
+
+    const pairingCodeResponse = await app.inject({
+      method: "POST",
+      url: "/api/companions/pairing-codes",
+      headers: {
+        cookie,
+      },
+      payload: {},
+    });
+    expect(pairingCodeResponse.statusCode).toBe(201);
+    const pairingCode = pairingCodeResponse.json().pairingCode.code as string;
+
+    const bridgeToken = "bridge-token-discovery-123456";
+    const companionServer = createServer((request, response) => {
+      if (
+        request.headers.authorization !==
+        `Basic ${Buffer.from(`companion:${bridgeToken}`).toString("base64")}`
+      ) {
+        response.statusCode = 401;
+        response.end(JSON.stringify({ message: "Unauthorized" }));
+        return;
+      }
+
+      response.setHeader("content-type", "application/json");
+      if (request.url === "/health") {
+        response.end(
+          JSON.stringify({
+            appName: "BambuView Companion",
+            appVersion: "0.0.41",
+            bridge: {
+              baseUrl: "http://127.0.0.1:41738",
+              bindMode: "localhost",
+              host: "localhost",
+              port: 41738,
+              suggestedPort: null,
+            },
+            bridgeSources: [
+              {
+                detail: "Bambu Connect is installed locally.",
+                id: "bambu-connect",
+                kind: "bambu-connect",
+                label: "Bambu Connect",
+                location: "/Applications/Bambu Connect.app",
+                status: "configured",
+              },
+            ],
+            pairing: {
+              paired: true,
+              companionId: "companion-discovery",
+              companionName: "Discovery Bridge",
+              pairedAt: new Date().toISOString(),
+              serverUrl: "http://localhost:4173",
+            },
+            status: "paired",
+            capabilities: {
+              discovery: "available",
+              telemetry: "available",
+              camera: "available",
+              controls: "available",
+              fileUpload: "available",
+              ams: "available",
+              slicingAssist: "available",
+            },
+            capabilityNotes: {},
+            warnings: [],
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/capabilities") {
+        response.end(
+          JSON.stringify({
+            capabilities: {
+              discovery: "available",
+              telemetry: "available",
+              camera: "available",
+              controls: "available",
+              fileUpload: "available",
+              ams: "available",
+              slicingAssist: "available",
+            },
+            capabilityNotes: {
+              discovery: "Desktop bridge discovery is available.",
+            },
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/printers") {
+        response.end(
+          JSON.stringify({
+            printers: [],
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/streams") {
+        response.end(
+          JSON.stringify({
+            streams: [],
+          }),
+        );
+        return;
+      }
+
+      if (request.url === "/printers/discover") {
+        response.end(
+          JSON.stringify({
+            attemptedAt: new Date().toISOString(),
+            bridgeSources: [
+              {
+                detail: "Bambu Connect is installed locally.",
+                id: "bambu-connect",
+                kind: "bambu-connect",
+                label: "Bambu Connect",
+                location: "/Applications/Bambu Connect.app",
+                status: "configured",
+              },
+            ],
+            detail: "Companion found one cached desktop printer profile.",
+            instructions: ["Desktop bridge discovery is available."],
+            printers: [
+              {
+                id: "desktop-printer-1",
+                name: "Desktop P1S",
+                provider: "bambu-lab",
+                model: "P1S",
+                hostname: "desktop-p1s.local",
+                serial: "P1S-DESKTOP-001",
+                connectionMode: "bambu-connect",
+                notes: "Imported from detected bambu connect desktop data.",
+                streamId: null,
+                accessCodeSet: false,
+                capabilities: {
+                  discovery: "available",
+                  telemetry: "requires_setup",
+                  camera: "requires_setup",
+                  controls: "requires_setup",
+                  fileUpload: "available",
+                  ams: "requires_setup",
+                  slicingAssist: "available",
+                },
+                capabilityNotes: {
+                  discovery: "Desktop bridge discovery is available.",
+                },
+                lastSeenAt: new Date().toISOString(),
+                lastTestedAt: null,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              },
+            ],
+            supported: true,
+          }),
+        );
+        return;
+      }
+
+      response.statusCode = 404;
+      response.end(JSON.stringify({ message: "Not found" }));
+    });
+
+    await new Promise<void>((resolve) =>
+      companionServer.listen(0, "127.0.0.1", resolve),
+    );
+    const address = companionServer.address();
+    if (!address || typeof address === "string") {
+      throw new Error("Expected companion server address.");
+    }
+
+    const pair = await app.inject({
+      method: "POST",
+      url: "/api/companions/pair",
+      payload: {
+        baseUrl: `http://127.0.0.1:${address.port}`,
+        bridgeToken,
+        capabilities: {
+          discovery: "available",
+          telemetry: "available",
+          camera: "available",
+          controls: "available",
+          fileUpload: "available",
+          ams: "available",
+          slicingAssist: "available",
+        },
+        capabilityNotes: {},
+        companionName: "Discovery Bridge",
+        pairingToken: pairingCode,
+      },
+    });
+
+    expect(pair.statusCode).toBe(201);
+
+    const discovery = await app.inject({
+      method: "GET",
+      url: "/api/printers/discover",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(discovery.statusCode).toBe(200);
+    expect(discovery.json().supported).toBe(true);
+    expect(discovery.json().printers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          host: "desktop-p1s.local",
+          model: "P1S",
+          name: "Desktop P1S",
+          serial: "P1S-DESKTOP-001",
+          source: "companion",
+        }),
+      ]),
+    );
+    expect(discovery.json().instructions).toContain(
+      "Companion-discovered printers can be imported even when they rely on Bambu Connect or another local bridge surface.",
+    );
+
+    companionServer.close();
+    await app.close();
+  });
+
   it("pairs a companion, tests the connection, and imports a stream as a camera source", async () => {
     const app = await buildApp({
       appOrigin: "http://localhost:4173",
@@ -721,7 +961,7 @@ describe("companion integration", () => {
         response.end(
           JSON.stringify({
             appName: "BambuView Companion",
-            appVersion: "0.0.40",
+            appVersion: "0.0.41",
             bridge: {
               baseUrl: "http://127.0.0.1:41738",
               bindMode: "localhost",
@@ -729,6 +969,7 @@ describe("companion integration", () => {
               port: 41738,
               suggestedPort: null,
             },
+            bridgeSources: [],
             pairing: {
               paired: true,
               companionId: "companion-1",
@@ -965,7 +1206,7 @@ describe("companion integration", () => {
         response.end(
           JSON.stringify({
             appName: "BambuView Companion",
-            appVersion: "0.0.40",
+            appVersion: "0.0.41",
             bridge: {
               baseUrl: "http://127.0.0.1:41738",
               bindMode: "localhost",
@@ -973,6 +1214,7 @@ describe("companion integration", () => {
               port: 41738,
               suggestedPort: null,
             },
+            bridgeSources: [],
             pairing: {
               paired: true,
               companionId: "companion-telemetry",
@@ -1211,6 +1453,152 @@ describe("companion integration", () => {
     expect(snapshot.rawPayload).toEqual(snapshotBytes);
 
     companionServer.close();
+    await app.close();
+  });
+});
+
+describe("prepare workbench", () => {
+  it("persists, updates, marks, and deletes saved prepare projects", async () => {
+    const app = await buildApp({
+      appOrigin: "http://localhost:4173",
+      databaseFile: createTestDbPath(),
+    });
+
+    const bootstrap = await app.inject({
+      method: "POST",
+      url: "/api/auth/bootstrap",
+      payload: {
+        email: "admin@example.com",
+        name: "Admin User",
+        password: "supersecure",
+      },
+    });
+    const cookie = bootstrap.headers["set-cookie"];
+
+    const workspaceDir = mkdtempSync(
+      path.join(os.tmpdir(), "bambuview-prepare-"),
+    );
+    tempDirs.push(workspaceDir);
+    const sourcePath = path.join(workspaceDir, "miniature.sl1");
+    const outputPath = path.join(workspaceDir, "miniature-export.sl1s");
+    writeFileSync(sourcePath, "source");
+    writeFileSync(outputPath, "output");
+
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/prepare/projects",
+      headers: {
+        cookie,
+      },
+      payload: {
+        inputType: ".sl1",
+        jobName: "Resin Miniature",
+        layerProfile: "0.05mm Standard Resin",
+        materialProfile: "Tough Resin Gray",
+        notes: "First staged resin export.",
+        outputPath,
+        printerId: null,
+        sourcePath,
+        workflowId: "resin",
+      },
+    });
+
+    expect(create.statusCode).toBe(201);
+    const projectId = create.json().project.id as string;
+    expect(create.json().workspace.projects).toHaveLength(1);
+
+    const workspace = await app.inject({
+      method: "GET",
+      url: "/api/prepare/workspace",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(workspace.statusCode).toBe(200);
+    expect(workspace.json().workspace.projects[0]).toEqual(
+      expect.objectContaining({
+        fileName: "miniature-export.sl1s",
+        jobName: "Resin Miniature",
+        outputExists: true,
+        sourceExists: true,
+        state: "sliced",
+        workflowId: "resin",
+      }),
+    );
+
+    const update = await app.inject({
+      method: "PUT",
+      url: `/api/prepare/projects/${projectId}`,
+      headers: {
+        cookie,
+      },
+      payload: {
+        inputType: ".sl1",
+        jobName: "Resin Miniature Rev A",
+        layerProfile: "0.03mm Fine Resin",
+        materialProfile: "Model Resin Ivory",
+        notes: "Updated for a finer resin pass.",
+        outputPath,
+        printerId: null,
+        sourcePath,
+        workflowId: "resin",
+      },
+    });
+
+    expect(update.statusCode).toBe(200);
+    expect(update.json().project.jobName).toBe("Resin Miniature Rev A");
+
+    const markAction = await app.inject({
+      method: "POST",
+      url: `/api/prepare/projects/${projectId}/actions`,
+      headers: {
+        cookie,
+      },
+      payload: {
+        label: "Project sent",
+      },
+    });
+
+    expect(markAction.statusCode).toBe(200);
+
+    const status = await app.inject({
+      method: "GET",
+      url: "/api/prepare/status",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(status.statusCode).toBe(200);
+    expect(status.json().workspace.projects[0]).toEqual(
+      expect.objectContaining({
+        jobName: "Resin Miniature Rev A",
+        lastActionLabel: "Project sent",
+        state: "sent",
+      }),
+    );
+
+    const remove = await app.inject({
+      method: "DELETE",
+      url: `/api/prepare/projects/${projectId}`,
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(remove.statusCode).toBe(204);
+
+    const emptyWorkspace = await app.inject({
+      method: "GET",
+      url: "/api/prepare/workspace",
+      headers: {
+        cookie,
+      },
+    });
+
+    expect(emptyWorkspace.statusCode).toBe(200);
+    expect(emptyWorkspace.json().workspace.projects).toHaveLength(0);
     await app.close();
   });
 });

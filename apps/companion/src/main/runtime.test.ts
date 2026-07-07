@@ -28,7 +28,7 @@ function createRuntime() {
   const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
   tempDirs.push(dir);
   return new CompanionRuntime({
-    appVersion: "0.0.39",
+    appVersion: "0.0.40",
     codec: {
       available: false,
       decrypt: (value) => value,
@@ -315,7 +315,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.40-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.41-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify([
@@ -326,13 +326,13 @@ describe("companion runtime", () => {
                 name: assetName,
               },
             ],
-              html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.40",
-              name: "BVCompanion v0.0.40 Alpha",
-              prerelease: true,
-              tag_name: "bvcompanion-v0.0.40",
-            },
-          ]),
+            html_url:
+              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.41",
+            name: "BVCompanion v0.0.41 Alpha",
+            prerelease: true,
+            tag_name: "bvcompanion-v0.0.41",
+          },
+        ]),
         {
           headers: {
             "content-type": "application/json",
@@ -344,8 +344,8 @@ describe("companion runtime", () => {
     const snapshot = await runtime.checkForUpdates();
 
     expect(snapshot.update.available).toBe(true);
-    expect(snapshot.update.latestVersion).toBe("0.0.40");
-    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.40");
+    expect(snapshot.update.latestVersion).toBe("0.0.41");
+    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.41");
   });
 
   it("downloads and opens the latest Companion installer", async () => {
@@ -353,7 +353,7 @@ describe("companion runtime", () => {
     const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
     tempDirs.push(dir);
     const runtime = new CompanionRuntime({
-      appVersion: "0.0.39",
+      appVersion: "0.0.40",
       codec: {
         available: false,
         decrypt: (value) => value,
@@ -384,7 +384,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.40-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.41-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async (input) => {
       const url = String(input);
       if (url.includes("/releases?per_page=20")) {
@@ -398,10 +398,10 @@ describe("companion runtime", () => {
                 },
               ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.40",
-              name: "BVCompanion v0.0.40 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.41",
+              name: "BVCompanion v0.0.41 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.40",
+              tag_name: "bvcompanion-v0.0.41",
             },
           ]),
           {

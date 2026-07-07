@@ -59,8 +59,10 @@ import {
   createCameraSource,
   createCompanionPairingCode,
   createInvite,
+  createPrepareProject,
   createPrinterConnection,
   deleteCompanion,
+  deletePrepareProject,
   createUser,
   deleteCameraAssignment,
   deleteCameraSource,
@@ -79,6 +81,7 @@ import {
   listInvites,
   listCompanions,
   listCompanionSecrets,
+  markPrepareProjectAction,
   listPrinterConnections,
   listUsers,
   markCompanionPairingCodeUsed,
@@ -86,12 +89,14 @@ import {
   upsertCompanionRegistration,
   updateCompanionSnapshot,
   updateCameraSource,
+  updatePrepareProject,
   updatePrinterConnection,
   upsertCameraAssignment,
   type AppDatabase,
   upsertAppearance,
   updateUserRole,
 } from "./db.js";
+import { buildPrepareWorkspace } from "./prepare.js";
 import type {
   CameraProvider,
   PrinterProvider,
@@ -259,7 +264,12 @@ const printerCommandSchema = z.object({
     "extruder",
     "ams",
   ]),
-  args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+  args: z
+    .record(
+      z.string(),
+      z.union([z.string(), z.number(), z.boolean(), z.null()]),
+    )
+    .optional(),
 });
 
 const printerFileSendSchema = z.object({
@@ -310,6 +320,22 @@ const companionPairSchema = z.object({
 
 const companionImportSchema = z.object({
   name: z.string().trim().min(2).max(120).optional(),
+});
+
+const prepareProjectSchema = z.object({
+  inputType: z.string().trim().min(2).max(80),
+  jobName: z.string().trim().min(2).max(160),
+  layerProfile: z.string().trim().min(2).max(120),
+  materialProfile: z.string().trim().min(2).max(120),
+  notes: z.string().trim().max(2000).default(""),
+  outputPath: z.string().trim().min(1).max(4096),
+  printerId: z.string().trim().min(1).max(160).nullable().optional(),
+  sourcePath: z.string().trim().min(1).max(4096),
+  workflowId: z.enum(["filament", "resin"]),
+});
+
+const prepareProjectActionSchema = z.object({
+  label: z.string().trim().min(2).max(120),
 });
 
 interface RouteDependencies {
@@ -471,7 +497,10 @@ async function dispatchPrinterCommand(
     throw new Error("Printer connection not found.");
   }
 
-  if (connection.connectionMode === "developer") {
+  if (
+    connection.connectionMode === "developer" ||
+    connection.connectionMode === "lan"
+  ) {
     return runDirectBambuCommand(
       {
         accessCode: connection.accessCode ?? undefined,
@@ -512,7 +541,7 @@ async function dispatchPrinterCommand(
     action: request.action,
     detail:
       connection.connectionMode === "lan"
-        ? "LAN Mode exposes telemetry, but direct controls still require LAN-only Developer Mode or a paired Companion bridge for this printer."
+        ? "This printer still needs either saved local credentials for the supported LAN commands or a paired Companion bridge for deeper controls."
         : "This printer profile needs a paired Companion bridge before BambuView can attempt that action.",
     mode: connection.connectionMode,
   };
@@ -527,7 +556,10 @@ async function dispatchPrinterFile(
     throw new Error("Printer connection not found.");
   }
 
-  if (connection.connectionMode === "developer") {
+  if (
+    connection.connectionMode === "developer" ||
+    connection.connectionMode === "lan"
+  ) {
     return sendDirectBambuFile(
       {
         accessCode: connection.accessCode ?? undefined,
@@ -870,7 +902,10 @@ export async function registerRoutes(
       discoverBambuPrinters(),
       discoverCompanionPrinters(dependencies.db),
     ]);
-    const merged = new Map<string, BambuPrinterDiscoveryResult["printers"][0]>();
+    const merged = new Map<
+      string,
+      BambuPrinterDiscoveryResult["printers"][0]
+    >();
 
     for (const printer of direct.printers) {
       merged.set(`${printer.serial}:${printer.host}`, printer);
@@ -1057,7 +1092,9 @@ export async function registerRoutes(
     }
 
     const params = z.object({ id: z.uuid() }).parse(request.params);
-    const body: PrinterCommandRequest = printerCommandSchema.parse(request.body);
+    const body: PrinterCommandRequest = printerCommandSchema.parse(
+      request.body,
+    );
     const connection = await getPrinterConnectionSecretById(
       dependencies.db,
       params.id,
@@ -1102,11 +1139,7 @@ export async function registerRoutes(
     }
 
     try {
-      const handoff = await dispatchPrinterFile(
-        dependencies,
-        connection,
-        body,
-      );
+      const handoff = await dispatchPrinterFile(dependencies, connection, body);
       return { handoff };
     } catch (error) {
       return reply.code(502).send({
@@ -1708,6 +1741,89 @@ export async function registerRoutes(
 
     const params = z.object({ id: z.uuid() }).parse(request.params);
     return proxyCamera(params.id, "stream", reply);
+  });
+
+  app.get("/api/prepare/workspace", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    return {
+      workspace: await buildPrepareWorkspace(dependencies.db),
+    };
+  });
+
+  app.post("/api/prepare/projects", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const body = prepareProjectSchema.parse(request.body);
+    const project = await createPrepareProject(dependencies.db, {
+      ...body,
+      notes: body.notes ?? "",
+      printerId: body.printerId ?? null,
+    });
+
+    return reply.code(201).send({
+      project,
+      workspace: await buildPrepareWorkspace(dependencies.db),
+    });
+  });
+
+  app.put("/api/prepare/projects/:id", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const body = prepareProjectSchema.parse(request.body);
+    const project = await updatePrepareProject(dependencies.db, params.id, {
+      ...body,
+      notes: body.notes ?? "",
+      printerId: body.printerId ?? null,
+    });
+    if (!project) {
+      return reply.code(404).send({ message: "Prepare project not found." });
+    }
+
+    return {
+      project,
+      workspace: await buildPrepareWorkspace(dependencies.db),
+    };
+  });
+
+  app.post("/api/prepare/projects/:id/actions", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const body = prepareProjectActionSchema.parse(request.body);
+    await markPrepareProjectAction(dependencies.db, params.id, body.label);
+
+    return {
+      workspace: await buildPrepareWorkspace(dependencies.db),
+    };
+  });
+
+  app.delete("/api/prepare/projects/:id", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const deleted = await deletePrepareProject(dependencies.db, params.id);
+    if (!deleted) {
+      return reply.code(404).send({ message: "Prepare project not found." });
+    }
+
+    return reply.code(204).send();
   });
 
   app.get("/api/prepare/status", async (request, reply) => {

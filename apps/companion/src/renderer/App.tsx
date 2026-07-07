@@ -130,10 +130,9 @@ function printerInputFromDiscovery(
   };
 }
 
-function parsePairServerUrl(serverUrl: string | null | undefined): Pick<
-  PairFormState,
-  "serverHost" | "serverPort" | "serverProtocol"
-> {
+function parsePairServerUrl(
+  serverUrl: string | null | undefined,
+): Pick<PairFormState, "serverHost" | "serverPort" | "serverProtocol"> {
   if (!serverUrl) {
     return {
       serverHost: DEFAULT_PAIR_SERVER_HOST,
@@ -182,13 +181,12 @@ const printerModelOptions: Array<CompanionSelectOption<string>> =
     value: model.value,
   }));
 
-const connectionModeOptions: Array<
-  CompanionSelectOption<BambuConnectionMode>
-> = BAMBU_CONNECTION_MODE_OPTIONS.map((mode) => ({
-  description: mode.summary,
-  label: mode.label,
-  value: mode.value,
-}));
+const connectionModeOptions: Array<CompanionSelectOption<BambuConnectionMode>> =
+  BAMBU_CONNECTION_MODE_OPTIONS.map((mode) => ({
+    description: mode.summary,
+    label: mode.label,
+    value: mode.value,
+  }));
 
 const streamSourceOptions: Array<
   CompanionSelectOption<CompanionStreamInput["sourceKind"]>
@@ -305,9 +303,7 @@ function CompanionSelect<TValue extends string>({
             <button
               aria-selected={option.value === value}
               className={`companion-select__option ${
-                option.value === value
-                  ? "companion-select__option--active"
-                  : ""
+                option.value === value ? "companion-select__option--active" : ""
               }`}
               key={option.value}
               onClick={() => {
@@ -610,9 +606,9 @@ export function App() {
                   </label>
                 </div>
                 <div className="field-hint">
-                  Use <strong>http://localhost:4173</strong> only when
-                  BambuView and Companion are running on the same computer. If
-                  BambuView is running in Docker or on another device, use that
+                  Use <strong>http://localhost:4173</strong> only when BambuView
+                  and Companion are running on the same computer. If BambuView
+                  is running in Docker or on another device, use that
                   machine&apos;s LAN URL here and switch the Companion bridge to
                   <strong> LAN</strong> in Settings before pairing.
                 </div>
@@ -663,7 +659,9 @@ export function App() {
                             companionName: current.companionName,
                             pairingToken: "",
                           }));
-                          setSuccessMessage("Pairing was cleared on this Companion.");
+                          setSuccessMessage(
+                            "Pairing was cleared on this Companion.",
+                          );
                         },
                       );
                     }}
@@ -777,7 +775,9 @@ export function App() {
                           <button
                             className="ghost-button"
                             onClick={() => {
-                              setPrinterForm(printerInputFromDiscovery(printer));
+                              setPrinterForm(
+                                printerInputFromDiscovery(printer),
+                              );
                               setSuccessMessage(
                                 `${printer.name} is ready in the form below. Add its access code if needed, then save it.`,
                               );
@@ -1218,6 +1218,40 @@ export function App() {
             </article>
 
             <article className="panel-card">
+              <div className="panel-card__title">Detected Bridge Surfaces</div>
+              <div className="stack-list">
+                {snapshot.health.bridgeSources.map((surface) => (
+                  <div className="item-card" key={surface.id}>
+                    <div className="item-card__header">
+                      <div>
+                        <div className="item-card__title">{surface.label}</div>
+                        <div className="item-card__meta">
+                          {surface.kind} • {surface.status}
+                        </div>
+                      </div>
+                      <div
+                        className={`status-pill status-pill--${
+                          surface.status === "configured"
+                            ? "paired"
+                            : surface.status === "detected"
+                              ? "warning"
+                              : "error"
+                        }`}
+                      >
+                        {surface.status}
+                      </div>
+                    </div>
+                    <div className="item-card__copy">{surface.detail}</div>
+                    <div className="item-card__meta">
+                      {surface.location ??
+                        "No local install or config path detected"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </article>
+
+            <article className="panel-card">
               <div className="panel-card__title">Per-Printer Readiness</div>
               <div className="stack-list">
                 {snapshot.printers.map((printer) => (
@@ -1305,9 +1339,7 @@ export function App() {
                               ...current,
                               bindMode,
                               host:
-                                bindMode === "lan"
-                                  ? current.host
-                                  : "localhost",
+                                bindMode === "lan" ? current.host : "localhost",
                             }
                           : current,
                       )
