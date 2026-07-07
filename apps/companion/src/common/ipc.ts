@@ -5,6 +5,7 @@ export const companionChannels = {
   createStream: "companion:create-stream",
   deletePrinter: "companion:delete-printer",
   deleteStream: "companion:delete-stream",
+  discoverPrinters: "companion:discover-printers",
   fileHandoff: "companion:file-handoff",
   getSnapshot: "companion:get-snapshot",
   openExternal: "companion:open-external",

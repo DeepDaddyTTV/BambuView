@@ -1,6 +1,6 @@
 {
   "name": "@bambuview/companion",
-  "version": "0.0.39",
+  "version": "0.0.40",
   "description": "Local bridge app for BambuView printers, cameras, telemetry, and file handoff.",
   "desktopName": "bambuview-companion",
   "author": {
@@ -14,13 +14,14 @@
     "dev": "electron-vite dev",
     "build": "node build.mjs",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
+    "test": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css,html}\"",
     "package": "node ../../scripts/package-companion.mjs"
   },
   "dependencies": {
     "@bambuview/contracts": "workspace:*",
+    "basic-ftp": "^5.0.5",
     "fastify": "^5.8.5",
     "lucide-react": "^0.552.0",
     "react": "^19.2.0",

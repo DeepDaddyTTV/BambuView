@@ -1,6 +1,8 @@
 import {
   Activity,
   Cable,
+  CheckCircle2,
+  ChevronDown,
   Copy,
   FileUp,
   HardDriveDownload,
@@ -17,15 +19,27 @@ import {
   ShieldAlert,
   Waves,
 } from "lucide-react";
-import { startTransition, useEffect, useState } from "react";
+import {
+  startTransition,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 
 import type {
+  BambuConnectionMode,
   CompanionCapabilityFlags,
   CompanionPrinterInput,
+  CompanionPrinterDiscoveryResult,
   CompanionPrinterTelemetry,
   CompanionSettings,
   CompanionSnapshot,
   CompanionStreamInput,
+} from "@bambuview/contracts";
+import {
+  BAMBU_CONNECTION_MODE_OPTIONS,
+  BAMBU_PRINTER_MODELS,
 } from "@bambuview/contracts";
 
 import type { PairCompanionInput } from "@common/electron-api";
@@ -100,6 +114,22 @@ function emptyPairForm(): PairFormState {
   };
 }
 
+function printerInputFromDiscovery(
+  printer: CompanionPrinterDiscoveryResult["printers"][number],
+): CompanionPrinterInput {
+  return {
+    accessCode: "",
+    connectionMode: printer.connectionMode,
+    hostname: printer.hostname,
+    model: printer.model,
+    name: printer.name,
+    notes: printer.notes,
+    provider: printer.provider,
+    serial: printer.serial,
+    streamId: printer.streamId,
+  };
+}
+
 function parsePairServerUrl(serverUrl: string | null | undefined): Pick<
   PairFormState,
   "serverHost" | "serverPort" | "serverProtocol"
@@ -140,6 +170,50 @@ function buildPairInput(form: PairFormState): PairCompanionInput {
   };
 }
 
+const pairProtocolOptions: Array<CompanionSelectOption<PairServerProtocol>> = [
+  { label: "http", value: "http" },
+  { label: "https", value: "https" },
+];
+
+const printerModelOptions: Array<CompanionSelectOption<string>> =
+  BAMBU_PRINTER_MODELS.map((model) => ({
+    description: `${model.family} Series`,
+    label: model.label,
+    value: model.value,
+  }));
+
+const connectionModeOptions: Array<
+  CompanionSelectOption<BambuConnectionMode>
+> = BAMBU_CONNECTION_MODE_OPTIONS.map((mode) => ({
+  description: mode.summary,
+  label: mode.label,
+  value: mode.value,
+}));
+
+const streamSourceOptions: Array<
+  CompanionSelectOption<CompanionStreamInput["sourceKind"]>
+> = [
+  { label: "HTTP Snapshot", value: "snapshot" },
+  { label: "HTTP MJPEG", value: "mjpeg" },
+  { label: "HLS", value: "hls" },
+  { label: "RTSP", value: "rtsp" },
+  { label: "Bambu Native", value: "bambu-native" },
+];
+
+const bindModeOptions: Array<
+  CompanionSelectOption<CompanionSettings["bindMode"]>
+> = [
+  { label: "localhost only", value: "localhost" },
+  { label: "LAN (advanced)", value: "lan" },
+];
+
+const themeModeOptions: Array<
+  CompanionSelectOption<CompanionSettings["themeMode"]>
+> = [
+  { label: "Dark", value: "dark" },
+  { label: "Light", value: "light" },
+];
+
 function toneLabel(status: CompanionSnapshot["health"]["status"]) {
   return status.replaceAll("-", " ");
 }
@@ -151,11 +225,114 @@ function capabilityText(
   return flags[key].replaceAll("_", " ");
 }
 
+interface CompanionSelectOption<TValue extends string> {
+  description?: string;
+  label: string;
+  value: TValue;
+}
+
+function CompanionSelect<TValue extends string>({
+  onChange,
+  options,
+  placeholder = "Select",
+  value,
+}: {
+  onChange: (next: TValue) => void;
+  options: Array<CompanionSelectOption<TValue>>;
+  placeholder?: string;
+  value: TValue | "";
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const selected = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, []);
+
+  function moveSelection(direction: 1 | -1) {
+    const currentIndex = Math.max(
+      0,
+      options.findIndex((option) => option.value === value),
+    );
+    const nextIndex =
+      (currentIndex + direction + options.length) % options.length;
+    const next = options[nextIndex];
+    if (next) {
+      onChange(next.value);
+    }
+  }
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setOpen(true);
+      moveSelection(1);
+    }
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setOpen(true);
+      moveSelection(-1);
+    }
+    if (event.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div className="companion-select" ref={wrapperRef}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="companion-select__button"
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={handleKeyDown}
+        type="button"
+      >
+        <span>{selected?.label ?? placeholder}</span>
+        <ChevronDown className="button-icon" />
+      </button>
+      {open ? (
+        <div className="companion-select__menu" role="listbox">
+          {options.map((option) => (
+            <button
+              aria-selected={option.value === value}
+              className={`companion-select__option ${
+                option.value === value
+                  ? "companion-select__option--active"
+                  : ""
+              }`}
+              key={option.value}
+              onClick={() => {
+                onChange(option.value);
+                setOpen(false);
+              }}
+              role="option"
+              type="button"
+            >
+              <span>{option.label}</span>
+              {option.description ? <small>{option.description}</small> : null}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function App() {
   const [activeSection, setActiveSection] = useState<SectionKey>("pairing");
   const [snapshot, setSnapshot] = useState<CompanionSnapshot | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pairForm, setPairForm] = useState<PairFormState>(emptyPairForm);
   const [printerForm, setPrinterForm] =
     useState<CompanionPrinterInput>(emptyPrinterForm);
@@ -167,6 +344,8 @@ export function App() {
   const [telemetry, setTelemetry] = useState<
     Record<string, CompanionPrinterTelemetry>
   >({});
+  const [discoveryResult, setDiscoveryResult] =
+    useState<CompanionPrinterDiscoveryResult | null>(null);
 
   async function refresh() {
     const next = await window.companion.getSnapshot();
@@ -195,6 +374,20 @@ export function App() {
   useEffect(() => {
     void refresh();
   }, []);
+
+  useEffect(() => {
+    if (!successMessage) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      setSuccessMessage(null);
+    }, 3200);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [successMessage]);
 
   if (!snapshot || !settingsForm) {
     return (
@@ -285,7 +478,12 @@ export function App() {
           <button
             className="ghost-button"
             onClick={() => {
-              void runAction(() => window.companion.copyBridgeUrl());
+              void runAction(
+                () => window.companion.copyBridgeUrl(),
+                (url) => {
+                  setSuccessMessage(`Bridge URL copied: ${url}`);
+                },
+              );
             }}
             type="button"
           >
@@ -327,6 +525,13 @@ export function App() {
           </div>
         ) : null}
 
+        {successMessage ? (
+          <div className="notice notice--success">
+            <CheckCircle2 className="button-icon" />
+            <span>{successMessage}</span>
+          </div>
+        ) : null}
+
         {snapshot.health.warnings.length > 0 ? (
           <div className="notice notice--warning">
             <Cable className="button-icon" />
@@ -346,26 +551,33 @@ export function App() {
                 className="stack-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void runAction(() =>
-                    window.companion.pair(buildPairInput(pairForm)),
+                  void runAction(
+                    () => window.companion.pair(buildPairInput(pairForm)),
+                    (nextSnapshot) => {
+                      setPairForm((current) => ({
+                        ...current,
+                        pairingToken: "",
+                      }));
+                      setSuccessMessage(
+                        `Companion paired successfully with ${nextSnapshot.pairing.serverUrl}.`,
+                      );
+                    },
                   );
                 }}
               >
                 <div className="stack-form__row stack-form__row--server">
                   <label>
                     <span>Protocol</span>
-                    <select
-                      onChange={(event) =>
+                    <CompanionSelect
+                      onChange={(serverProtocol) =>
                         setPairForm((current) => ({
                           ...current,
-                          serverProtocol: event.target.value as PairServerProtocol,
+                          serverProtocol,
                         }))
                       }
+                      options={pairProtocolOptions}
                       value={pairForm.serverProtocol}
-                    >
-                      <option value="http">http</option>
-                      <option value="https">https</option>
-                    </select>
+                    />
                   </label>
                   <label className="stack-form__field--wide">
                     <span>Host</span>
@@ -451,6 +663,7 @@ export function App() {
                             companionName: current.companionName,
                             pairingToken: "",
                           }));
+                          setSuccessMessage("Pairing was cleared on this Companion.");
                         },
                       );
                     }}
@@ -499,12 +712,14 @@ export function App() {
                 <button
                   className="ghost-button"
                   onClick={() => {
-                    void runAction(async () => {
-                      const result =
-                        await window.companion.regenerateBridgeToken();
-                      alert(`New bridge token generated:\n\n${result.token}`);
-                      return result;
-                    });
+                    void runAction(
+                      async () => window.companion.regenerateBridgeToken(),
+                      (result) => {
+                        setSuccessMessage(
+                          `Bridge secret rotated successfully. New token: ${result.token}`,
+                        );
+                      },
+                    );
                   }}
                   type="button"
                 >
@@ -520,13 +735,82 @@ export function App() {
           <section className="panel-grid panel-grid--two-up">
             <article className="panel-card">
               <div className="panel-card__title">Add Printer</div>
+              <div className="button-row panel-card__actions">
+                <button
+                  className="ghost-button"
+                  disabled={busy}
+                  onClick={() => {
+                    void runAction(
+                      () => window.companion.discoverPrinters(),
+                      (result) => {
+                        setDiscoveryResult(result);
+                        setSuccessMessage(
+                          result.printers.length > 0
+                            ? `Found ${result.printers.length} Bambu printer${result.printers.length === 1 ? "" : "s"} on the LAN.`
+                            : "Discovery finished. No LAN-broadcasting Bambu printers answered this pass.",
+                        );
+                      },
+                    );
+                  }}
+                  type="button"
+                >
+                  <RefreshCcw className="button-icon" />
+                  Discover Printers
+                </button>
+              </div>
+              {discoveryResult ? (
+                <div className="stack-list discovery-list">
+                  <div className="field-hint">{discoveryResult.detail}</div>
+                  {discoveryResult.printers.length > 0 ? (
+                    discoveryResult.printers.map((printer) => (
+                      <div className="item-card" key={printer.id}>
+                        <div className="item-card__header">
+                          <div>
+                            <div className="item-card__title">
+                              {printer.name}
+                            </div>
+                            <div className="item-card__meta">
+                              {printer.model} • {printer.hostname} •{" "}
+                              {printer.connectionMode}
+                            </div>
+                          </div>
+                          <button
+                            className="ghost-button"
+                            onClick={() => {
+                              setPrinterForm(printerInputFromDiscovery(printer));
+                              setSuccessMessage(
+                                `${printer.name} is ready in the form below. Add its access code if needed, then save it.`,
+                              );
+                            }}
+                            type="button"
+                          >
+                            <Copy className="button-icon" />
+                            Use Profile
+                          </button>
+                        </div>
+                        <div className="item-card__copy">
+                          {printer.capabilityNotes.discovery ??
+                            "Discovered over the local Bambu LAN broadcast."}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="empty-state">
+                      No printers answered the LAN discovery broadcast yet.
+                    </div>
+                  )}
+                </div>
+              ) : null}
               <form
                 className="stack-form"
                 onSubmit={(event) => {
                   event.preventDefault();
                   void runAction(
                     () => window.companion.createPrinter(printerForm),
-                    () => setPrinterForm(emptyPrinterForm()),
+                    () => {
+                      setPrinterForm(emptyPrinterForm());
+                      setSuccessMessage("Printer saved to Companion.");
+                    },
                   );
                 }}
               >
@@ -544,13 +828,14 @@ export function App() {
                 </label>
                 <label>
                   <span>Model</span>
-                  <input
-                    onChange={(event) =>
+                  <CompanionSelect
+                    onChange={(model) =>
                       setPrinterForm((current) => ({
                         ...current,
-                        model: event.target.value,
+                        model,
                       }))
                     }
+                    options={printerModelOptions}
                     value={printerForm.model}
                   />
                 </label>
@@ -594,21 +879,16 @@ export function App() {
                 </label>
                 <label>
                   <span>Connection Mode</span>
-                  <select
-                    onChange={(event) =>
+                  <CompanionSelect
+                    onChange={(connectionMode) =>
                       setPrinterForm((current) => ({
                         ...current,
-                        connectionMode: event.target
-                          .value as CompanionPrinterInput["connectionMode"],
+                        connectionMode,
                       }))
                     }
+                    options={connectionModeOptions}
                     value={printerForm.connectionMode}
-                  >
-                    <option value="cloud">Cloud / Normal</option>
-                    <option value="bambu-connect">Bambu Connect</option>
-                    <option value="lan">LAN Mode</option>
-                    <option value="developer">LAN-only Developer Mode</option>
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>Notes</span>
@@ -664,7 +944,9 @@ export function App() {
                         onClick={() => {
                           void runAction(
                             () => window.companion.testPrinter(printer.id),
-                            (result) => alert(result.message),
+                            (result) => {
+                              setSuccessMessage(result.message);
+                            },
                           );
                         }}
                         type="button"
@@ -743,7 +1025,10 @@ export function App() {
                   event.preventDefault();
                   void runAction(
                     () => window.companion.createStream(streamForm),
-                    () => setStreamForm(emptyStreamForm()),
+                    () => {
+                      setStreamForm(emptyStreamForm());
+                      setSuccessMessage("Stream saved to Companion.");
+                    },
                   );
                 }}
               >
@@ -761,22 +1046,16 @@ export function App() {
                 </label>
                 <label>
                   <span>Source Kind</span>
-                  <select
-                    onChange={(event) =>
+                  <CompanionSelect
+                    onChange={(sourceKind) =>
                       setStreamForm((current) => ({
                         ...current,
-                        sourceKind: event.target
-                          .value as CompanionStreamInput["sourceKind"],
+                        sourceKind,
                       }))
                     }
+                    options={streamSourceOptions}
                     value={streamForm.sourceKind}
-                  >
-                    <option value="snapshot">HTTP Snapshot</option>
-                    <option value="mjpeg">HTTP MJPEG</option>
-                    <option value="hls">HLS</option>
-                    <option value="rtsp">RTSP</option>
-                    <option value="bambu-native">Bambu Native</option>
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>Upstream URL</span>
@@ -818,22 +1097,25 @@ export function App() {
                 </label>
                 <label>
                   <span>Linked Printer</span>
-                  <select
-                    onChange={(event) =>
+                  <CompanionSelect
+                    onChange={(linkedPrinterId) =>
                       setStreamForm((current) => ({
                         ...current,
-                        linkedPrinterId: event.target.value || null,
+                        linkedPrinterId:
+                          linkedPrinterId === "__none__"
+                            ? null
+                            : linkedPrinterId,
                       }))
                     }
-                    value={streamForm.linkedPrinterId ?? ""}
-                  >
-                    <option value="">No printer linked</option>
-                    {snapshot.printers.map((printer) => (
-                      <option key={printer.id} value={printer.id}>
-                        {printer.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={[
+                      { label: "No printer linked", value: "__none__" },
+                      ...snapshot.printers.map((printer) => ({
+                        label: printer.name,
+                        value: printer.id,
+                      })),
+                    ]}
+                    value={streamForm.linkedPrinterId ?? "__none__"}
+                  />
                 </label>
                 <button className="solid-button" disabled={busy} type="submit">
                   <MonitorPlay className="button-icon" />
@@ -992,8 +1274,11 @@ export function App() {
                 className="stack-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void runAction(() =>
-                    window.companion.saveSettings(settingsForm),
+                  void runAction(
+                    () => window.companion.saveSettings(settingsForm),
+                    () => {
+                      setSuccessMessage("Companion settings saved.");
+                    },
                   );
                 }}
               >
@@ -1012,27 +1297,24 @@ export function App() {
                 </label>
                 <label>
                   <span>Bind Mode</span>
-                  <select
-                    onChange={(event) =>
+                  <CompanionSelect
+                    onChange={(bindMode) =>
                       setSettingsForm((current) =>
                         current
                           ? {
                               ...current,
-                              bindMode: event.target
-                                .value as CompanionSettings["bindMode"],
+                              bindMode,
                               host:
-                                event.target.value === "lan"
+                                bindMode === "lan"
                                   ? current.host
                                   : "localhost",
                             }
                           : current,
                       )
                     }
+                    options={bindModeOptions}
                     value={settingsForm.bindMode}
-                  >
-                    <option value="localhost">localhost only</option>
-                    <option value="lan">LAN (advanced)</option>
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>Bind Host</span>
@@ -1068,23 +1350,15 @@ export function App() {
                 </label>
                 <label>
                   <span>Theme</span>
-                  <select
-                    onChange={(event) =>
+                  <CompanionSelect
+                    onChange={(themeMode) =>
                       setSettingsForm((current) =>
-                        current
-                          ? {
-                              ...current,
-                              themeMode: event.target
-                                .value as CompanionSettings["themeMode"],
-                            }
-                          : current,
+                        current ? { ...current, themeMode } : current,
                       )
                     }
+                    options={themeModeOptions}
                     value={settingsForm.themeMode}
-                  >
-                    <option value="dark">Dark</option>
-                    <option value="light">Light</option>
-                  </select>
+                  />
                 </label>
                 <label>
                   <span>Check for updates on launch</span>

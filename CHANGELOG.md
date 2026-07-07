@@ -6,6 +6,21 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.40 - 2026-07-07
+
+### Bug Fixes & Stability
+
+- Smarter Prepare Routing: Prepare & Slice now sends jobs through the correct delivery path for the selected printer profile, so Developer Mode printers, Companion-backed printers, and Bambu Connect fallback each behave more predictably.
+- Better Pairing Reliability: Companion pairing now gives a real success banner, BambuView always sends a JSON body when generating pairing tokens, and the setup flow stays clearer when you are switching between localhost and LAN installs.
+- Cleaner Setup Consistency: Companion and server connection-mode pickers now share the same labels and in-app styling, which cuts down on mismatched setup choices.
+
+### Improvements & What's New
+
+- Real Prepare Workspace: Prepare & Slice now includes a job workspace for source paths, output paths, printer targets, layer presets, material presets, and delivery planning instead of a mostly informational placeholder.
+- Direct Bambu Actions: fullscreen printer controls and file-send paths now resolve through direct Developer Mode access when available, or through a paired Companion bridge when that is the live route.
+- Better Companion Bridge Controls: Companion can now discover printers on the LAN, accept richer command and file handoff requests, and use the same Bambu model and connection-mode options as the main app.
+- Clearer Docs And Release Copy: the README and beginner-facing Pages docs now describe the actual Companion discovery, command, upload, and bridge behavior in this alpha instead of older foundation-only wording.
+
 ## v0.0.39 - 2026-07-06
 
 ### Bug Fixes & Stability

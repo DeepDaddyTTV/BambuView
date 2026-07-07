@@ -211,6 +211,10 @@ label span,
   box-shadow: inset 0 0 0 1px rgba(244, 161, 45, 0.28);
 }
 
+.notice--success {
+  box-shadow: inset 0 0 0 1px rgba(126, 211, 33, 0.34);
+}
+
 .panel-grid {
   display: grid;
   gap: 18px;
@@ -232,6 +236,14 @@ label span,
   letter-spacing: 0.18em;
   font-size: 0.74rem;
   color: rgba(229, 232, 235, 0.66);
+}
+
+.panel-card__actions {
+  margin: -4px 0 18px;
+}
+
+.discovery-list {
+  margin-bottom: 18px;
 }
 
 .stack-form,
@@ -279,20 +291,60 @@ textarea {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
-select {
-  padding-right: 42px;
-  background-image:
-    linear-gradient(45deg, transparent 50%, rgba(229, 232, 235, 0.88) 50%),
-    linear-gradient(135deg, rgba(229, 232, 235, 0.88) 50%, transparent 50%);
-  background-position:
-    calc(100% - 18px) calc(50% - 2px),
-    calc(100% - 12px) calc(50% - 2px);
-  background-repeat: no-repeat;
-  background-size: 6px 6px;
-}
-
 textarea {
   resize: vertical;
+}
+
+.companion-select {
+  position: relative;
+}
+
+.companion-select__button {
+  display: flex;
+  min-height: 48px;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: none;
+  padding: 12px 14px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.companion-select__menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: 280px;
+  overflow: auto;
+  background: #15191d;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.companion-select__option {
+  display: grid;
+  gap: 4px;
+  border: none;
+  padding: 12px 14px;
+  text-align: left;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.companion-select__option small {
+  color: rgba(229, 232, 235, 0.58);
+}
+
+.companion-select__option:hover,
+.companion-select__option--active {
+  background: rgba(126, 211, 33, 0.12);
 }
 
 .solid-button {

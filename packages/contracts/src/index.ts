@@ -134,6 +134,13 @@ export interface BambuPrinterModel {
   value: string;
 }
 
+export interface BambuConnectionModeOption {
+  description: string;
+  label: string;
+  summary: string;
+  value: BambuConnectionMode;
+}
+
 export const BAMBU_PRINTER_MODELS = [
   { family: "H2", label: "H2D", value: "H2D" },
   { family: "H2", label: "H2D Pro", value: "H2D Pro" },
@@ -149,6 +156,37 @@ export const BAMBU_PRINTER_MODELS = [
   { family: "A1", label: "A1", value: "A1" },
   { family: "A1", label: "A1 Mini", value: "A1 Mini" },
 ] as const satisfies readonly BambuPrinterModel[];
+
+export const BAMBU_CONNECTION_MODE_OPTIONS = [
+  {
+    value: "cloud",
+    label: "Cloud / Normal",
+    summary: "Normal Bambu account workflow.",
+    description:
+      "Keeps the standard Bambu cloud path and saves the printer profile for Companion or Bambu Connect handoff.",
+  },
+  {
+    value: "bambu-connect",
+    label: "Bambu Connect",
+    summary: "Desktop import handoff profile.",
+    description:
+      "Uses the supported Bambu Connect desktop import workflow for file send from the same computer running Companion.",
+  },
+  {
+    value: "lan",
+    label: "LAN Mode",
+    summary: "Local telemetry workflow.",
+    description:
+      "Uses local MQTT status telemetry for progress, temperatures, layers, file names, and AMS data.",
+  },
+  {
+    value: "developer",
+    label: "LAN-only Developer",
+    summary: "Direct local control workflow.",
+    description:
+      "Uses the direct local MQTT, FTPS, and camera protocol path for local controls and file send after Developer Mode is enabled.",
+  },
+] as const satisfies readonly BambuConnectionModeOption[];
 
 export type PrinterConnectionStatus = "online" | "offline" | "unverified";
 
@@ -214,6 +252,61 @@ export interface BambuConnectImportResponse {
   name: string;
   path: string;
   url: string;
+}
+
+export interface BambuDiscoveredPrinter {
+  host: string;
+  model: string;
+  name: string;
+  serial: string;
+  source: "ssdp" | "companion";
+}
+
+export interface BambuPrinterDiscoveryResult {
+  attemptedAt: string;
+  detail: string;
+  instructions: string[];
+  printers: BambuDiscoveredPrinter[];
+  supported: boolean;
+}
+
+export type PrinterCommandAction =
+  | "pause"
+  | "resume"
+  | "stop"
+  | "home"
+  | "move"
+  | "temperature"
+  | "fan"
+  | "lamp"
+  | "extruder"
+  | "ams";
+
+export interface PrinterCommandRequest {
+  action: PrinterCommandAction;
+  args?: Record<string, string | number | boolean | null>;
+}
+
+export interface PrinterCommandResponse {
+  accepted: boolean;
+  action: PrinterCommandAction;
+  detail: string;
+  mode: BambuConnectionMode | "companion";
+}
+
+export interface PrinterFileSendRequest {
+  action?: "stage" | "upload" | "send";
+  fileName?: string;
+  path: string;
+  startPrint?: boolean;
+}
+
+export interface PrinterFileSendResponse {
+  accepted: boolean;
+  detail: string;
+  fileName: string | null;
+  mode: BambuConnectionMode | "companion";
+  sizeBytes: number | null;
 }
 
 export type FleetDataMode = "live" | "placeholder";

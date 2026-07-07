@@ -24,6 +24,8 @@ import type {
   CompanionPairingState,
   CompanionPrinter,
   CompanionPrinterInput,
+  CompanionPrinterCommandRequest,
+  CompanionPrinterCommandResponse,
   CompanionPrinterTelemetry,
   CompanionPrinterTestResult,
   CompanionRegistration,
@@ -44,6 +46,9 @@ import {
 } from "@bambuview/contracts";
 
 import {
+  discoverBambuPrinters,
+  runBambuPrinterCommand,
+  sendBambuPrinterFile,
   probeBambuCamera,
   probeTcp,
   readBambuTelemetry,
@@ -401,6 +406,12 @@ function normalizeUpdateIntervalMinutes(value: number | null | undefined) {
   }
 
   return Math.min(1440, Math.max(5, Math.round(value ?? 30)));
+}
+
+function createBambuConnectImportUrl(input: { name: string; path: string }) {
+  const name = input.name.trim();
+  const filePath = input.path.trim();
+  return `bambu-connect://import-file?path=${encodeURIComponent(filePath)}&name=${encodeURIComponent(name)}`;
 }
 
 function selectCompanionReleaseAsset(release: GitHubReleaseRecord) {
@@ -814,6 +825,9 @@ export class CompanionRuntime extends EventEmitter {
     const developerPrinter = printers.some(
       (printer) => printer.connectionMode === "developer",
     );
+    const connectHandoffPrinter = printers.some((printer) =>
+      ["cloud", "bambu-connect"].includes(printer.connectionMode),
+    );
 
     return {
       capabilities: {
@@ -829,9 +843,11 @@ export class CompanionRuntime extends EventEmitter {
             : streams.length > 0
               ? "requires_setup"
               : "unavailable",
-        controls: developerPrinter ? "unavailable" : "requires_developer_mode",
-        discovery: "unavailable",
-        fileUpload: developerPrinter ? "unavailable" : "requires_setup",
+        controls: developerPrinter ? "available" : "requires_developer_mode",
+        discovery: "available",
+        fileUpload: developerPrinter || connectHandoffPrinter
+          ? "available"
+          : "requires_setup",
         slicingAssist: "future",
         telemetry: telemetryReady
           ? "available"
@@ -845,11 +861,17 @@ export class CompanionRuntime extends EventEmitter {
           ? "At least one stream already exposes browser-compatible output."
           : "Use MJPEG, snapshot, or HLS sources directly. RTSP and native Bambu feeds still need a browser bridge in this alpha.",
         controls:
-          "The control boundary exists, but direct machine commands are not enabled in this alpha yet.",
+          developerPrinter
+            ? "At least one saved printer can accept direct Developer Mode MQTT commands from Companion."
+            : "Switch a printer to LAN-only Developer Mode before direct machine controls are available.",
         discovery:
-          "Automatic Bambu discovery is not implemented in this alpha. Add printers manually with hostname, serial, and access code.",
+          "Companion can now scan the LAN for Bambu SSDP broadcasts and still supports manual printer profiles.",
         fileUpload:
-          "Local file staging is supported, but direct printer upload is not enabled in this alpha.",
+          developerPrinter
+            ? "Developer Mode printers can accept direct FTPS upload and start-print handoff."
+            : connectHandoffPrinter
+              ? "Cloud and Bambu Connect printers can use the local Bambu Connect import handoff from this machine."
+              : "Add a Developer Mode or Bambu Connect printer to unlock local send workflows.",
         slicingAssist:
           "Companion reserves a local slicing-assist boundary for a future revision.",
         telemetry:
@@ -858,19 +880,8 @@ export class CompanionRuntime extends EventEmitter {
     };
   }
 
-  getDiscoveryResult() {
-    return {
-      attemptedAt: nowIso(),
-      detail:
-        "BambuView Companion does not auto-discover Bambu printers in this alpha yet.",
-      instructions: [
-        "Open the printer's network settings on the touchscreen.",
-        "Enable LAN Mode or LAN-only Developer Mode when you want local telemetry.",
-        "Add the printer manually with hostname, serial number, and access code.",
-      ],
-      printers: [],
-      supported: false,
-    };
+  async getDiscoveryResult() {
+    return discoverBambuPrinters();
   }
 
   getHealth(): CompanionHealthResponse {
@@ -999,6 +1010,52 @@ export class CompanionRuntime extends EventEmitter {
     }
 
     const stats = statSync(nextPath);
+    const printerInput = this.toPrinterInput(printer);
+    const requestedAction = input.action ?? "stage";
+
+    if (requestedAction === "upload" || requestedAction === "send") {
+      if (printer.connectionMode === "developer") {
+        const result = await sendBambuPrinterFile(printerInput, input);
+        this.logger.info(
+          `${requestedAction === "send" ? "Sent" : "Uploaded"} a local job to ${printer.name} through the direct Developer Mode path.`,
+        );
+        return result;
+      }
+
+      if (
+        printer.connectionMode === "cloud" ||
+        printer.connectionMode === "bambu-connect"
+      ) {
+        const fileName =
+          input.fileName?.trim() || nextPath.split("/").pop() || "BambuView job";
+        const importUrl = createBambuConnectImportUrl({
+          name: fileName.replace(/\.(gcode\.3mf|3mf|gcode)$/i, ""),
+          path: nextPath,
+        });
+
+        if (this.shellActions) {
+          await this.shellActions.openExternal(importUrl);
+        }
+
+        this.logger.info(`Opened Bambu Connect import handoff for ${printer.name}.`);
+        return {
+          accepted: true,
+          detail:
+            "Opened the local Bambu Connect import handoff on this machine for the selected job.",
+          fileName,
+          sizeBytes: stats.size,
+        };
+      }
+
+      return {
+        accepted: false,
+        detail:
+          "This printer needs LAN-only Developer Mode for direct upload, or a Bambu Connect profile on the same machine for local handoff.",
+        fileName: nextPath.split("/").pop() ?? null,
+        sizeBytes: stats.size,
+      };
+    }
+
     this.logger.info(`Staged local file handoff for printer ${printer.name}.`);
     return {
       accepted: true,
@@ -1310,6 +1367,24 @@ export class CompanionRuntime extends EventEmitter {
     return telemetry;
   }
 
+  async runPrinterCommand(
+    printerId: string,
+    input: CompanionPrinterCommandRequest,
+  ): Promise<CompanionPrinterCommandResponse> {
+    const printer = this.getStoredPrinter(printerId);
+    if (!printer) {
+      throw new Error("Printer not found.");
+    }
+
+    const result = await runBambuPrinterCommand(this.toPrinterInput(printer), input);
+    this.logger.info(
+      result.accepted
+        ? `Sent ${input.action} to ${printer.name}.`
+        : `Command ${input.action} was rejected for ${printer.name}: ${result.detail}`,
+    );
+    return result;
+  }
+
   async regenerateBridgeToken(): Promise<string> {
     const token = randomBytes(24).toString("hex");
     this.state.bridgeToken = encryptSecret(this.codec, token);
@@ -1467,11 +1542,17 @@ export class CompanionRuntime extends EventEmitter {
           ? "requires_restream"
           : "available"
         : printer.connectionMode === "developer"
-          ? "requires_restream"
+          ? "requires_setup"
           : "requires_setup";
       const controlsState =
         printer.connectionMode === "developer"
-          ? "unavailable"
+          ? "available"
+          : "requires_developer_mode";
+      const fileUploadState =
+        printer.connectionMode === "developer" ||
+        printer.connectionMode === "cloud" ||
+        printer.connectionMode === "bambu-connect"
+          ? "available"
           : "requires_developer_mode";
 
       return {
@@ -1480,11 +1561,8 @@ export class CompanionRuntime extends EventEmitter {
           ams: telemetryConfigured ? "available" : "requires_setup",
           camera: cameraState,
           controls: controlsState,
-          discovery: "unavailable",
-          fileUpload:
-            printer.connectionMode === "developer"
-              ? "unavailable"
-              : "requires_developer_mode",
+          discovery: "available",
+          fileUpload: fileUploadState,
           slicingAssist: "future",
           telemetry: telemetryConfigured ? "available" : "requires_setup",
         },
@@ -1494,15 +1572,22 @@ export class CompanionRuntime extends EventEmitter {
             ? linkedStream.outputKind === "unavailable"
               ? "This linked stream still needs a browser-compatible restream."
               : "This printer already has a browser-compatible stream linked."
-            : "Link a browser-compatible MJPEG or snapshot stream to preview this printer in BambuView.",
+            : printer.connectionMode === "developer"
+              ? "Developer Mode opens the local camera path, but you still need a browser-safe feed or native bridge output assigned here."
+              : "Link a browser-compatible MJPEG or snapshot stream to preview this printer in BambuView.",
           controls:
             printer.connectionMode === "developer"
-              ? "The control boundary is wired, but direct commands stay disabled in this alpha."
+              ? "Developer Mode direct machine controls are available through Companion."
               : "Switch the printer to LAN-only Developer Mode to prepare for direct commands.",
           discovery:
-            "Auto-discovery is not implemented in this alpha. Save the printer manually from its touchscreen details.",
+            "BambuView Companion can scan the LAN for Bambu SSDP broadcasts and still lets you save printers manually.",
           fileUpload:
-            "Companion can stage local files now, but direct printer upload is still disabled in this alpha.",
+            printer.connectionMode === "developer"
+              ? "Companion can upload files directly over FTPS and optionally start the print through Developer Mode."
+              : printer.connectionMode === "cloud" ||
+                  printer.connectionMode === "bambu-connect"
+                ? "Companion can open the local Bambu Connect import-file handoff for send workflows on this machine."
+                : "Switch the printer to LAN-only Developer Mode to unlock direct local upload.",
           slicingAssist:
             "Slice-assist hooks are reserved for a future revision.",
           telemetry: telemetryConfigured

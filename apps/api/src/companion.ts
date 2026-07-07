@@ -2,8 +2,13 @@ import type {
   CompanionCapabilityFlags,
   CompanionCapabilityNotes,
   CompanionConnectionSnapshot,
+  CompanionFileHandoffInput,
+  CompanionFileHandoffResult,
   CompanionHealthResponse,
   CompanionPrinter,
+  CompanionPrinterCommandRequest,
+  CompanionPrinterCommandResponse,
+  CompanionPrinterDiscoveryResult,
   CompanionPrinterTelemetry,
   CompanionStream,
 } from "@bambuview/contracts";
@@ -124,4 +129,71 @@ export async function fetchCompanionPrinterTelemetry(
   );
 
   return response.telemetry;
+}
+
+export async function fetchCompanionPrinterDiscovery(
+  companion: Pick<
+    CompanionSecretRecord,
+    "baseUrl" | "bridgeToken" | "bridgeUsername"
+  >,
+): Promise<CompanionPrinterDiscoveryResult> {
+  const headers = {
+    authorization: basicAuth(companion.bridgeUsername, companion.bridgeToken),
+  };
+  const response = await fetchJson<CompanionPrinterDiscoveryResult>(
+    `${companion.baseUrl}/printers/discover`,
+    {
+      headers,
+    },
+  );
+
+  return response;
+}
+
+export async function sendCompanionPrinterCommand(
+  companion: Pick<
+    CompanionSecretRecord,
+    "baseUrl" | "bridgeToken" | "bridgeUsername"
+  >,
+  printerId: string,
+  request: CompanionPrinterCommandRequest,
+): Promise<CompanionPrinterCommandResponse> {
+  const headers = {
+    authorization: basicAuth(companion.bridgeUsername, companion.bridgeToken),
+    "content-type": "application/json",
+  };
+  const response = await fetchJson<{ command: CompanionPrinterCommandResponse }>(
+    `${companion.baseUrl}/printers/${encodeURIComponent(printerId)}/command`,
+    {
+      body: JSON.stringify(request),
+      headers,
+      method: "POST",
+    },
+  );
+
+  return response.command;
+}
+
+export async function sendCompanionPrinterFile(
+  companion: Pick<
+    CompanionSecretRecord,
+    "baseUrl" | "bridgeToken" | "bridgeUsername"
+  >,
+  printerId: string,
+  request: CompanionFileHandoffInput,
+): Promise<CompanionFileHandoffResult> {
+  const headers = {
+    authorization: basicAuth(companion.bridgeUsername, companion.bridgeToken),
+    "content-type": "application/json",
+  };
+  const response = await fetchJson<{ handoff: CompanionFileHandoffResult }>(
+    `${companion.baseUrl}/printers/${encodeURIComponent(printerId)}/files`,
+    {
+      body: JSON.stringify(request),
+      headers,
+      method: "POST",
+    },
+  );
+
+  return response.handoff;
 }

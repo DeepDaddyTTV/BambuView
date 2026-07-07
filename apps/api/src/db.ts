@@ -1875,6 +1875,30 @@ export async function deleteCompanion(
   db: AppDatabase,
   companionId: string,
 ): Promise<boolean> {
+  const companion = await getCompanionSecretById(db, companionId);
+  if (!companion) {
+    return false;
+  }
+
+  // Imported Companion feeds reuse the bridge auth and base URL. Remove those
+  // sources first so assignments disappear cleanly through ON DELETE CASCADE.
+  runStatement(
+    db,
+    `
+      DELETE FROM camera_sources
+      WHERE provider = ?
+        AND stream_url LIKE ?
+        AND username = ?
+        AND password = ?
+    `,
+    [
+      "bambuview-companion",
+      `${companion.baseUrl}%`,
+      companion.bridgeUsername,
+      companion.bridgeToken,
+    ],
+  );
+
   const result = runStatement(db, "DELETE FROM companions WHERE id = ?", [
     companionId,
   ]);

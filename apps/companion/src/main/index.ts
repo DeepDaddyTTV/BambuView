@@ -174,6 +174,9 @@ function registerIpc() {
   ipcMain.handle(companionChannels.deleteStream, (_event, streamId) =>
     runtime.deleteStream(streamId),
   );
+  ipcMain.handle(companionChannels.discoverPrinters, () =>
+    runtime.getDiscoveryResult(),
+  );
   ipcMain.handle(companionChannels.fileHandoff, (_event, printerId, input) =>
     runtime.handleFileHandoff(printerId, input),
   );

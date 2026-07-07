@@ -9,23 +9,38 @@ import {
   FLEET_CAMERA_TARGET_ID,
   type AppearanceSettings,
   type AuthSession,
+  type BambuDiscoveredPrinter,
+  type BambuPrinterDiscoveryResult,
   type CameraAssignmentInput,
   type CameraSourceInput,
   type BambuConnectImportRequest,
   type BambuPrinterConnectionInput,
   type CompanionConnectionSnapshot,
+  type PrinterCommandRequest,
+  type PrinterFileSendRequest,
   type CompanionPairingRequest,
   type UserProfile,
 } from "@bambuview/contracts";
 
-import { buildBambuConnectImportUrl, testBambuLanConnection } from "./bambu.js";
+import {
+  buildBambuConnectImportUrl,
+  discoverBambuPrinters,
+  runDirectBambuCommand,
+  sendDirectBambuFile,
+  testBambuLanConnection,
+} from "./bambu.js";
 import {
   cameraProxyTarget,
   cameraRequestHeaders,
   normalizeCameraSourceInput,
   testCameraSource,
 } from "./cameras.js";
-import { fetchCompanionSnapshot } from "./companion.js";
+import {
+  fetchCompanionPrinterDiscovery,
+  fetchCompanionSnapshot,
+  sendCompanionPrinterCommand,
+  sendCompanionPrinterFile,
+} from "./companion.js";
 import {
   clearSessionCookie,
   createRawToken,
@@ -63,6 +78,7 @@ import {
   getUserById,
   listInvites,
   listCompanions,
+  listCompanionSecrets,
   listPrinterConnections,
   listUsers,
   markCompanionPairingCodeUsed,
@@ -230,6 +246,29 @@ const fleetModeSchema = z.object({
   mode: z.enum(["live", "placeholder"]).default("placeholder"),
 });
 
+const printerCommandSchema = z.object({
+  action: z.enum([
+    "pause",
+    "resume",
+    "stop",
+    "home",
+    "move",
+    "temperature",
+    "fan",
+    "lamp",
+    "extruder",
+    "ams",
+  ]),
+  args: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional(),
+});
+
+const printerFileSendSchema = z.object({
+  action: z.enum(["stage", "upload", "send"]).optional(),
+  fileName: z.string().trim().max(255).optional(),
+  path: z.string().trim().min(1).max(4096),
+  startPrint: z.boolean().optional(),
+});
+
 const companionCapabilityStateSchema = z.enum([
   "available",
   "unavailable",
@@ -365,6 +404,179 @@ async function requireAdmin(
   }
 
   return session;
+}
+
+async function resolveCompanionPrinterMatch(
+  db: AppDatabase,
+  serial: string,
+): Promise<{
+  companion: NonNullable<Awaited<ReturnType<typeof getCompanionSecretById>>>;
+  printerId: string;
+} | null> {
+  const normalizedSerial = serial.trim().toUpperCase();
+  if (!normalizedSerial) {
+    return null;
+  }
+
+  const companions = await listCompanionSecrets(db);
+  for (const companion of companions) {
+    const printer = companion.printers.find(
+      (candidate) => candidate.serial.trim().toUpperCase() === normalizedSerial,
+    );
+    if (printer) {
+      return {
+        companion,
+        printerId: printer.id,
+      };
+    }
+  }
+
+  return null;
+}
+
+async function discoverCompanionPrinters(
+  db: AppDatabase,
+): Promise<BambuDiscoveredPrinter[]> {
+  const companions = await listCompanionSecrets(db);
+  const discovered = new Map<string, BambuDiscoveredPrinter>();
+
+  await Promise.all(
+    companions.map(async (companion) => {
+      try {
+        const result = await fetchCompanionPrinterDiscovery(companion);
+        for (const printer of result.printers) {
+          discovered.set(`${printer.serial}:${printer.hostname}`, {
+            host: printer.hostname,
+            model: printer.model,
+            name: printer.name,
+            serial: printer.serial,
+            source: "companion",
+          });
+        }
+      } catch {
+        // Ignore temporarily unreachable companions during discovery aggregation.
+      }
+    }),
+  );
+
+  return [...discovered.values()];
+}
+
+async function dispatchPrinterCommand(
+  dependencies: RouteDependencies,
+  connection: Awaited<ReturnType<typeof getPrinterConnectionSecretById>>,
+  request: PrinterCommandRequest,
+) {
+  if (!connection) {
+    throw new Error("Printer connection not found.");
+  }
+
+  if (connection.connectionMode === "developer") {
+    return runDirectBambuCommand(
+      {
+        accessCode: connection.accessCode ?? undefined,
+        connectionMode: connection.connectionMode,
+        host: connection.host,
+        model: connection.model,
+        name: connection.name,
+        serial: connection.serial,
+      },
+      request,
+    );
+  }
+
+  const companionMatch = await resolveCompanionPrinterMatch(
+    dependencies.db,
+    connection.serial,
+  );
+  if (companionMatch) {
+    const command = await sendCompanionPrinterCommand(
+      companionMatch.companion,
+      companionMatch.printerId,
+      {
+        action: request.action === "stop" ? "stop" : request.action,
+        args: request.args,
+      },
+    );
+
+    return {
+      accepted: command.accepted,
+      action: request.action,
+      detail: command.detail,
+      mode: "companion" as const,
+    };
+  }
+
+  return {
+    accepted: false,
+    action: request.action,
+    detail:
+      connection.connectionMode === "lan"
+        ? "LAN Mode exposes telemetry, but direct controls still require LAN-only Developer Mode or a paired Companion bridge for this printer."
+        : "This printer profile needs a paired Companion bridge before BambuView can attempt that action.",
+    mode: connection.connectionMode,
+  };
+}
+
+async function dispatchPrinterFile(
+  dependencies: RouteDependencies,
+  connection: Awaited<ReturnType<typeof getPrinterConnectionSecretById>>,
+  request: PrinterFileSendRequest,
+) {
+  if (!connection) {
+    throw new Error("Printer connection not found.");
+  }
+
+  if (connection.connectionMode === "developer") {
+    return sendDirectBambuFile(
+      {
+        accessCode: connection.accessCode ?? undefined,
+        connectionMode: connection.connectionMode,
+        host: connection.host,
+        model: connection.model,
+        name: connection.name,
+        serial: connection.serial,
+      },
+      request,
+    );
+  }
+
+  const companionMatch = await resolveCompanionPrinterMatch(
+    dependencies.db,
+    connection.serial,
+  );
+  if (companionMatch) {
+    const handoff = await sendCompanionPrinterFile(
+      companionMatch.companion,
+      companionMatch.printerId,
+      {
+        action: request.action,
+        fileName: request.fileName,
+        path: request.path,
+        startPrint: request.startPrint,
+      },
+    );
+
+    return {
+      accepted: handoff.accepted,
+      detail: handoff.detail,
+      fileName: handoff.fileName,
+      mode: "companion" as const,
+      sizeBytes: handoff.sizeBytes,
+    };
+  }
+
+  return {
+    accepted: false,
+    detail:
+      connection.connectionMode === "bambu-connect" ||
+      connection.connectionMode === "cloud"
+        ? "Use Bambu Connect handoff or pair the same printer in BambuView Companion before sending files through this profile."
+        : "This printer profile is not ready for direct file upload yet.",
+    fileName: null,
+    mode: connection.connectionMode,
+    sizeBytes: null,
+  };
 }
 
 export async function registerRoutes(
@@ -648,6 +860,46 @@ export async function registerRoutes(
     };
   });
 
+  app.get("/api/printers/discover", async (request, reply) => {
+    const session = await requireAdmin(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const [direct, companion] = await Promise.all([
+      discoverBambuPrinters(),
+      discoverCompanionPrinters(dependencies.db),
+    ]);
+    const merged = new Map<string, BambuPrinterDiscoveryResult["printers"][0]>();
+
+    for (const printer of direct.printers) {
+      merged.set(`${printer.serial}:${printer.host}`, printer);
+    }
+    for (const printer of companion) {
+      merged.set(`${printer.serial}:${printer.host}`, printer);
+    }
+
+    const instructions = [...direct.instructions];
+    if (companion.length > 0) {
+      instructions.push(
+        "Companion-discovered printers can be imported even when they rely on Bambu Connect or another local bridge surface.",
+      );
+    }
+
+    return {
+      attemptedAt: new Date().toISOString(),
+      detail:
+        merged.size > 0
+          ? "BambuView discovered printers from the direct LAN path and any paired Companions that answered."
+          : "BambuView did not find any printers through the direct LAN path or paired Companions during this scan.",
+      instructions,
+      printers: [...merged.values()].sort((left, right) =>
+        left.name.localeCompare(right.name),
+      ),
+      supported: direct.supported || companion.length > 0,
+    } satisfies BambuPrinterDiscoveryResult;
+  });
+
   app.get("/api/printers/bambu/models", async (request, reply) => {
     const session = await requireSession(request, reply, dependencies);
     if (!session || "statusCode" in session) {
@@ -796,6 +1048,74 @@ export async function registerRoutes(
     }
 
     return reply.code(204).send();
+  });
+
+  app.post("/api/printers/:id/command", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const body: PrinterCommandRequest = printerCommandSchema.parse(request.body);
+    const connection = await getPrinterConnectionSecretById(
+      dependencies.db,
+      params.id,
+    );
+    if (!connection) {
+      return reply.code(404).send({ message: "Printer connection not found." });
+    }
+
+    try {
+      const command = await dispatchPrinterCommand(
+        dependencies,
+        connection,
+        body,
+      );
+      return { command };
+    } catch (error) {
+      return reply.code(502).send({
+        message:
+          error instanceof Error
+            ? error.message
+            : "BambuView could not send that printer command.",
+      });
+    }
+  });
+
+  app.post("/api/printers/:id/files", async (request, reply) => {
+    const session = await requireSession(request, reply, dependencies);
+    if (!session || "statusCode" in session) {
+      return session;
+    }
+
+    const params = z.object({ id: z.uuid() }).parse(request.params);
+    const body: PrinterFileSendRequest = printerFileSendSchema.parse(
+      request.body,
+    );
+    const connection = await getPrinterConnectionSecretById(
+      dependencies.db,
+      params.id,
+    );
+    if (!connection) {
+      return reply.code(404).send({ message: "Printer connection not found." });
+    }
+
+    try {
+      const handoff = await dispatchPrinterFile(
+        dependencies,
+        connection,
+        body,
+      );
+      return { handoff };
+    } catch (error) {
+      return reply.code(502).send({
+        message:
+          error instanceof Error
+            ? error.message
+            : "BambuView could not stage or send that file.",
+      });
+    }
   });
 
   app.get("/api/companions", async (request, reply) => {

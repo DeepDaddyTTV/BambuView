@@ -145,8 +145,8 @@ If a printer has no assigned browser-compatible camera, its camera panel shows `
 
 For the full walkthrough, read [Camera Setup](./cameras.md).
 
-## What to expect in `0.0.39` alpha
+## What to expect in `0.0.40` alpha
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 
-Saved Bambu printers persist locally and appear in Fleet when the Fleet page is set to `Live`. LAN and Developer profiles read local MQTT status reports for print progress, layers, temperatures, active file, and filament slots when the printer is reachable. Cloud / Normal and Bambu Connect profiles are shown as limited handoff profiles instead of fake live telemetry, and you can edit an existing saved profile when you are ready to add LAN/Developer details. `Prepare & Slice` now splits the workspace into an Orca filament lane and a Prusa resin lane, while keeping the official Bambu Connect import URL flow available for sliced filament jobs that exist on the computer where Bambu Connect is installed.
+Saved Bambu printers persist locally and appear in Fleet when the Fleet page is set to `Live`. LAN and Developer profiles read local MQTT status reports for print progress, layers, temperatures, active file, and filament slots when the printer is reachable. Cloud / Normal and Bambu Connect profiles are shown as limited handoff profiles instead of fake live telemetry, and you can edit an existing saved profile when you are ready to add LAN/Developer details. `Prepare & Slice` now splits the workspace into an Orca filament lane and a Prusa resin lane, while keeping the official Bambu Connect import URL flow available for sliced filament jobs that exist on the computer where Bambu Connect is installed. Companion can now discover LAN-broadcasting Bambu printers, report live local capabilities back into BambuView, and act as the bridge for direct Developer Mode commands or file handoff when that is the chosen route.

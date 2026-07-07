@@ -721,7 +721,7 @@ describe("companion integration", () => {
         response.end(
           JSON.stringify({
             appName: "BambuView Companion",
-            appVersion: "0.0.39",
+            appVersion: "0.0.40",
             bridge: {
               baseUrl: "http://127.0.0.1:41738",
               bindMode: "localhost",
@@ -874,6 +874,36 @@ describe("companion integration", () => {
     expect(cameras.statusCode).toBe(200);
     expect(cameras.json().sources[0].provider).toBe("bambuview-companion");
 
+    const removed = await app.inject({
+      method: "DELETE",
+      url: `/api/companions/${pairedCompanionId}`,
+      headers: {
+        cookie,
+      },
+    });
+    expect(removed.statusCode).toBe(204);
+
+    const companionsAfterDelete = await app.inject({
+      method: "GET",
+      url: "/api/companions",
+      headers: {
+        cookie,
+      },
+    });
+    expect(companionsAfterDelete.statusCode).toBe(200);
+    expect(companionsAfterDelete.json().companions).toHaveLength(0);
+
+    const camerasAfterDelete = await app.inject({
+      method: "GET",
+      url: "/api/cameras",
+      headers: {
+        cookie,
+      },
+    });
+    expect(camerasAfterDelete.statusCode).toBe(200);
+    expect(camerasAfterDelete.json().sources).toHaveLength(0);
+    expect(camerasAfterDelete.json().assignments).toHaveLength(0);
+
     companionServer.close();
     await app.close();
   });
@@ -935,7 +965,7 @@ describe("companion integration", () => {
         response.end(
           JSON.stringify({
             appName: "BambuView Companion",
-            appVersion: "0.0.39",
+            appVersion: "0.0.40",
             bridge: {
               baseUrl: "http://127.0.0.1:41738",
               bindMode: "localhost",

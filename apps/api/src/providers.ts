@@ -1195,17 +1195,17 @@ class DatabaseBackedCameraProvider implements CameraProvider {
 class MockSliceProvider implements SliceProvider {
   async getStatus(): Promise<PrepareStatus> {
     return {
-      status: "scaffolded",
-      headline: "Build around Orca for filament and Prusa for resin.",
+      status: "available",
+      headline: "Prepare around Orca for filament and Prusa for resin.",
       description:
-        "The Prepare & Slice workspace is now split into two real fork targets. OrcaSlicer is the primary filament workbench for Bambu and other FDM printers, while PrusaSlicer is reserved for resin-only workflows so the UI and future engine adapters stay honest.",
+        "The Prepare & Slice workspace now routes real printer targets, direct Developer Mode sends, paired Companion bridge handoff, and Bambu Connect fallback from one fork-aware shell. OrcaSlicer stays primary for filament work, while PrusaSlicer remains isolated for resin workflows.",
       capabilities: [
-        "OrcaSlicer fork target for filament and Bambu print prep",
-        "PrusaSlicer fork target for resin-only printer workflows",
-        "Bambu Connect import-file URL generation for sliced filament jobs",
-        "shared prepare pipeline for models, presets, slice jobs, and export handoff",
-        "future local CLI and native helper adapters without losing the web shell",
-        "printer-aware workspace routing instead of a single placeholder page",
+        "printer-aware Orca filament lane with real Bambu target selection",
+        "direct Developer Mode send and start-print handoff from the workspace",
+        "paired Companion bridge send path for staged printer profiles",
+        "Bambu Connect import-file URL generation as a desktop fallback",
+        "Prusa resin lane kept separate so SLA export can evolve cleanly",
+        "shared pipeline checklist for source path, target, output, and handoff",
       ],
       workflows: [
         {
@@ -1215,7 +1215,7 @@ class MockSliceProvider implements SliceProvider {
             "Use Orca as the default workbench for Bambu and other filament printers, with plate editing, printer presets, and Bambu Connect handoff.",
           printerClass: "Bambu, farm, and FDM printers",
           delivery:
-            "Slice to .3mf or Bambu-ready G-code, then hand off to Bambu Connect or future local upload.",
+            "Slice to .3mf or Bambu-ready G-code, then route through direct upload, Companion bridge handoff, or Bambu Connect fallback.",
           acceptedInputs: [".3mf", ".stl", ".step", ".obj", ".amf"],
           activeSlicerId: "orcaslicer",
         },
@@ -1237,7 +1237,7 @@ class MockSliceProvider implements SliceProvider {
           label: "Orca Workbench",
           summary:
             "Primary fork target for filament slicing, Bambu-centric presets, and multi-printer FDM preparation inside BambuView.",
-          status: "scaffolded",
+          status: "available",
           upstreamName: "OrcaSlicer/OrcaSlicer",
           upstreamUrl: "https://github.com/OrcaSlicer/OrcaSlicer",
           license: "AGPL-3.0",
@@ -1245,14 +1245,15 @@ class MockSliceProvider implements SliceProvider {
           defaultFor: ["filament"],
           notes: [
             "Treat Orca as the first-class filament workspace.",
-            "Keep Bambu Connect handoff available until direct local send is ready.",
-            "Future adapters can target CLI or native helper surfaces without changing the web route.",
+            "Direct Developer Mode send is now wired through the Prepare workspace.",
+            "Bambu Connect fallback stays available for desktop import workflows.",
+            "Future adapters can still target CLI or native helper surfaces without changing the route.",
           ],
           plannedCapabilities: [
             "plate layout and object transforms",
             "printer and filament preset targeting",
             "slice queue and export tracking",
-            "Bambu job handoff and future direct upload",
+            "Bambu job handoff and direct upload resolution",
           ],
         },
         {
@@ -1285,7 +1286,7 @@ class MockSliceProvider implements SliceProvider {
           label: "Import Models",
           summary:
             "Bring in raw models and project containers before they are routed into the correct slicer workspace.",
-          status: "scaffolded",
+          status: "available",
           slicerIds: ["orcaslicer", "prusaslicer"],
         },
         {
@@ -1293,7 +1294,7 @@ class MockSliceProvider implements SliceProvider {
           label: "Prepare Workspace",
           summary:
             "Apply printer presets, plate layout, transforms, and material context inside the workflow-specific slicer shell.",
-          status: "scaffolded",
+          status: "available",
           slicerIds: ["orcaslicer", "prusaslicer"],
         },
         {
@@ -1301,15 +1302,15 @@ class MockSliceProvider implements SliceProvider {
           label: "Slice Jobs",
           summary:
             "Run workflow-aware slicing so filament jobs stay in Orca and resin jobs stay in Prusa.",
-          status: "planned",
+          status: "scaffolded",
           slicerIds: ["orcaslicer", "prusaslicer"],
         },
         {
           id: "handoff",
           label: "Export And Send",
           summary:
-            "Keep Bambu Connect and future local upload targets available without mixing resin and filament delivery paths.",
-          status: "planned",
+            "Keep direct upload, Companion bridge send, and Bambu Connect fallback available without mixing resin and filament delivery paths.",
+          status: "available",
           slicerIds: ["orcaslicer", "prusaslicer"],
         },
       ],
@@ -1322,6 +1323,15 @@ class MockSliceProvider implements SliceProvider {
           availableFor: ["filament"],
           requirement:
             "Requires an absolute local file path for a sliced .3mf or Bambu-ready G-code file.",
+        },
+        {
+          id: "direct-or-bridge-send",
+          label: "Direct or bridge send",
+          description:
+            "Send through direct Developer Mode upload when available, or resolve the same printer through a paired Companion bridge when that is the active route.",
+          availableFor: ["filament"],
+          requirement:
+            "Requires a saved printer target plus either LAN-only Developer Mode or a paired Companion for that serial.",
         },
         {
           id: "resin-export-staging",

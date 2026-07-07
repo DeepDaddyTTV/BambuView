@@ -3,6 +3,7 @@ import type {
   CompanionFileHandoffInput,
   CompanionPairingState,
   CompanionPrinterInput,
+  CompanionPrinterDiscoveryResult,
   CompanionPrinterTelemetry,
   CompanionPrinterTestResult,
   CompanionSettings,
@@ -28,6 +29,7 @@ export interface CompanionDesktopApi {
   createStream(input: CompanionStreamInput): Promise<CompanionSnapshot>;
   deletePrinter(printerId: string): Promise<CompanionSnapshot>;
   deleteStream(streamId: string): Promise<CompanionSnapshot>;
+  discoverPrinters(): Promise<CompanionPrinterDiscoveryResult>;
   getSnapshot(): Promise<CompanionSnapshot>;
   handleFileHandoff(
     printerId: string,

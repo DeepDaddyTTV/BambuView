@@ -384,7 +384,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.39-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.40-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async (input) => {
       const url = String(input);
       if (url.includes("/releases?per_page=20")) {
@@ -398,10 +398,10 @@ describe("companion runtime", () => {
                 },
               ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.39",
-              name: "BVCompanion v0.0.39 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.40",
+              name: "BVCompanion v0.0.40 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.39",
+              tag_name: "bvcompanion-v0.0.40",
             },
           ]),
           {

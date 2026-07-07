@@ -161,12 +161,13 @@ export interface CompanionPrinterTestResult {
 export type CompanionCommandAction =
   | "pause"
   | "resume"
-  | "cancel"
+  | "stop"
   | "home"
   | "move"
   | "temperature"
   | "fan"
   | "lamp"
+  | "extruder"
   | "ams";
 
 export interface CompanionPrinterCommandRequest {
@@ -180,8 +181,10 @@ export interface CompanionPrinterCommandResponse {
 }
 
 export interface CompanionFileHandoffInput {
-  action?: "open" | "reveal" | "stage";
+  action?: "open" | "reveal" | "stage" | "upload" | "send";
+  fileName?: string;
   path: string;
+  startPrint?: boolean;
 }
 
 export interface CompanionFileHandoffResult {

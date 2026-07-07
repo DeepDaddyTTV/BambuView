@@ -76,6 +76,7 @@ export function CompanionPage() {
       apiFetch<{ pairingCode: CompanionPairingCode }>(
         "/api/companions/pairing-codes",
         {
+          body: "{}",
           method: "POST",
         },
       ),
@@ -213,6 +214,23 @@ export function CompanionPage() {
               on another machine, replace <strong>localhost</strong> with the
               hostname or IP for the BambuView server.
             </div>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                className="fleet-console-toolbar__button"
+                onClick={() => {
+                  void copyPairingCode(COMPANION_DEFAULT_SERVER_URL);
+                }}
+                type="button"
+              >
+                <Copy className="h-4 w-4" />
+                <span>Copy Server URL</span>
+              </button>
+              {copyMessage ? (
+                <div className="inline-flex items-center text-xs text-zinc-300">
+                  {copyMessage}
+                </div>
+              ) : null}
+            </div>
             <button
               className="fleet-console-toolbar__button mt-5"
               disabled={createPairingCodeMutation.isPending}
@@ -326,7 +344,9 @@ export function CompanionPage() {
               <div className="section-title">Companion Detail</div>
               <p className="mt-3 text-sm leading-7 text-zinc-400">
                 Refresh the connection to pull the latest health, capability,
-                printer, and stream data from the local bridge.
+                printer, and stream data from the local bridge. Removing a
+                Companion also clears any camera feeds imported from that
+                bridge on this server.
               </p>
             </div>
             {selectedCompanionId ? (
@@ -355,7 +375,7 @@ export function CompanionPage() {
                   type="button"
                 >
                   <Trash2 className="h-4 w-4" />
-                  <span>Remove</span>
+                  <span>Remove Companion</span>
                 </button>
               </div>
             ) : null}

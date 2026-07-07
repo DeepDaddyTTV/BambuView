@@ -4,7 +4,9 @@ import Fastify from "fastify";
 import { z } from "zod";
 
 import type {
+  CompanionFileHandoffInput,
   CompanionPrinterInput,
+  CompanionPrinterCommandRequest,
   CompanionStreamInput,
 } from "@bambuview/contracts";
 
@@ -165,22 +167,36 @@ export async function createBridgeServer(runtime: CompanionRuntime) {
     const params = z
       .object({ id: z.string().trim().min(1) })
       .parse(request.params);
-    const body = z.object({ action: z.string() }).parse(request.body);
+    const body = z
+      .object({
+        action: z.enum([
+          "pause",
+          "resume",
+          "stop",
+          "home",
+          "move",
+          "temperature",
+          "fan",
+          "lamp",
+          "extruder",
+          "ams",
+        ]),
+        args: z
+          .record(
+            z.string(),
+            z.union([z.string(), z.number(), z.boolean(), z.null()]),
+          )
+          .optional(),
+      })
+      .parse(request.body) satisfies CompanionPrinterCommandRequest;
     const printer = runtime
       .getSnapshot()
       .printers.find((item) => item.id === params.id);
     if (!printer) {
       return reply.code(404).send({ message: "Printer not found." });
     }
-    return reply.code(409).send({
-      command: {
-        accepted: false,
-        detail:
-          body.action && printer.connectionMode !== "developer"
-            ? "Direct commands stay disabled until the printer is switched to LAN-only Developer Mode."
-            : "The command boundary exists, but direct machine commands are not enabled in this alpha.",
-      },
-    });
+    const command = await runtime.runPrinterCommand(params.id, body);
+    return reply.send({ command });
   });
   app.post("/printers/:id/files", async (request, reply) => {
     const params = z
@@ -188,10 +204,14 @@ export async function createBridgeServer(runtime: CompanionRuntime) {
       .parse(request.params);
     const input = z
       .object({
-        action: z.enum(["open", "reveal", "stage"]).optional(),
+        action: z
+          .enum(["open", "reveal", "stage", "upload", "send"])
+          .optional(),
+        fileName: z.string().trim().max(255).optional(),
         path: z.string().trim().min(1).max(4096),
+        startPrint: z.boolean().optional(),
       })
-      .parse(request.body);
+      .parse(request.body) satisfies CompanionFileHandoffInput;
     const handoff = await runtime.handleFileHandoff(params.id, input);
     return reply.send({ handoff });
   });

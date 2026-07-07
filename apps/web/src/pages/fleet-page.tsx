@@ -45,18 +45,26 @@ import { Link, NavLink } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
+  BambuPrinterDiscoveryResult,
   BambuPrinterModel,
   BambuConnectionMode,
   BambuConnectionTestResult,
   BambuPrinterConnectionInput,
   FleetDataMode,
   FleetOverview,
+  PrinterCommandRequest,
+  PrinterCommandResponse,
   PrinterConnectionRecord,
   PrinterDetail,
+  PrinterFileSendRequest,
+  PrinterFileSendResponse,
   PrinterSummary,
   UserProfile,
 } from "@bambuview/contracts";
-import { BAMBU_PRINTER_MODELS } from "@bambuview/contracts";
+import {
+  BAMBU_CONNECTION_MODE_OPTIONS,
+  BAMBU_PRINTER_MODELS,
+} from "@bambuview/contracts";
 
 import { useAppearance } from "../app/appearance";
 import { APP_VERSION } from "../app/version";
@@ -746,44 +754,51 @@ const connectionCheckLabels = {
   passed: "Passed",
 } as const;
 
-const bambuConnectionModes: Array<{
+const bambuConnectionModes = BAMBU_CONNECTION_MODE_OPTIONS.map((mode) => ({
+  description: mode.description,
+  key: mode.value,
+  label: mode.label,
+  summary: mode.summary,
+})) satisfies Array<{
   description: string;
   key: BambuConnectionMode;
   label: string;
   summary: string;
-}> = [
-  {
-    key: "cloud",
-    label: "Cloud / Normal",
-    summary: "Normal Bambu account workflow.",
-    description:
-      "Keeps normal Bambu behavior and creates a saved profile for import-link handoff without claiming live telemetry.",
-  },
-  {
-    key: "bambu-connect",
-    label: "Bambu Connect",
-    summary: "Import-link handoff profile.",
-    description:
-      "Launches Bambu Connect for sliced-file import and stays limited until LAN telemetry or a bridge endpoint is configured.",
-  },
-  {
-    key: "lan",
-    label: "LAN Mode",
-    summary: "Local status telemetry.",
-    description:
-      "Uses local MQTT for print progress, temperatures, layers, file names, and AMS state.",
-  },
-  {
-    key: "developer",
-    label: "LAN-only Developer",
-    summary: "Direct local protocol integration.",
-    description:
-      "Uses direct MQTT, native camera stream, file transfer, and machine-control protocols after Developer Mode is enabled on-printer.",
-  },
-];
+}>;
 
 function requiresRawLanDetails(mode: BambuConnectionMode) {
   return mode === "lan" || mode === "developer";
+}
+
+function isUuidLike(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function commandArgsFromMovementLabel(label: string) {
+  switch (label) {
+    case "Home":
+      return null;
+    case "Y +10":
+      return { axis: "Y", distance: 10, feedrate: 4800 };
+    case "Y -10":
+      return { axis: "Y", distance: -10, feedrate: 4800 };
+    case "X -10":
+      return { axis: "X", distance: -10, feedrate: 4800 };
+    case "X +10":
+      return { axis: "X", distance: 10, feedrate: 4800 };
+    case "Z +10":
+      return { axis: "Z", distance: 10, feedrate: 1800 };
+    case "Z +1":
+      return { axis: "Z", distance: 1, feedrate: 1200 };
+    case "Bed -1":
+      return { axis: "Z", distance: -1, feedrate: 1200 };
+    case "Bed -10":
+      return { axis: "Z", distance: -10, feedrate: 1800 };
+    default:
+      return null;
+  }
 }
 
 function AddCard({ onClick }: { onClick: () => void }) {
@@ -833,6 +848,8 @@ function AddPrinterDialog({
   );
   const [testResult, setTestResult] =
     useState<BambuConnectionTestResult | null>(null);
+  const [discoveryResult, setDiscoveryResult] =
+    useState<BambuPrinterDiscoveryResult | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isEditing = Boolean(initialConnection);
@@ -840,6 +857,7 @@ function AddPrinterDialog({
   useEffect(() => {
     setForm(printerConnectionToForm(initialConnection));
     setTestResult(null);
+    setDiscoveryResult(null);
     setConfirmDelete(false);
     setErrorMessage(null);
   }, [initialConnection]);
@@ -868,6 +886,10 @@ function AddPrinterDialog({
           body: JSON.stringify(payload),
         },
       ),
+  });
+  const discoverMutation = useMutation({
+    mutationFn: () =>
+      apiFetch<BambuPrinterDiscoveryResult>("/api/printers/discover"),
   });
   const deleteMutation = useMutation({
     mutationFn: () =>
@@ -912,6 +934,31 @@ function AddPrinterDialog({
     }
   }
 
+  async function discoverPrinters() {
+    setErrorMessage(null);
+    try {
+      const result = await discoverMutation.mutateAsync();
+      setDiscoveryResult(result);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not scan the network.",
+      );
+    }
+  }
+
+  function applyDiscoveredPrinter(
+    printer: BambuPrinterDiscoveryResult["printers"][number],
+  ) {
+    setErrorMessage(null);
+    setForm((current) => ({
+      ...current,
+      host: printer.host,
+      model: printer.model,
+      name: current.name.trim().length > 0 ? current.name : printer.name,
+      serial: printer.serial,
+    }));
+  }
+
   async function savePrinter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setErrorMessage(null);
@@ -950,6 +997,7 @@ function AddPrinterDialog({
   }
 
   const isBusy =
+    discoverMutation.isPending ||
     testMutation.isPending ||
     saveMutation.isPending ||
     deleteMutation.isPending;
@@ -993,6 +1041,60 @@ function AddPrinterDialog({
           LAN / Developer mode when you have the host and access code ready for
           live progress.
         </p>
+
+        {!isEditing ? (
+          <div className="fleet-console-connection-result">
+            <div className="fleet-console-connection-result__headline">
+              Network discovery
+            </div>
+            <div className="fleet-console-sidebar-card__copy">
+              Scan the LAN for Bambu printers that are advertising over the
+              local network, then click one to prefill the form.
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                className="fleet-console-controls__button"
+                disabled={isBusy}
+                onClick={() => {
+                  void discoverPrinters();
+                }}
+                type="button"
+              >
+                Scan Network
+              </button>
+            </div>
+            {discoveryResult ? (
+              <div className="mt-4 space-y-3">
+                <div className="fleet-console-sidebar-card__copy">
+                  {discoveryResult.detail}
+                </div>
+                {discoveryResult.printers.length > 0 ? (
+                  <div className="grid gap-2">
+                    {discoveryResult.printers.map((printer) => (
+                      <button
+                        className="fleet-console-controls__button justify-between"
+                        key={`${printer.serial}:${printer.host}`}
+                        onClick={() => applyDiscoveredPrinter(printer)}
+                        type="button"
+                      >
+                        <span>
+                          {printer.name} • {printer.model}
+                        </span>
+                        <span className="text-zinc-500">
+                          {printer.host}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="fleet-console-sidebar-card__copy">
+                    No printers answered during the current scan window.
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         <form className="fleet-console-printer-form" onSubmit={savePrinter}>
           <fieldset className="fleet-console-printer-form__mode">
@@ -1184,10 +1286,14 @@ function AddPrinterDialog({
 
 function FocusControlDeck({
   autoRefillEnabled,
+  commandsEnabled,
+  commandPending,
   controlTab,
   fanPower,
   lampEnabled,
   movementLabel,
+  onExtruder,
+  onLampToggle,
   onMovement,
   printer,
   selectedSlot,
@@ -1198,10 +1304,14 @@ function FocusControlDeck({
   setSelectedSlot,
 }: {
   autoRefillEnabled: boolean;
+  commandsEnabled: boolean;
+  commandPending: boolean;
   controlTab: "printer-parts" | "print-options" | "calibration";
   fanPower: number;
   lampEnabled: boolean;
   movementLabel: string;
+  onExtruder: (distance: number) => void;
+  onLampToggle: (next: boolean) => void;
   onMovement: (label: string) => void;
   printer: PrinterDetail;
   selectedSlot: string;
@@ -1265,7 +1375,12 @@ function FocusControlDeck({
               </div>
               <button
                 className={`fleet-console-focus-lamp ${lampEnabled ? "fleet-console-focus-lamp--active" : ""}`}
-                onClick={() => setLampEnabled(!lampEnabled)}
+                disabled={!commandsEnabled || commandPending}
+                onClick={() => {
+                  const next = !lampEnabled;
+                  setLampEnabled(next);
+                  onLampToggle(next);
+                }}
                 type="button"
               >
                 <LampDesk className="h-4 w-4" />
@@ -1282,6 +1397,7 @@ function FocusControlDeck({
               <div className="motion-pad">
                 <button
                   className="motion-pad__home"
+                  disabled={!commandsEnabled || commandPending}
                   onClick={() => onMovement("Home")}
                   type="button"
                 >
@@ -1289,6 +1405,7 @@ function FocusControlDeck({
                 </button>
                 <button
                   className="motion-pad__north"
+                  disabled={!commandsEnabled || commandPending}
                   onClick={() => onMovement("Y +10")}
                   type="button"
                 >
@@ -1296,6 +1413,7 @@ function FocusControlDeck({
                 </button>
                 <button
                   className="motion-pad__south"
+                  disabled={!commandsEnabled || commandPending}
                   onClick={() => onMovement("Y -10")}
                   type="button"
                 >
@@ -1303,6 +1421,7 @@ function FocusControlDeck({
                 </button>
                 <button
                   className="motion-pad__west"
+                  disabled={!commandsEnabled || commandPending}
                   onClick={() => onMovement("X -10")}
                   type="button"
                 >
@@ -1310,6 +1429,7 @@ function FocusControlDeck({
                 </button>
                 <button
                   className="motion-pad__east"
+                  disabled={!commandsEnabled || commandPending}
                   onClick={() => onMovement("X +10")}
                   type="button"
                 >
@@ -1326,6 +1446,7 @@ function FocusControlDeck({
               ].map(({ icon, label }) => (
                 <button
                   className="fleet-console-focus-step"
+                  disabled={!commandsEnabled || commandPending}
                   key={label}
                   onClick={() => onMovement(label)}
                   type="button"
@@ -1346,6 +1467,8 @@ function FocusControlDeck({
             </div>
             <button
               className="fleet-console-focus-extruder-button"
+              disabled={!commandsEnabled || commandPending}
+              onClick={() => onExtruder(5)}
               type="button"
             >
               <ArrowUp className="h-5 w-5" />
@@ -1355,6 +1478,8 @@ function FocusControlDeck({
             </div>
             <button
               className="fleet-console-focus-extruder-button"
+              disabled={!commandsEnabled || commandPending}
+              onClick={() => onExtruder(-5)}
               type="button"
             >
               <ArrowDown className="h-5 w-5" />
@@ -1445,16 +1570,23 @@ function FocusControlDeck({
 }
 
 function FocusWorkspace({
+  actionFeedback,
   autoRefillEnabled,
+  commandsEnabled,
+  commandPending,
   controlTab,
   fanPower,
   lampEnabled,
   movementLabel,
+  onCommand,
+  onExtruder,
   onFocusModeChange,
+  onLampToggle,
   onMovement,
   printer,
   selectedFeedId,
   selectedSlot,
+  onSendFile,
   setAutoRefillEnabled,
   setControlTab,
   setFanPower,
@@ -1462,13 +1594,20 @@ function FocusWorkspace({
   setSelectedFeedId,
   setSelectedSlot,
 }: {
+  actionFeedback: string | null;
   autoRefillEnabled: boolean;
+  commandsEnabled: boolean;
+  commandPending: boolean;
   controlTab: "printer-parts" | "print-options" | "calibration";
   fanPower: number;
   lampEnabled: boolean;
   movementLabel: string;
+  onCommand: (payload: PrinterCommandRequest) => void;
+  onExtruder: (distance: number) => void;
   onFocusModeChange: (next: boolean) => void;
+  onLampToggle: (next: boolean) => void;
   onMovement: (label: string) => void;
+  onSendFile: () => void;
   printer: PrinterDetail;
   selectedFeedId: string;
   selectedSlot: string;
@@ -1615,12 +1754,26 @@ function FocusWorkspace({
                   <div className="flex items-center gap-3">
                     <button
                       className="icon-button text-amber-400"
+                      disabled={!commandsEnabled || commandPending}
+                      onClick={() => onCommand({ action: "pause" })}
                       type="button"
                     >
                       <Pause className="h-4 w-4" />
                     </button>
-                    <button className="icon-button text-red-400" type="button">
+                    <button
+                      className="icon-button text-red-400"
+                      disabled={!commandsEnabled || commandPending}
+                      onClick={() => onCommand({ action: "stop" })}
+                      type="button"
+                    >
                       <Square className="h-4 w-4" />
+                    </button>
+                    <button
+                      className="icon-button text-[color:var(--accent)]"
+                      onClick={onSendFile}
+                      type="button"
+                    >
+                      <Send className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
@@ -1631,10 +1784,14 @@ function FocusWorkspace({
 
         <FocusControlDeck
           autoRefillEnabled={autoRefillEnabled}
+          commandsEnabled={commandsEnabled}
+          commandPending={commandPending}
           controlTab={controlTab}
           fanPower={fanPower}
           lampEnabled={lampEnabled}
           movementLabel={movementLabel}
+          onExtruder={onExtruder}
+          onLampToggle={onLampToggle}
           onMovement={onMovement}
           printer={printer}
           selectedSlot={selectedSlot}
@@ -1645,6 +1802,9 @@ function FocusWorkspace({
           setSelectedSlot={setSelectedSlot}
         />
       </div>
+      {actionFeedback ? (
+        <div className="mt-5 text-sm text-zinc-400">{actionFeedback}</div>
+      ) : null}
     </aside>
   );
 }
@@ -1677,10 +1837,101 @@ function DetailPanel({
   );
   const [autoRefillEnabled, setAutoRefillEnabled] = useState(true);
   const [movementLabel, setMovementLabel] = useState("Home");
+  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const tone = printerTone(printer);
   const fans = fanMetrics(printer);
   const activeFeed = selectedCameraFeed(printer, selectedFeedId);
   const hasLimitedTelemetry = printer.telemetryState === "limited";
+  const commandsEnabled = isUuidLike(printer.id);
+  const commandMutation = useMutation({
+    mutationFn: (payload: PrinterCommandRequest) =>
+      apiFetch<{ command: PrinterCommandResponse }>(
+        `/api/printers/${printer.id}/command`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        },
+      ),
+  });
+  const fileMutation = useMutation({
+    mutationFn: (payload: PrinterFileSendRequest) =>
+      apiFetch<{ handoff: PrinterFileSendResponse }>(
+        `/api/printers/${printer.id}/files`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        },
+      ),
+  });
+
+  async function runPrinterCommand(payload: PrinterCommandRequest) {
+    if (!commandsEnabled) {
+      setActionFeedback(
+        "Placeholder printers do not accept live commands. Switch back to Live mode after saving a real printer.",
+      );
+      return;
+    }
+
+    try {
+      const response = await commandMutation.mutateAsync(payload);
+      setActionFeedback(response.command.detail);
+    } catch (error) {
+      setActionFeedback(
+        error instanceof Error
+          ? error.message
+          : "BambuView could not send that command.",
+      );
+    }
+  }
+
+  async function sendPrinterFile() {
+    const path = window.prompt(
+      "Enter the absolute path to a sliced .3mf or .gcode.3mf file on the BambuView host:",
+    );
+    if (!path?.trim()) {
+      return;
+    }
+
+    if (!commandsEnabled) {
+      setActionFeedback(
+        "Placeholder printers cannot accept live file handoff. Save a real printer first.",
+      );
+      return;
+    }
+
+    try {
+      const response = await fileMutation.mutateAsync({
+        action: "send",
+        path: path.trim(),
+      });
+      setActionFeedback(response.handoff.detail);
+    } catch (error) {
+      setActionFeedback(
+        error instanceof Error
+          ? error.message
+          : "BambuView could not send that file.",
+      );
+    }
+  }
+
+  function handleMovement(label: string) {
+    setMovementLabel(label);
+
+    if (label === "Home") {
+      void runPrinterCommand({ action: "home" });
+      return;
+    }
+
+    const args = commandArgsFromMovementLabel(label);
+    if (!args) {
+      return;
+    }
+
+    void runPrinterCommand({
+      action: "move",
+      args,
+    });
+  }
 
   useEffect(() => {
     startTransition(() => {
@@ -1695,23 +1946,45 @@ function DetailPanel({
       );
       setAutoRefillEnabled(true);
       setMovementLabel("Home");
+      setActionFeedback(null);
     });
   }, [printer]);
 
   if (focusMode) {
     return (
       <FocusWorkspace
+        actionFeedback={actionFeedback}
         autoRefillEnabled={autoRefillEnabled}
+        commandsEnabled={commandsEnabled}
+        commandPending={commandMutation.isPending || fileMutation.isPending}
         controlTab={controlTab}
         fanPower={fanPower}
         lampEnabled={lampEnabled}
         movementLabel={movementLabel}
+        onCommand={(payload) => {
+          void runPrinterCommand(payload);
+        }}
+        onExtruder={(distance) => {
+          void runPrinterCommand({
+            action: "extruder",
+            args: { distance, feedrate: 900 },
+          });
+        }}
         onFocusModeChange={(next) => {
           if (!next) {
             onToggleFocus();
           }
         }}
-        onMovement={setMovementLabel}
+        onLampToggle={(next) => {
+          void runPrinterCommand({
+            action: "lamp",
+            args: { enabled: next },
+          });
+        }}
+        onMovement={handleMovement}
+        onSendFile={() => {
+          void sendPrinterFile();
+        }}
         printer={printer}
         selectedFeedId={selectedFeedId}
         selectedSlot={selectedSlot}
@@ -1983,16 +2256,34 @@ function DetailPanel({
         <div className="fleet-console-controls">
           <button
             className="fleet-console-controls__button fleet-console-controls__button--primary"
+            disabled={!commandsEnabled || commandMutation.isPending}
+            onClick={() => {
+              void runPrinterCommand({ action: "pause" });
+            }}
             type="button"
           >
             <Pause className="h-4 w-4" />
             <span>Pause Print</span>
           </button>
-          <button className="fleet-console-controls__button" type="button">
+          <button
+            className="fleet-console-controls__button"
+            disabled={!commandsEnabled || commandMutation.isPending}
+            onClick={() => {
+              void runPrinterCommand({ action: "stop" });
+            }}
+            type="button"
+          >
             <Square className="h-4 w-4" />
             <span>Stop Print</span>
           </button>
-          <button className="fleet-console-controls__button" type="button">
+          <button
+            className="fleet-console-controls__button"
+            disabled={fileMutation.isPending}
+            onClick={() => {
+              void sendPrinterFile();
+            }}
+            type="button"
+          >
             <Send className="h-4 w-4" />
             <span>Send File</span>
           </button>
@@ -2003,6 +2294,9 @@ function DetailPanel({
             <MoreHorizontal className="h-4 w-4" />
           </button>
         </div>
+        {actionFeedback ? (
+          <div className="mt-3 text-sm text-zinc-400">{actionFeedback}</div>
+        ) : null}
       </section>
     </aside>
   );
