@@ -1561,8 +1561,8 @@ function FocusControlDeck({
           {controlTab === "printer-parts"
             ? "Printer parts mode keeps direct machine controls, movement, AMS, and live tuning in one place."
             : controlTab === "print-options"
-              ? "Print options will house speed, flow, cooling, and future live tuning controls."
-              : "Calibration will house bed leveling, vibration compensation, flow calibration, and maintenance sequences."}
+              ? "Print options keeps speed, flow, cooling, and print overrides visible here. Unsupported actions stay explicit when the active connection mode does not expose them yet."
+              : "Calibration keeps leveling, vibration, flow, and maintenance actions visible here. Each task resolves against the real capabilities of the selected printer path."}
         </div>
       </div>
     </section>

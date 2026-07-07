@@ -1152,7 +1152,7 @@ export function App() {
                     <div className="item-card__copy">{stream.details}</div>
                     <div className="item-card__meta">{stream.upstreamUrl}</div>
                     <div className="button-row">
-                      {stream.snapshotPath ? (
+                      {stream.snapshotPath || stream.mjpegPath ? (
                         <button
                           className="ghost-button"
                           onClick={() => {
@@ -1161,7 +1161,7 @@ export function App() {
                                 .copyBridgeUrl()
                                 .then((url) =>
                                   window.companion.openExternal(
-                                    `${url}${stream.snapshotPath}`,
+                                    `${url}${stream.snapshotPath ?? stream.mjpegPath}`,
                                   ),
                                 ),
                             );

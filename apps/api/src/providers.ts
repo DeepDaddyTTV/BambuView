@@ -754,33 +754,39 @@ function companionCameraFeed(
   connection: PrinterConnectionRecord,
   match: CompanionPrinterMatch | null,
 ): PrinterCameraFeed | null {
-  if (!match || !match.stream) {
+  if (!match) {
     return null;
   }
 
-  const kind =
-    match.stream.outputKind === "mjpeg"
+  const streamKind = match.stream
+    ? match.stream.outputKind === "mjpeg"
       ? "mjpeg"
       : match.stream.outputKind === "snapshot"
         ? "snapshot"
         : match.stream.outputKind === "hls"
           ? "hls"
-          : "unknown";
+          : "unknown"
+    : match.printer.capabilities.camera === "available"
+      ? "mjpeg"
+      : "unknown";
 
-  if (kind === "unknown") {
+  if (streamKind === "unknown") {
     return null;
   }
 
   const basePath = `/api/companions/${match.companion.id}/printers/${match.printer.id}/camera`;
+  const label = match.stream?.name || "Printer Cam";
 
   return {
     id: `${connection.id}-companion-${match.companion.id}-${match.printer.id}`,
-    kind: cameraFeedKind(match.stream.name),
-    label: match.stream.name || "Printer Cam",
+    kind: cameraFeedKind(label),
+    label,
     snapshotUrl: `${basePath}/snapshot`,
     sourceId: null,
-    status: match.stream.status,
-    streamKind: kind,
+    status:
+      match.stream?.status ??
+      (match.printer.capabilities.camera === "available" ? "online" : "degraded"),
+    streamKind,
     streamUrl: `${basePath}/stream`,
   };
 }

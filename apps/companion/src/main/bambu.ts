@@ -18,6 +18,11 @@ import type {
   CompanionPrinterTestResult,
 } from "@bambuview/contracts";
 
+import {
+  nativeBambuBridgeSupport,
+  resolvePrinterCameraBridgeSource,
+} from "./camera-bridge.js";
+
 type MqttBuffer = Buffer<ArrayBufferLike>;
 
 const BAMBU_CAMERA_PORT = 322;
@@ -518,6 +523,8 @@ export async function testBambuPrinter(
   const checkedAt = new Date().toISOString();
   const rawLan =
     printer.connectionMode === "lan" || printer.connectionMode === "developer";
+  const nativeCamera = resolvePrinterCameraBridgeSource(printer);
+  const nativeCameraSupport = nativeBambuBridgeSupport(printer.model);
   if (!rawLan) {
     return {
       capabilities: {
@@ -526,7 +533,7 @@ export async function testBambuPrinter(
         controls: "requires_developer_mode",
         discovery: "unavailable",
         fileUpload: "available",
-        slicingAssist: "future",
+        slicingAssist: "available",
         telemetry: "unavailable",
       },
       capabilityNotes: {
@@ -535,6 +542,8 @@ export async function testBambuPrinter(
         controls: "Direct controls require LAN-only Developer Mode.",
         fileUpload:
           "Companion can open the local Bambu Connect import handoff from this machine for sliced jobs.",
+        slicingAssist:
+          "Prepared jobs can already route through the local Bambu Connect handoff on this machine.",
         telemetry:
           "Live telemetry requires LAN Mode or LAN-only Developer Mode.",
       },
@@ -557,10 +566,11 @@ export async function testBambuPrinter(
   return {
     capabilities: {
       ams: telemetryState,
-      camera:
-        printer.connectionMode === "developer"
+      camera: nativeCamera
+        ? "available"
+        : telemetryState === "available" && nativeCameraSupport.supported
           ? "requires_setup"
-          : "requires_setup",
+          : "requires_restream",
       controls:
         printer.connectionMode === "developer" ? "available" : controlsState,
       discovery: "available",
@@ -568,15 +578,17 @@ export async function testBambuPrinter(
         printer.connectionMode === "developer"
           ? "available"
           : "requires_developer_mode",
-      slicingAssist: "future",
+      slicingAssist:
+        printer.connectionMode === "developer" ? "available" : "requires_setup",
       telemetry: telemetryState,
     },
     capabilityNotes: {
       ams: "AMS state comes through the same live report path as telemetry when the printer answers.",
-      camera:
-        printer.connectionMode === "developer"
-          ? "Developer Mode unlocks the direct local camera path. Link a browser-safe feed or finish the native bridge if this printer family still needs restreaming."
-          : "LAN telemetry is ready, but camera playback still needs a linked browser-safe feed or the native bridge path.",
+      camera: nativeCamera
+        ? "Companion can expose this printer's native camera directly for browser playback."
+        : telemetryState === "available" && nativeCameraSupport.supported
+          ? "Add the same LAN access code you use for telemetry, then Companion can expose the native camera directly."
+          : nativeCameraSupport.detail,
       controls:
         printer.connectionMode === "developer"
           ? "Developer Mode direct machine controls are available through Companion."
@@ -587,6 +599,10 @@ export async function testBambuPrinter(
         printer.connectionMode === "developer"
           ? "Developer Mode direct FTPS upload and start-print handoff are available."
           : "Direct file upload planning starts once Developer Mode is enabled.",
+      slicingAssist:
+        printer.connectionMode === "developer"
+          ? "Prepared jobs can already route through direct upload and start-print handoff on this printer."
+          : "Finish the required upload path before using this printer as a send target from BambuView.",
       telemetry:
         telemetryState === "available"
           ? "Telemetry can be requested directly from the printer's MQTT report channel."
@@ -1195,28 +1211,32 @@ export async function discoverBambuPrinters(
         headers["devname.bambu.com"]?.trim() ||
         `${model} ${serial.slice(-4)}`.trim();
       const key = `${serial}:${host}`;
+      const nativeCameraSupport = nativeBambuBridgeSupport(model);
       printers.set(key, {
         accessCodeSet: false,
         capabilities: {
           ams: "requires_setup",
-          camera: "requires_setup",
+          camera: nativeCameraSupport.supported
+            ? "requires_setup"
+            : "requires_restream",
           controls: "requires_developer_mode",
           discovery: "available",
           fileUpload: "requires_developer_mode",
-          slicingAssist: "future",
+          slicingAssist: "requires_setup",
           telemetry: "requires_setup",
         },
         capabilityNotes: {
           ams: "Add the LAN access code before Companion can request the live AMS report.",
-          camera:
-            "Link a browser-safe stream or finish the native camera bridge path for this printer.",
+          camera: nativeCameraSupport.supported
+            ? "Save the LAN access code and Companion can expose this printer's native camera directly."
+            : nativeCameraSupport.detail,
           controls:
             "Switch the printer to LAN-only Developer Mode and add its access code before using direct controls.",
           discovery: "This printer was discovered automatically over the local Bambu SSDP broadcast.",
           fileUpload:
             "Switch to LAN-only Developer Mode to allow direct FTPS upload and start-print handoff.",
           slicingAssist:
-            "Companion reserves a local slicing-assist boundary for a future revision.",
+            "Finish the required upload path before using this printer as a prepared-job target from BambuView.",
           telemetry:
             "Add the LAN access code before Companion can request the live MQTT telemetry report.",
         },

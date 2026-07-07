@@ -46,11 +46,17 @@ import {
 } from "@bambuview/contracts";
 
 import {
+  cameraBridgeReady,
+  nativeBambuBridgeSupport,
+  probeCameraBridgeSource,
+  resolvePrinterCameraBridgeSource,
+  resolveStreamCameraBridgeSource,
+  type CameraBridgeSource,
+} from "./camera-bridge.js";
+import {
   discoverBambuPrinters,
   runBambuPrinterCommand,
   sendBambuPrinterFile,
-  probeBambuCamera,
-  probeTcp,
   readBambuTelemetry,
   testBambuPrinter,
 } from "./bambu.js";
@@ -114,6 +120,17 @@ interface ShellActions {
   openPath(path: string): Promise<string>;
   showItemInFolder(path: string): void;
 }
+
+export type CompanionProxyTarget =
+  | {
+      headers: Headers;
+      kind: "http";
+      target: string;
+    }
+  | {
+      kind: "bridge";
+      source: CameraBridgeSource;
+    };
 
 interface BridgeLifecycle {
   restart(): Promise<void>;
@@ -489,11 +506,12 @@ async function fetchWithUpstreamAuth(
 }
 
 function inferOutputKind(
-  sourceKind: CompanionStreamSourceKind,
+  input: CompanionStreamInput,
 ): CompanionStreamOutputKind {
-  if (sourceKind === "mjpeg") return "mjpeg";
-  if (sourceKind === "snapshot") return "snapshot";
-  if (sourceKind === "hls") return "hls";
+  if (input.sourceKind === "mjpeg") return "mjpeg";
+  if (input.sourceKind === "snapshot") return "snapshot";
+  if (input.sourceKind === "hls") return "hls";
+  if (resolveStreamCameraBridgeSource(input)) return "mjpeg";
   return "unavailable";
 }
 
@@ -556,21 +574,6 @@ async function downloadFile(url: string, destinationPath: string) {
   }
 }
 
-function targetFromUrl(
-  value: string,
-  defaultPort: number,
-): { host: string; port: number } | null {
-  try {
-    const url = new URL(value);
-    return {
-      host: url.hostname,
-      port: Number(url.port || defaultPort),
-    };
-  } catch {
-    return null;
-  }
-}
-
 async function inspectStreamInput(input: CompanionStreamInput): Promise<{
   details: string;
   lastTestedAt: string | null;
@@ -578,31 +581,43 @@ async function inspectStreamInput(input: CompanionStreamInput): Promise<{
   status: CompanionStream["status"];
 }> {
   const checkedAt = nowIso();
-  const outputKind = inferOutputKind(input.sourceKind);
+  const outputKind = inferOutputKind(input);
 
   if (input.sourceKind === "rtsp") {
-    const target = targetFromUrl(input.upstreamUrl, 554);
-    const reachable = target ? await probeTcp(target.host, target.port) : false;
+    const bridgeSource = resolveStreamCameraBridgeSource(input);
+    const reachable = bridgeSource
+      ? await probeCameraBridgeSource(bridgeSource)
+      : false;
     return {
-      details: reachable
-        ? "The RTSP source accepted a TCP connection. Add an MJPEG or snapshot restream before browser playback."
-        : "The RTSP source did not accept a connection.",
+      details: !cameraBridgeReady()
+        ? "The bundled camera bridge is not available on this machine yet."
+        : !bridgeSource
+          ? "Use a valid rtsp:// or rtsps:// address so Companion can restream this feed for browser playback."
+          : reachable
+            ? "The RTSP source is reachable and Companion can restream it for browser playback."
+            : "The RTSP source did not accept a connection.",
       lastTestedAt: checkedAt,
       outputKind,
-      status: reachable ? "degraded" : "offline",
+      status: reachable ? "online" : bridgeSource ? "offline" : "degraded",
     };
   }
 
   if (input.sourceKind === "bambu-native") {
-    const target = targetFromUrl(input.upstreamUrl, 322);
-    const reachable = target ? await probeBambuCamera(target.host) : false;
+    const bridgeSource = resolveStreamCameraBridgeSource(input);
+    const reachable = bridgeSource
+      ? await probeCameraBridgeSource(bridgeSource)
+      : false;
     return {
-      details: reachable
-        ? "The native Bambu camera endpoint is reachable, but this alpha still needs an MJPEG or snapshot bridge before browser playback."
-        : "The native Bambu camera endpoint did not accept a connection.",
+      details: !cameraBridgeReady()
+        ? "The bundled camera bridge is not available on this machine yet."
+        : !bridgeSource
+          ? "Save the printer host or a full rtsps:// camera URL plus the LAN access code so Companion can restream this native Bambu feed."
+          : reachable
+            ? "The native Bambu camera is reachable and Companion can restream it for browser playback."
+            : "The native Bambu camera endpoint did not accept a connection.",
       lastTestedAt: checkedAt,
       outputKind,
-      status: reachable ? "degraded" : "offline",
+      status: reachable ? "online" : bridgeSource ? "offline" : "degraded",
     };
   }
 
@@ -815,18 +830,27 @@ export class CompanionRuntime extends EventEmitter {
     const telemetryReady = printers.some(
       (printer) => printer.capabilities.telemetry === "available",
     );
-    const streamReady = streams.some(
-      (stream) => stream.outputKind !== "unavailable",
-    );
-    const needsRestream = streams.some(
+    const streamReady = this.state.streams.some(
       (stream) =>
-        stream.sourceKind === "rtsp" || stream.sourceKind === "bambu-native",
+        Boolean(this.getStreamBridgePaths(stream).mjpegPath) ||
+        Boolean(this.getStreamBridgePaths(stream).snapshotPath),
+    );
+    const nativeCameraReady = this.state.printers.some((printer) =>
+      Boolean(this.resolveStoredPrinterCameraSource(printer)),
+    );
+    const needsRestream = this.state.streams.some(
+      (stream) =>
+        (stream.sourceKind === "rtsp" || stream.sourceKind === "bambu-native") &&
+        !this.resolveStoredStreamCameraSource(stream),
     );
     const developerPrinter = printers.some(
       (printer) => printer.connectionMode === "developer",
     );
     const connectHandoffPrinter = printers.some((printer) =>
       ["cloud", "bambu-connect"].includes(printer.connectionMode),
+    );
+    const sliceBridgeReady = printers.some(
+      (printer) => printer.capabilities.slicingAssist === "available",
     );
 
     return {
@@ -836,11 +860,11 @@ export class CompanionRuntime extends EventEmitter {
           : printers.length > 0
             ? "requires_setup"
             : "unavailable",
-        camera: streamReady
+        camera: streamReady || nativeCameraReady
           ? "available"
           : needsRestream
             ? "requires_restream"
-            : streams.length > 0
+            : streams.length > 0 || printers.length > 0
               ? "requires_setup"
               : "unavailable",
         controls: developerPrinter ? "available" : "requires_developer_mode",
@@ -848,7 +872,11 @@ export class CompanionRuntime extends EventEmitter {
         fileUpload: developerPrinter || connectHandoffPrinter
           ? "available"
           : "requires_setup",
-        slicingAssist: "future",
+        slicingAssist: sliceBridgeReady
+          ? "available"
+          : printers.length > 0
+            ? "requires_setup"
+            : "unavailable",
         telemetry: telemetryReady
           ? "available"
           : printers.length > 0
@@ -857,9 +885,10 @@ export class CompanionRuntime extends EventEmitter {
       },
       capabilityNotes: {
         ams: "AMS state rides on the same local telemetry path as the printer report.",
-        camera: streamReady
-          ? "At least one stream already exposes browser-compatible output."
-          : "Use MJPEG, snapshot, or HLS sources directly. RTSP and native Bambu feeds still need a browser bridge in this alpha.",
+        camera:
+          streamReady || nativeCameraReady
+            ? "Companion can already expose at least one live browser-safe camera feed through a direct stream or native bridge."
+            : "Use MJPEG, snapshot, or HLS sources directly, or save a supported RTSP/native Bambu source for the built-in camera bridge.",
         controls:
           developerPrinter
             ? "At least one saved printer can accept direct Developer Mode MQTT commands from Companion."
@@ -872,8 +901,9 @@ export class CompanionRuntime extends EventEmitter {
             : connectHandoffPrinter
               ? "Cloud and Bambu Connect printers can use the local Bambu Connect import handoff from this machine."
               : "Add a Developer Mode or Bambu Connect printer to unlock local send workflows.",
-        slicingAssist:
-          "Companion reserves a local slicing-assist boundary for a future revision.",
+        slicingAssist: sliceBridgeReady
+          ? "Companion can already receive prepared jobs from BambuView and route them through direct upload or local Bambu Connect handoff."
+          : "Add a Developer Mode or Bambu Connect printer to unlock Companion-assisted send workflows.",
         telemetry:
           "Live telemetry is available for LAN and Developer profiles with hostname, serial number, and access code.",
       },
@@ -928,12 +958,15 @@ export class CompanionRuntime extends EventEmitter {
   }
 
   getStreamBridgePaths(stream: StoredStream) {
+    const bridgeSource = this.resolveStoredStreamCameraSource(stream);
     return {
       hlsPath: null,
       mjpegPath:
-        stream.outputKind === "mjpeg" ? `/streams/${stream.id}/mjpeg` : null,
+        stream.outputKind === "mjpeg" || bridgeSource
+          ? `/streams/${stream.id}/mjpeg`
+          : null,
       snapshotPath:
-        stream.outputKind === "snapshot"
+        stream.outputKind === "snapshot" || bridgeSource
           ? `/streams/${stream.id}/snapshot`
           : null,
     };
@@ -947,35 +980,85 @@ export class CompanionRuntime extends EventEmitter {
     return this.state.streams.find((stream) => stream.id === streamId);
   }
 
+  getPrinterCameraProxyTarget(
+    printerId: string,
+    mode: "mjpeg" | "snapshot",
+  ): CompanionProxyTarget | null {
+    const printer = this.getStoredPrinter(printerId);
+    if (!printer) {
+      return null;
+    }
+
+    if (printer.streamId) {
+      const linkedTarget = this.getStreamProxyTarget(printer.streamId, mode);
+      if (linkedTarget) {
+        return linkedTarget;
+      }
+    }
+
+    const source = this.resolveStoredPrinterCameraSource(printer);
+    if (!source) {
+      return null;
+    }
+
+    return {
+      kind: "bridge",
+      source,
+    };
+  }
+
   getStreamProxyTarget(
     streamId: string,
     mode: "mjpeg" | "snapshot",
-  ): { headers: Headers; target: string } | null {
+  ): CompanionProxyTarget | null {
     const stream = this.getStoredStream(streamId);
     if (!stream) {
       return null;
     }
 
-    if (mode === "mjpeg" && stream.outputKind !== "mjpeg") {
-      return null;
-    }
-    if (mode === "snapshot" && stream.outputKind !== "snapshot") {
-      return null;
-    }
-
-    const headers = new Headers();
-    const authorization = basicAuth(
-      stream.username,
-      decryptSecret(this.codec, stream.password),
-    );
-    if (authorization) {
-      headers.set("authorization", authorization);
+    const bridgeSource = this.resolveStoredStreamCameraSource(stream);
+    if (bridgeSource) {
+      return {
+        kind: "bridge",
+        source: bridgeSource,
+      };
     }
 
-    return {
-      headers,
-      target: stream.upstreamUrl,
-    };
+    if (mode === "mjpeg" && stream.outputKind === "mjpeg") {
+      const headers = new Headers();
+      const authorization = basicAuth(
+        stream.username,
+        decryptSecret(this.codec, stream.password),
+      );
+      if (authorization) {
+        headers.set("authorization", authorization);
+      }
+
+      return {
+        headers,
+        kind: "http",
+        target: stream.upstreamUrl,
+      };
+    }
+
+    if (mode === "snapshot" && stream.outputKind === "snapshot") {
+      const headers = new Headers();
+      const authorization = basicAuth(
+        stream.username,
+        decryptSecret(this.codec, stream.password),
+      );
+      if (authorization) {
+        headers.set("authorization", authorization);
+      }
+
+      return {
+        headers,
+        kind: "http",
+        target: stream.upstreamUrl,
+      };
+    }
+
+    return null;
   }
 
   async handleFileHandoff(
@@ -1527,23 +1610,55 @@ export class CompanionRuntime extends EventEmitter {
     this.emit("snapshot", this.getSnapshot());
   }
 
+  private resolveStoredPrinterCameraSource(
+    printer: StoredPrinter,
+  ): CameraBridgeSource | null {
+    return resolvePrinterCameraBridgeSource(this.toPrinterInput(printer));
+  }
+
+  private resolveStoredStreamCameraSource(
+    stream: StoredStream,
+  ): CameraBridgeSource | null {
+    return resolveStreamCameraBridgeSource({
+      linkedPrinterId: stream.linkedPrinterId,
+      name: stream.name,
+      password: decryptSecret(this.codec, stream.password),
+      sourceKind: stream.sourceKind,
+      upstreamUrl: stream.upstreamUrl,
+      username: stream.username,
+    });
+  }
+
   private listPrinters(): CompanionPrinter[] {
     return this.state.printers.map((printer) => {
       const linkedStream = printer.streamId
         ? this.state.streams.find((stream) => stream.id === printer.streamId)
         : null;
+      const printerInput = this.toPrinterInput(printer);
+      const nativeBridge = resolvePrinterCameraBridgeSource(printerInput);
+      const nativeBridgeSupport = nativeBambuBridgeSupport(printer.model);
       const telemetryConfigured =
         Boolean(printer.hostname.trim()) &&
         Boolean(decryptSecret(this.codec, printer.accessCode)) &&
         (printer.connectionMode === "lan" ||
           printer.connectionMode === "developer");
+      const linkedStreamBridge = linkedStream
+        ? this.resolveStoredStreamCameraSource(linkedStream)
+        : null;
       const cameraState = linkedStream
         ? linkedStream.outputKind === "unavailable"
-          ? "requires_restream"
+          ? linkedStreamBridge
+            ? "available"
+            : "requires_restream"
           : "available"
-        : printer.connectionMode === "developer"
-          ? "requires_setup"
-          : "requires_setup";
+        : nativeBridge
+          ? "available"
+          : telemetryConfigured && nativeBridgeSupport.supported
+            ? "requires_setup"
+            : printer.connectionMode === "lan" ||
+                printer.connectionMode === "developer"
+              ? "requires_restream"
+              : "requires_setup";
       const controlsState =
         printer.connectionMode === "developer"
           ? "available"
@@ -1554,6 +1669,8 @@ export class CompanionRuntime extends EventEmitter {
         printer.connectionMode === "bambu-connect"
           ? "available"
           : "requires_developer_mode";
+      const slicingAssistState =
+        fileUploadState === "available" ? "available" : "requires_setup";
 
       return {
         accessCodeSet: Boolean(decryptSecret(this.codec, printer.accessCode)),
@@ -1563,18 +1680,25 @@ export class CompanionRuntime extends EventEmitter {
           controls: controlsState,
           discovery: "available",
           fileUpload: fileUploadState,
-          slicingAssist: "future",
+          slicingAssist: slicingAssistState,
           telemetry: telemetryConfigured ? "available" : "requires_setup",
         },
         capabilityNotes: {
           ams: "AMS status follows the same local printer report used for telemetry when the printer answers.",
           camera: linkedStream
             ? linkedStream.outputKind === "unavailable"
-              ? "This linked stream still needs a browser-compatible restream."
+              ? linkedStreamBridge
+                ? "Companion can restream this linked RTSP or native feed directly for browser playback."
+                : "This linked stream still needs a browser-compatible restream."
               : "This printer already has a browser-compatible stream linked."
-            : printer.connectionMode === "developer"
-              ? "Developer Mode opens the local camera path, but you still need a browser-safe feed or native bridge output assigned here."
-              : "Link a browser-compatible MJPEG or snapshot stream to preview this printer in BambuView.",
+            : nativeBridge
+              ? "Companion can expose this printer's native camera directly for browser playback."
+              : telemetryConfigured && nativeBridgeSupport.supported
+                ? "Add the matching LAN access code and host details, then Companion can expose this printer's native camera directly."
+                : printer.connectionMode === "developer" ||
+                    printer.connectionMode === "lan"
+                  ? nativeBridgeSupport.detail
+                  : "Link a browser-compatible MJPEG or snapshot stream to preview this printer in BambuView.",
           controls:
             printer.connectionMode === "developer"
               ? "Developer Mode direct machine controls are available through Companion."
@@ -1589,7 +1713,9 @@ export class CompanionRuntime extends EventEmitter {
                 ? "Companion can open the local Bambu Connect import-file handoff for send workflows on this machine."
                 : "Switch the printer to LAN-only Developer Mode to unlock direct local upload.",
           slicingAssist:
-            "Slice-assist hooks are reserved for a future revision.",
+            slicingAssistState === "available"
+              ? "Prepared jobs can already route through this printer profile using direct upload or local Bambu Connect handoff."
+              : "Finish the required upload path for this printer before using it as a send target from BambuView.",
           telemetry: telemetryConfigured
             ? "Companion can request live telemetry over the printer's local MQTT report channel."
             : "Add hostname, serial number, and LAN access code to request telemetry.",

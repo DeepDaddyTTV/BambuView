@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 
 import Fastify from "fastify";
+import type { FastifyReply } from "fastify";
 import { z } from "zod";
 
 import type {
@@ -10,6 +11,10 @@ import type {
   CompanionStreamInput,
 } from "@bambuview/contracts";
 
+import {
+  openCameraBridgeMjpegStream,
+  renderCameraBridgeSnapshot,
+} from "./camera-bridge.js";
 import { CompanionRuntime } from "./runtime.js";
 
 function parseAuthorization(header: string | undefined): {
@@ -139,29 +144,13 @@ export async function createBridgeServer(runtime: CompanionRuntime) {
     const params = z
       .object({ id: z.string().trim().min(1) })
       .parse(request.params);
-    const printer = runtime
-      .getSnapshot()
-      .printers.find((item) => item.id === params.id);
-    if (!printer?.streamId) {
-      return reply
-        .code(409)
-        .send({ message: "No stream is linked to this printer." });
-    }
-    return proxyStream(runtime, printer.streamId, "snapshot", reply);
+    return proxyPrinterCamera(runtime, params.id, "snapshot", reply);
   });
   app.get("/printers/:id/camera/mjpeg", async (request, reply) => {
     const params = z
       .object({ id: z.string().trim().min(1) })
       .parse(request.params);
-    const printer = runtime
-      .getSnapshot()
-      .printers.find((item) => item.id === params.id);
-    if (!printer?.streamId) {
-      return reply
-        .code(409)
-        .send({ message: "No stream is linked to this printer." });
-    }
-    return proxyStream(runtime, printer.streamId, "mjpeg", reply);
+    return proxyPrinterCamera(runtime, params.id, "mjpeg", reply);
   });
   app.post("/printers/:id/command", async (request, reply) => {
     const params = z
@@ -271,12 +260,7 @@ async function proxyStream(
   runtime: CompanionRuntime,
   streamId: string,
   mode: "mjpeg" | "snapshot",
-  reply: {
-    code(statusCode: number): typeof reply;
-    send(payload: unknown): unknown;
-    header(key: string, value: string): void;
-    type(value: string): void;
-  },
+  reply: FastifyReply,
 ) {
   const target = runtime.getStreamProxyTarget(streamId, mode);
   if (!target) {
@@ -286,6 +270,79 @@ async function proxyStream(
           ? "This stream does not expose an MJPEG output yet."
           : "This stream does not expose a snapshot output yet.",
     });
+  }
+
+  try {
+    if (target.kind === "bridge") {
+      reply.header("cache-control", "no-store");
+      if (mode === "snapshot") {
+        reply.type("image/jpeg");
+        return reply.send(await renderCameraBridgeSnapshot(target.source));
+      }
+
+      const bridged = openCameraBridgeMjpegStream(target.source);
+      reply.type(bridged.contentType);
+      reply.raw.once("close", bridged.cleanup);
+      return reply.send(bridged.stream);
+    }
+
+    const upstream = await fetch(target.target, {
+      headers: target.headers,
+    });
+    if (!upstream.ok || !upstream.body) {
+      return reply.code(upstream.status || 502).send({
+        message: `The upstream stream returned HTTP ${upstream.status}.`,
+      });
+    }
+
+    reply.header("cache-control", "no-store");
+    reply.type(
+      upstream.headers.get("content-type") ??
+        (mode === "snapshot" ? "image/jpeg" : "multipart/x-mixed-replace"),
+    );
+    return reply.send(
+      Readable.from(upstream.body as AsyncIterable<Uint8Array>),
+    );
+  } catch {
+    return reply.code(502).send({
+      message: "Companion could not reach the configured upstream stream.",
+    });
+  }
+}
+
+async function proxyPrinterCamera(
+  runtime: CompanionRuntime,
+  printerId: string,
+  mode: "mjpeg" | "snapshot",
+  reply: FastifyReply,
+) {
+  const target = runtime.getPrinterCameraProxyTarget(printerId, mode);
+  if (!target) {
+    return reply.code(409).send({
+      message:
+        mode === "mjpeg"
+          ? "This printer does not expose a live camera output yet."
+          : "This printer does not expose a camera snapshot yet.",
+    });
+  }
+
+  if (target.kind === "bridge") {
+    try {
+      reply.header("cache-control", "no-store");
+      if (mode === "snapshot") {
+        reply.type("image/jpeg");
+        return reply.send(await renderCameraBridgeSnapshot(target.source));
+      }
+
+      const bridged = openCameraBridgeMjpegStream(target.source);
+      reply.type(bridged.contentType);
+      reply.raw.once("close", bridged.cleanup);
+      return reply.send(bridged.stream);
+    } catch {
+      return reply.code(502).send({
+        message: "Companion could not bridge the printer camera feed.",
+      });
+    }
   }
 
   try {

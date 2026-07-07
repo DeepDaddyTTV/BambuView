@@ -1031,7 +1031,7 @@ describe("companion integration", () => {
                 serial: "P1S-TEST-001",
                 connectionMode: "lan",
                 notes: "",
-                streamId: "stream-1",
+                streamId: null,
                 accessCodeSet: true,
                 capabilities: {
                   discovery: "unavailable",
@@ -1057,24 +1057,7 @@ describe("companion integration", () => {
       if (request.url === "/streams") {
         response.end(
           JSON.stringify({
-            streams: [
-              {
-                id: "stream-1",
-                name: "Printer Cam",
-                sourceKind: "mjpeg",
-                outputKind: "mjpeg",
-                upstreamUrl: "http://camera.local/live.mjpg",
-                linkedPrinterId: "companion-printer-1",
-                status: "online",
-                details: "Browser-compatible stream ready.",
-                snapshotPath: "/printers/companion-printer-1/camera/snapshot",
-                mjpegPath: "/printers/companion-printer-1/camera/mjpeg",
-                hlsPath: null,
-                lastTestedAt: new Date().toISOString(),
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              },
-            ],
+            streams: [],
           }),
         );
         return;
