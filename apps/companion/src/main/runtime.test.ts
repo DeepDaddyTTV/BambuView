@@ -203,6 +203,10 @@ describe("companion runtime", () => {
 
   it("explains when the server URL is actually the companion bridge", async () => {
     const runtime = createRuntime();
+    await runtime.saveSettings({
+      bindMode: "lan",
+      host: "192.168.50.200",
+    });
     await runtime.applyBridgeListening(true, null);
 
     globalThis.fetch = (async () =>
