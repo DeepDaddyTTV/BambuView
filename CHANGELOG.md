@@ -6,6 +6,19 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.39 - 2026-07-06
+
+### Bug Fixes & Stability
+
+- Fixed Bridge-vs-Server Pairing Confusion: Companion now catches when the entered pairing address is actually the local Companion bridge, so you no longer get stuck with the raw `Companion auth token required.` failure.
+- Better Pairing Target Validation: Companion now checks that the entered address answers like a real BambuView server before sending the pair request, which prevents bad host or port entries from failing later with a vague error.
+- Clearer Wrong-URL Recovery: if you paste the wrong target, Companion now tells you to use the BambuView web app URL instead of leaving you to guess whether the problem is auth, LAN mode, or the bridge token.
+
+### Improvements & What's New
+
+- Easier First-Time Pairing: remote and same-machine pairing now fail earlier and more honestly, which makes the setup path much easier to follow when you are pairing for the first time.
+- Better Beginner Guidance: the Companion docs now call out the exact meaning of `Companion auth token required.` so it is easier to recognize when you opened the bridge URL instead of the BambuView server.
+
 ## v0.0.38 - 2026-07-06
 
 ### Bug Fixes & Stability

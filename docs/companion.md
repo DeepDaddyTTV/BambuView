@@ -51,6 +51,8 @@ Install the build for your platform, launch `BambuView Companion`, and keep it r
 10. Set a friendly Companion name.
 11. Finish pairing.
 
+If you see `Companion auth token required.` while testing the address in a browser or during pairing, that almost always means you opened the Companion bridge instead of the BambuView server. Go back and enter the BambuView web app URL instead.
+
 After pairing, BambuView stores the Companion base URL and bridge token server-side.
 
 ## Keep Companion Updated

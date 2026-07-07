@@ -226,11 +226,15 @@ function validatePairingRoute(
 ): string | null {
   try {
     const server = new URL(serverUrl);
+    const bridge = new URL(bridgeBaseUrl);
+    if (server.origin === bridge.origin) {
+      return `That address matches the Companion bridge (${bridge.origin}), not the BambuView server. Enter the BambuView web app URL here instead.`;
+    }
+
     if (isLocalhostAddress(server.hostname)) {
       return null;
     }
 
-    const bridge = new URL(bridgeBaseUrl);
     if (isLocalhostAddress(bridge.hostname)) {
       return `BambuView is not running on this computer, but Companion is still using ${bridgeBaseUrl}. Open Settings, switch Bind Mode to LAN, set Bind Host to this computer's LAN IP or hostname, save, then pair again.`;
     }
@@ -243,6 +247,43 @@ function validatePairingRoute(
   }
 
   return null;
+}
+
+async function validateBambuViewServerTarget(
+  serverUrl: string,
+): Promise<string | null> {
+  let response: Response;
+  try {
+    response = await fetch(joinUrl(serverUrl, "/api/health"), {
+      headers: {
+        accept: "application/json",
+      },
+      method: "GET",
+      signal: timeoutSignal(4000),
+    });
+  } catch (error) {
+    return formatPairingFetchError(serverUrl, error);
+  }
+
+  const data = (await response.json().catch(() => null)) as
+    | { message?: string; ok?: boolean }
+    | null;
+  if (response.ok && data?.ok === true) {
+    return null;
+  }
+
+  if (
+    response.status === 401 &&
+    data?.message === "Companion auth token required."
+  ) {
+    return `That address is answering like the Companion bridge, not the BambuView server. Enter the BambuView web app URL here instead.`;
+  }
+
+  if (data?.message) {
+    return `BambuView pairing could not start because ${serverUrl} answered with: ${data.message}`;
+  }
+
+  return `BambuView pairing could not start because ${serverUrl} did not respond like a BambuView server. Confirm the URL and port, then try again.`;
 }
 
 function formatPairingFetchError(serverUrl: string, error: unknown): string {
@@ -1201,6 +1242,12 @@ export class CompanionRuntime extends EventEmitter {
     );
     if (pairingRouteError) {
       throw new Error(pairingRouteError);
+    }
+
+    const targetValidationError =
+      await validateBambuViewServerTarget(serverUrl);
+    if (targetValidationError) {
+      throw new Error(targetValidationError);
     }
 
     const payload: CompanionPairingRequest = {

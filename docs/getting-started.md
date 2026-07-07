@@ -145,7 +145,7 @@ If a printer has no assigned browser-compatible camera, its camera panel shows `
 
 For the full walkthrough, read [Camera Setup](./cameras.md).
 
-## What to expect in `0.0.38` alpha
+## What to expect in `0.0.39` alpha
 
 The screens are real, the auth flow is real, and the stored preferences are real.
 
