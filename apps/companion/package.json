@@ -1,6 +1,6 @@
 {
   "name": "@bambuview/companion",
-  "version": "0.0.42",
+  "version": "0.0.43",
   "description": "Local bridge app for BambuView printers, cameras, telemetry, and file handoff.",
   "desktopName": "bambuview-companion",
   "author": {

@@ -133,12 +133,93 @@ function readFileMd5(filePath: string): string {
   return hash.digest("hex").toLowerCase();
 }
 
-function hasLocalAccess(printer: CompanionPrinterInput): boolean {
+function joinHumanList(values: string[]): string {
+  if (values.length <= 1) {
+    return values[0] ?? "";
+  }
+
+  if (values.length === 2) {
+    return `${values[0]} and ${values[1]}`;
+  }
+
+  return `${values.slice(0, -1).join(", ")}, and ${values.at(-1)}`;
+}
+
+function missingLocalAccessFields(
+  printer: Pick<
+    CompanionPrinterInput,
+    "accessCode" | "hostname" | "serial"
+  >,
+): string[] {
+  const missing: string[] = [];
+
+  if (!printer.hostname.trim()) {
+    missing.push("printer hostname");
+  }
+
+  if (!printer.serial.trim()) {
+    missing.push("serial number");
+  }
+
+  if ((printer.accessCode?.trim() ?? "").length === 0) {
+    missing.push("LAN access code");
+  }
+
+  return missing;
+}
+
+export function hasLocalAccess(printer: CompanionPrinterInput): boolean {
   return Boolean(
     printer.hostname.trim() &&
     printer.serial.trim() &&
     (printer.accessCode?.trim() ?? "").length > 0,
   );
+}
+
+export function describeLocalTelemetrySetup(
+  printer: Pick<
+    CompanionPrinterInput,
+    "accessCode" | "connectionMode" | "hostname" | "serial"
+  >,
+): string {
+  const missing = missingLocalAccessFields(printer);
+  if (missing.length === 0) {
+    return "Companion can request live telemetry over the printer's local MQTT report channel from this saved profile.";
+  }
+
+  const fieldList = joinHumanList(missing);
+  if (printer.connectionMode === "bambu-connect") {
+    return `Bambu Connect handoff is already ready. Add ${fieldList} if you also want local Companion telemetry on this machine.`;
+  }
+
+  if (printer.connectionMode === "cloud") {
+    return `This Cloud / Normal profile is already saved for handoff. Add ${fieldList} if you also want local Companion telemetry on this machine.`;
+  }
+
+  return `Add ${fieldList} to request telemetry.`;
+}
+
+export function describeLocalControlsSetup(
+  printer: Pick<
+    CompanionPrinterInput,
+    "accessCode" | "connectionMode" | "hostname" | "serial"
+  >,
+): string {
+  const missing = missingLocalAccessFields(printer);
+  if (missing.length === 0) {
+    return "Companion can attempt local pause, resume, stop, and lamp actions from this saved printer profile. Full motion and extrusion controls still work best in Developer Mode.";
+  }
+
+  const fieldList = joinHumanList(missing);
+  if (printer.connectionMode === "bambu-connect") {
+    return `Bambu Connect handoff is already ready. Add ${fieldList} if you also want local Companion controls on this machine.`;
+  }
+
+  if (printer.connectionMode === "cloud") {
+    return `This Cloud / Normal profile is already saved for handoff. Add ${fieldList} if you also want local Companion controls on this machine.`;
+  }
+
+  return `Save ${fieldList} before enabling Companion-side direct controls.`;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -552,18 +633,18 @@ export async function testBambuPrinter(
       capabilityNotes: {
         camera:
           "Cloud and Bambu Connect profiles still need a linked browser-compatible stream or bridge feed before video can render in the web UI.",
-        controls:
-          "Save the printer host, serial number, and LAN access code here if you want Companion to attempt limited local controls from the same machine.",
+        controls: describeLocalControlsSetup(printer),
         fileUpload:
           "Companion can open the local Bambu Connect import handoff from this machine for sliced jobs.",
         slicingAssist:
           "Prepared jobs can already route through the local Bambu Connect handoff on this machine.",
-        telemetry:
-          "Live telemetry requires LAN Mode or LAN-only Developer Mode.",
+        telemetry: describeLocalTelemetrySetup(printer),
       },
       checkedAt,
       message:
-        "This profile is ready for local Bambu Connect handoff. Live telemetry and machine controls still need LAN/Developer Mode.",
+        printer.connectionMode === "bambu-connect"
+          ? "Bambu Connect handoff is ready on this machine. Add the missing LAN details only if you also want local telemetry or direct controls."
+          : "This profile is ready for local handoff. Add the missing LAN details only if you also want local telemetry or direct controls.",
       reachable: true,
     };
   }
@@ -614,7 +695,7 @@ export async function testBambuPrinter(
           ? "Developer Mode direct machine controls are available through Companion."
           : localAccess
             ? "Companion can attempt pause, resume, stop, and lamp commands locally with the saved host and access code. Full motion and extrusion controls still work best in Developer Mode."
-            : "Save the printer host and LAN access code before enabling Companion-side direct controls.",
+            : describeLocalControlsSetup(printer),
       discovery:
         "BambuView Companion can now discover LAN-advertising Bambu printers, inspect local desktop bridge surfaces, and still lets you save printers manually.",
       fileUpload:
@@ -630,7 +711,7 @@ export async function testBambuPrinter(
       telemetry:
         telemetryState === "available"
           ? "Telemetry can be requested directly from the printer's MQTT report channel."
-          : "Add the printer hostname and LAN access code to request telemetry.",
+          : describeLocalTelemetrySetup(printer),
     },
     checkedAt,
     message: reachable
@@ -666,7 +747,7 @@ export async function readBambuTelemetry(
       layerCurrent: null,
       layerTotal: null,
       message:
-        "Add the printer hostname, serial number, and LAN access code to request telemetry.",
+        describeLocalTelemetrySetup(printer),
       nozzleTargetTemperature: null,
       nozzleTemperature: null,
       printStatus: "offline",

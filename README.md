@@ -38,7 +38,7 @@ It is being built for people who want a clean local-first printer console with i
 
 ## Preview
 
-The `0.0.42` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, selectable background styles, and a first Companion management surface inside Settings.
+The `0.0.43` alpha interface is centered on the approved graphite console direction: square edges, a full-bleed active sidebar rail, darker connected sidebar utility rows, BambuView branding, tighter Fleet spacing, selectable background styles, and a first Companion management surface inside Settings.
 
 The Bambu connection profiles now expose honest capability states. Cloud / Normal and Bambu Connect are saved as handoff profiles for Bambu Connect import links and bridge-aware workflows, LAN Mode reads local MQTT status telemetry, and LAN-only Developer Mode targets direct MQTT, native camera, file-transfer, and machine-control paths. Browser-renderable cameras can be assigned directly to printers or the Fleet Overview target; RTSP and native Bambu feeds should still be routed through Frigate/go2rtc, a Network Plugin bridge endpoint, or a browser-compatible Companion stream before browser playback.
 
@@ -54,7 +54,7 @@ BambuView Companion is the native/local bridge app inside this repo.
 
 Use it when BambuView needs a trusted desktop process for local printer telemetry, local camera bridge output, or local file handoff that the browser app cannot reach directly.
 
-The current Companion bridge in `0.0.42` includes:
+The current Companion bridge in `0.0.43` includes:
 
 - Electron + TypeScript app inside `apps/companion`
 - bridge API on `http://localhost:<port>` by default

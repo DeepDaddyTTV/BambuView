@@ -98,7 +98,7 @@ function emptyStreamForm(): CompanionStreamInput {
     linkedPrinterId: null,
     name: "",
     password: "",
-    sourceKind: "snapshot",
+    sourceKind: "mjpeg",
     upstreamUrl: "",
     username: "",
   };
@@ -191,11 +191,11 @@ const connectionModeOptions: Array<CompanionSelectOption<BambuConnectionMode>> =
 const streamSourceOptions: Array<
   CompanionSelectOption<CompanionStreamInput["sourceKind"]>
 > = [
+  { label: "Frigate / MJPEG", value: "mjpeg" },
   { label: "HTTP Snapshot", value: "snapshot" },
-  { label: "HTTP MJPEG", value: "mjpeg" },
   { label: "HLS", value: "hls" },
   { label: "RTSP", value: "rtsp" },
-  { label: "Bambu Native", value: "bambu-native" },
+  { label: "Bambu Native Override", value: "bambu-native" },
 ];
 
 const bindModeOptions: Array<
@@ -221,6 +221,174 @@ function capabilityText(
   key: keyof CompanionCapabilityFlags,
 ) {
   return flags[key].replaceAll("_", " ");
+}
+
+function CompanionBrandMark() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="companion-brand__logo"
+      viewBox="0 0 113.97 97.58"
+    >
+      <path
+        d="M47.12 65.17c-.06-.5-.03-1.01-.04-1.51.06 0 .13-.03.21-.08l9.63-5.53c.17-.1.28-.14.46-.03l9.88 5.68c0 .53.04 1.01-.04 1.54v10.12l-10.04 5.85-9.92-5.78c-.1-.08-.13-.15-.14-.29v-9.97Z"
+        fill="var(--companion-brand-ink)"
+      />
+      <path
+        d="M50.11 66.48c-.04-.35-.02-.71-.02-1.06.04 0 .09-.02.15-.05l6.77-3.89c.12-.07.19-.1.32-.02l6.95 3.99c0 .37.03.71-.03 1.09v7.11l-7.06 4.11-6.97-4.06c-.07-.06-.09-.11-.1-.2v-7.01Z"
+        fill="var(--companion-brand-green)"
+      />
+      <g fill="var(--companion-brand-ink)">
+        <rect
+          height="13.15"
+          transform="rotate(-90 107.395 44.575)"
+          width="71.87"
+          x="71.46"
+          y="38"
+        />
+        <rect
+          height="21.91"
+          transform="rotate(-90 89.855 15.205)"
+          width="13.15"
+          x="83.28"
+          y="4.25"
+        />
+        <rect
+          height="35.06"
+          transform="rotate(-90 57.2 17.53)"
+          width="35.06"
+          x="39.67"
+          y="0"
+        />
+        <rect
+          height="13.15"
+          transform="rotate(-90 6.575 44.575)"
+          width="71.87"
+          x="-29.36"
+          y="38"
+        />
+        <rect
+          height="21.91"
+          transform="rotate(-90 24.115 15.205)"
+          width="13.15"
+          x="17.54"
+          y="4.25"
+        />
+      </g>
+      <g fill="var(--companion-brand-green)">
+        <polygon points="66.53 37.89 57.16 47.26 47.78 37.89 66.53 37.89" />
+        <polygon points="35.16 97.58 21.91 97.58 21.91 84.43 21.96 84.39 35.16 97.58" />
+        <polygon points="92.05 84.39 92.05 97.58 78.86 97.58 92.05 84.39" />
+        <rect
+          height="21.91"
+          transform="rotate(-90 10.955 90.955)"
+          width="13.15"
+          x="4.38"
+          y="80"
+        />
+        <rect
+          height="21.91"
+          transform="rotate(-90 103.005 90.955)"
+          width="13.15"
+          x="96.43"
+          y="80"
+        />
+      </g>
+      <path d="M54.03 68.2c-.02-.16 0-.31-.01-.47.02 0 .04 0 .07-.02l3.01-1.73c.05-.03.09-.04.14-.01l3.09 1.77c0 .17.01.32-.01.48v3.16l-3.14 1.83-3.1-1.8s-.04-.05-.04-.09v-3.12Z" />
+      <g fill="var(--companion-brand-ink)">
+        <polygon points="54.15 89.3 33.05 69.55 54.08 49.86 37.51 49.86 37.48 49.83 17.76 69.55 37.48 89.27 37.48 89.3 54.15 89.3" />
+        <polygon points="76.96 49.89 76.93 49.93 76.93 49.86 60.17 49.86 81.26 69.61 60.23 89.3 76.93 89.3 76.93 89.3 76.96 89.33 96.69 69.61 76.96 49.89" />
+      </g>
+    </svg>
+  );
+}
+
+function connectionModeLabel(mode: BambuConnectionMode) {
+  return (
+    BAMBU_CONNECTION_MODE_OPTIONS.find((option) => option.value === mode)
+      ?.label ?? mode
+  );
+}
+
+function printerReadiness(printer: CompanionSnapshot["printers"][number]) {
+  if (printer.capabilities.telemetry === "available") {
+    return {
+      label: "Local Ready",
+      tone: "streaming" as const,
+    };
+  }
+
+  if (printer.connectionMode === "bambu-connect") {
+    return {
+      label: "Bambu Connect Ready",
+      tone: "paired" as const,
+    };
+  }
+
+  if (printer.connectionMode === "cloud") {
+    return {
+      label: "Cloud Ready",
+      tone: "paired" as const,
+    };
+  }
+
+  return {
+    label:
+      printer.hostname.trim() || printer.serial.trim() || printer.accessCodeSet
+        ? "Finish Local Setup"
+        : "Requires Setup",
+    tone: "warning" as const,
+  };
+}
+
+function printerMeta(printer: CompanionSnapshot["printers"][number]) {
+  return [
+    printer.model,
+    printer.hostname.trim() || "Hostname pending",
+    connectionModeLabel(printer.connectionMode),
+  ].join(" • ");
+}
+
+function streamSourcePlaceholder(
+  sourceKind: CompanionStreamInput["sourceKind"],
+) {
+  if (sourceKind === "mjpeg") {
+    return "http://frigate:5000/api/workbench_left";
+  }
+
+  if (sourceKind === "snapshot") {
+    return "http://camera.local/latest.jpg";
+  }
+
+  if (sourceKind === "hls") {
+    return "https://camera.local/stream.m3u8";
+  }
+
+  if (sourceKind === "rtsp") {
+    return "rtsp://camera.local:554/stream";
+  }
+
+  return "printer-hostname-or-rtsps-url";
+}
+
+function streamSourceHint(sourceKind: CompanionStreamInput["sourceKind"]) {
+  if (sourceKind === "mjpeg") {
+    return "Use this for Frigate restream URLs or any direct browser-safe MJPEG feed.";
+  }
+
+  if (sourceKind === "snapshot") {
+    return "Use this for single-image snapshot URLs that refresh in BambuView.";
+  }
+
+  if (sourceKind === "hls") {
+    return "Use this when the source already publishes an HLS playlist.";
+  }
+
+  if (sourceKind === "rtsp") {
+    return "Use this for RTSP cameras when Companion needs to restream them for browser playback.";
+  }
+
+  return "Use this only when you need to override the automatic native Bambu camera path.";
 }
 
 interface CompanionSelectOption<TValue extends string> {
@@ -334,6 +502,7 @@ export function App() {
     useState<CompanionPrinterInput>(emptyPrinterForm);
   const [streamForm, setStreamForm] =
     useState<CompanionStreamInput>(emptyStreamForm);
+  const [showAdvancedStreams, setShowAdvancedStreams] = useState(false);
   const [settingsForm, setSettingsForm] = useState<CompanionSettings | null>(
     null,
   );
@@ -425,8 +594,8 @@ export function App() {
     >
       <aside className="companion-sidebar">
         <div className="companion-brand">
-          <div className="companion-brand__mark" />
-          <div>
+          <CompanionBrandMark />
+          <div className="companion-brand__content">
             <div className="companion-brand__name">BambuView Companion</div>
             <div className="companion-brand__copy">
               Local bridge for printers, cameras, telemetry, and file handoff
@@ -919,97 +1088,102 @@ export function App() {
                     local telemetry planning.
                   </div>
                 ) : null}
-                {snapshot.printers.map((printer) => (
-                  <div className="item-card" key={printer.id}>
-                    <div className="item-card__header">
-                      <div>
-                        <div className="item-card__title">{printer.name}</div>
-                        <div className="item-card__meta">
-                          {printer.model} • {printer.hostname} •{" "}
-                          {printer.connectionMode}
+                {snapshot.printers.map((printer) => {
+                  const readiness = printerReadiness(printer);
+
+                  return (
+                    <div className="item-card" key={printer.id}>
+                      <div className="item-card__header">
+                        <div>
+                          <div className="item-card__title">{printer.name}</div>
+                          <div className="item-card__meta">
+                            {printerMeta(printer)}
+                          </div>
+                        </div>
+                        <div
+                          className={`status-pill status-pill--${readiness.tone}`}
+                        >
+                          {readiness.label}
                         </div>
                       </div>
-                      <div
-                        className={`status-pill status-pill--${printer.lastSeenAt ? "paired" : "warning"}`}
-                      >
-                        {capabilityText(printer.capabilities, "telemetry")}
+                      <div className="item-card__copy">
+                        {printer.capabilityNotes.telemetry}
                       </div>
-                    </div>
-                    <div className="item-card__copy">
-                      {printer.capabilityNotes.telemetry}
-                    </div>
-                    <div className="button-row">
-                      <button
-                        className="ghost-button"
-                        onClick={() => {
-                          void runAction(
-                            () => window.companion.testPrinter(printer.id),
-                            (result) => {
-                              setSuccessMessage(result.message);
-                            },
-                          );
-                        }}
-                        type="button"
-                      >
-                        <HardDriveDownload className="button-icon" />
-                        Test
-                      </button>
-                      <button
-                        className="ghost-button"
-                        onClick={() => {
-                          void runAction(
-                            () => window.companion.readTelemetry(printer.id),
-                            (result) =>
-                              setTelemetry((current) => ({
-                                ...current,
-                                [printer.id]: result,
-                              })),
-                          );
-                        }}
-                        type="button"
-                      >
-                        <Activity className="button-icon" />
-                        Telemetry
-                      </button>
-                      <button
-                        className="ghost-button ghost-button--danger"
-                        onClick={() => {
-                          void runAction(() =>
-                            Promise.resolve(
-                              window.companion.deletePrinter(printer.id),
-                            ),
-                          );
-                        }}
-                        type="button"
-                      >
-                        <RotateCcw className="button-icon" />
-                        Remove
-                      </button>
-                    </div>
-                    {telemetry[printer.id] ? (
-                      <div className="telemetry-grid">
-                        <div>
-                          <strong>{telemetry[printer.id].state}</strong>
-                          <span>{telemetry[printer.id].message}</span>
-                        </div>
-                        <div>
-                          <strong>Progress</strong>
-                          <span>{telemetry[printer.id].progress ?? "—"}%</span>
-                        </div>
-                        <div>
-                          <strong>File</strong>
-                          <span>{telemetry[printer.id].fileName ?? "—"}</span>
-                        </div>
-                        <div>
-                          <strong>Nozzle</strong>
-                          <span>
-                            {telemetry[printer.id].nozzleTemperature ?? "—"}°C
-                          </span>
-                        </div>
+                      <div className="button-row">
+                        <button
+                          className="ghost-button"
+                          onClick={() => {
+                            void runAction(
+                              () => window.companion.testPrinter(printer.id),
+                              (result) => {
+                                setSuccessMessage(result.message);
+                              },
+                            );
+                          }}
+                          type="button"
+                        >
+                          <HardDriveDownload className="button-icon" />
+                          Test
+                        </button>
+                        <button
+                          className="ghost-button"
+                          onClick={() => {
+                            void runAction(
+                              () => window.companion.readTelemetry(printer.id),
+                              (result) =>
+                                setTelemetry((current) => ({
+                                  ...current,
+                                  [printer.id]: result,
+                                })),
+                            );
+                          }}
+                          type="button"
+                        >
+                          <Activity className="button-icon" />
+                          Telemetry
+                        </button>
+                        <button
+                          className="ghost-button ghost-button--danger"
+                          onClick={() => {
+                            void runAction(() =>
+                              Promise.resolve(
+                                window.companion.deletePrinter(printer.id),
+                              ),
+                            );
+                          }}
+                          type="button"
+                        >
+                          <RotateCcw className="button-icon" />
+                          Remove
+                        </button>
                       </div>
-                    ) : null}
-                  </div>
-                ))}
+                      {telemetry[printer.id] ? (
+                        <div className="telemetry-grid">
+                          <div>
+                            <strong>{telemetry[printer.id].state}</strong>
+                            <span>{telemetry[printer.id].message}</span>
+                          </div>
+                          <div>
+                            <strong>Progress</strong>
+                            <span>
+                              {telemetry[printer.id].progress ?? "—"}%
+                            </span>
+                          </div>
+                          <div>
+                            <strong>File</strong>
+                            <span>{telemetry[printer.id].fileName ?? "—"}</span>
+                          </div>
+                          <div>
+                            <strong>Nozzle</strong>
+                            <span>
+                              {telemetry[printer.id].nozzleTemperature ?? "—"}°C
+                            </span>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             </article>
           </section>
@@ -1018,110 +1192,159 @@ export function App() {
         {activeSection === "streams" ? (
           <section className="panel-grid panel-grid--two-up">
             <article className="panel-card">
-              <div className="panel-card__title">Add Stream</div>
-              <form
-                className="stack-form"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void runAction(
-                    () => window.companion.createStream(streamForm),
-                    () => {
-                      setStreamForm(emptyStreamForm());
-                      setSuccessMessage("Stream saved to Companion.");
-                    },
-                  );
-                }}
-              >
-                <label>
-                  <span>Name</span>
-                  <input
-                    onChange={(event) =>
-                      setStreamForm((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    value={streamForm.name}
-                  />
-                </label>
-                <label>
-                  <span>Source Kind</span>
-                  <CompanionSelect
-                    onChange={(sourceKind) =>
-                      setStreamForm((current) => ({
-                        ...current,
-                        sourceKind,
-                      }))
-                    }
-                    options={streamSourceOptions}
-                    value={streamForm.sourceKind}
-                  />
-                </label>
-                <label>
-                  <span>Upstream URL</span>
-                  <input
-                    onChange={(event) =>
-                      setStreamForm((current) => ({
-                        ...current,
-                        upstreamUrl: event.target.value,
-                      }))
-                    }
-                    placeholder="http://camera.local/latest.jpg"
-                    value={streamForm.upstreamUrl}
-                  />
-                </label>
-                <label>
-                  <span>Username</span>
-                  <input
-                    onChange={(event) =>
-                      setStreamForm((current) => ({
-                        ...current,
-                        username: event.target.value,
-                      }))
-                    }
-                    value={streamForm.username ?? ""}
-                  />
-                </label>
-                <label>
-                  <span>Password</span>
-                  <input
-                    onChange={(event) =>
-                      setStreamForm((current) => ({
-                        ...current,
-                        password: event.target.value,
-                      }))
-                    }
-                    type="password"
-                    value={streamForm.password ?? ""}
-                  />
-                </label>
-                <label>
-                  <span>Linked Printer</span>
-                  <CompanionSelect
-                    onChange={(linkedPrinterId) =>
-                      setStreamForm((current) => ({
-                        ...current,
-                        linkedPrinterId:
-                          linkedPrinterId === "__none__"
-                            ? null
-                            : linkedPrinterId,
-                      }))
-                    }
-                    options={[
-                      { label: "No printer linked", value: "__none__" },
-                      ...snapshot.printers.map((printer) => ({
-                        label: printer.name,
-                        value: printer.id,
-                      })),
-                    ]}
-                    value={streamForm.linkedPrinterId ?? "__none__"}
-                  />
-                </label>
-                <button className="solid-button" disabled={busy} type="submit">
-                  <MonitorPlay className="button-icon" />
-                  Save Stream
+              <div className="panel-card__title">Automatic Native Cameras</div>
+              <div className="empty-state empty-state--inline">
+                BambuView Companion now treats saved Bambu printers as the
+                default camera path. If a printer has the local details it
+                needs, the native Bambu feed is exposed automatically without a
+                separate manual stream entry.
+              </div>
+              <div className="button-row">
+                <button
+                  className="ghost-button"
+                  onClick={() => setActiveSection("printers")}
+                  type="button"
+                >
+                  <Printer className="button-icon" />
+                  Review Printers
                 </button>
-              </form>
+                <button
+                  className={
+                    showAdvancedStreams ? "solid-button" : "ghost-button"
+                  }
+                  onClick={() => setShowAdvancedStreams((current) => !current)}
+                  type="button"
+                >
+                  <Settings2 className="button-icon" />
+                  {showAdvancedStreams
+                    ? "Hide Advanced Sources"
+                    : "Advanced Sources"}
+                </button>
+              </div>
+              <div className="field-hint">
+                Use Advanced Sources only for Frigate restreams, RTSP cameras,
+                snapshots, HLS playlists, or a manual native override.
+              </div>
+
+              {showAdvancedStreams ? (
+                <form
+                  className="stack-form stack-form--nested"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void runAction(
+                      () => window.companion.createStream(streamForm),
+                      () => {
+                        setStreamForm(emptyStreamForm());
+                        setSuccessMessage(
+                          "Advanced stream saved to Companion.",
+                        );
+                      },
+                    );
+                  }}
+                >
+                  <label>
+                    <span>Source Name</span>
+                    <input
+                      onChange={(event) =>
+                        setStreamForm((current) => ({
+                          ...current,
+                          name: event.target.value,
+                        }))
+                      }
+                      placeholder="Workshop Left"
+                      value={streamForm.name}
+                    />
+                  </label>
+                  <label>
+                    <span>Connection Type</span>
+                    <CompanionSelect
+                      onChange={(sourceKind) =>
+                        setStreamForm((current) => ({
+                          ...current,
+                          sourceKind,
+                        }))
+                      }
+                      options={streamSourceOptions}
+                      value={streamForm.sourceKind}
+                    />
+                  </label>
+                  <label>
+                    <span>Source Address</span>
+                    <input
+                      onChange={(event) =>
+                        setStreamForm((current) => ({
+                          ...current,
+                          upstreamUrl: event.target.value,
+                        }))
+                      }
+                      placeholder={streamSourcePlaceholder(
+                        streamForm.sourceKind,
+                      )}
+                      value={streamForm.upstreamUrl}
+                    />
+                    <div className="field-hint">
+                      {streamSourceHint(streamForm.sourceKind)}
+                    </div>
+                  </label>
+                  <label>
+                    <span>Username</span>
+                    <input
+                      onChange={(event) =>
+                        setStreamForm((current) => ({
+                          ...current,
+                          username: event.target.value,
+                        }))
+                      }
+                      placeholder="Optional"
+                      value={streamForm.username ?? ""}
+                    />
+                  </label>
+                  <label>
+                    <span>Password / Access Code</span>
+                    <input
+                      onChange={(event) =>
+                        setStreamForm((current) => ({
+                          ...current,
+                          password: event.target.value,
+                        }))
+                      }
+                      placeholder="Stored locally"
+                      type="password"
+                      value={streamForm.password ?? ""}
+                    />
+                  </label>
+                  <label>
+                    <span>Assign To Printer</span>
+                    <CompanionSelect
+                      onChange={(linkedPrinterId) =>
+                        setStreamForm((current) => ({
+                          ...current,
+                          linkedPrinterId:
+                            linkedPrinterId === "__none__"
+                              ? null
+                              : linkedPrinterId,
+                        }))
+                      }
+                      options={[
+                        { label: "No printer linked", value: "__none__" },
+                        ...snapshot.printers.map((printer) => ({
+                          label: printer.name,
+                          value: printer.id,
+                        })),
+                      ]}
+                      value={streamForm.linkedPrinterId ?? "__none__"}
+                    />
+                  </label>
+                  <button
+                    className="solid-button"
+                    disabled={busy}
+                    type="submit"
+                  >
+                    <MonitorPlay className="button-icon" />
+                    Save Advanced Source
+                  </button>
+                </form>
+              ) : null}
             </article>
 
             <article className="panel-card">
@@ -1129,8 +1352,8 @@ export function App() {
               <div className="stack-list">
                 {snapshot.streams.length === 0 ? (
                   <div className="empty-state">
-                    No streams saved yet. Add MJPEG, snapshot, HLS, RTSP, or
-                    native Bambu sources here.
+                    No advanced sources saved yet. Native Bambu cameras are
+                    handled automatically from saved printer profiles.
                   </div>
                 ) : null}
                 {snapshot.streams.map((stream) => (
@@ -1139,8 +1362,10 @@ export function App() {
                       <div>
                         <div className="item-card__title">{stream.name}</div>
                         <div className="item-card__meta">
-                          {stream.sourceKind} • {stream.outputKind} •{" "}
-                          {stream.status}
+                          {streamSourceOptions.find(
+                            (option) => option.value === stream.sourceKind,
+                          )?.label ?? stream.sourceKind}{" "}
+                          • {stream.outputKind} • {stream.status}
                         </div>
                       </div>
                       <div

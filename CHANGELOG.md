@@ -6,6 +6,20 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.43 - 2026-07-07
+
+### Bug Fixes & Stability
+
+- Clearer Companion Setup States: saved Cloud / Normal and Bambu Connect printer profiles no longer look broken just because local MQTT telemetry is not configured yet, so it is easier to tell when a profile is already ready for handoff.
+- More Reliable Camera Linking: advanced stream assignments now stay synced with the matching printer profile, which helps Companion keep previews and browser-facing camera routes pointed at the right source.
+- Cleaner Companion Management: removing a paired Companion now happens directly from its card in Settings, which makes bridge cleanup feel much more natural during alpha testing.
+
+### Improvements & What's New
+
+- Simpler Camera Setup Flow: Companion now treats saved Bambu printers as the default native-camera path and moves Frigate, RTSP, snapshot, HLS, and manual native overrides into an Advanced Sources section.
+- Better BambuView Branding: Companion now uses the real BambuView mark in-app and ships with BambuView-branded installer icon assets instead of the temporary placeholder block.
+- Restored Sidebar Fidelity: the server shell forces the approved centered stacked BambuView logo layout again, so the left rail matches the approved art direction more closely.
+
 ## v0.0.42 - 2026-07-07
 
 ### Bug Fixes & Stability

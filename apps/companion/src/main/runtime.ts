@@ -59,6 +59,9 @@ import {
 } from "./bridge-surfaces.js";
 import {
   discoverBambuPrinters,
+  describeLocalControlsSetup,
+  describeLocalTelemetrySetup,
+  hasLocalAccess,
   runBambuPrinterCommand,
   sendBambuPrinterFile,
   readBambuTelemetry,
@@ -757,12 +760,13 @@ export class CompanionRuntime extends EventEmitter {
     input: CompanionPrinterInput,
   ): Promise<CompanionSnapshot> {
     const timestamp = nowIso();
+    const printerId = randomUUID();
     this.state.printers.push({
       accessCode: encryptSecret(this.codec, input.accessCode?.trim() ?? ""),
       connectionMode: input.connectionMode,
       createdAt: timestamp,
       hostname: input.hostname.trim(),
-      id: randomUUID(),
+      id: printerId,
       lastSeenAt: null,
       lastTestedAt: null,
       model: input.model.trim(),
@@ -773,6 +777,7 @@ export class CompanionRuntime extends EventEmitter {
       streamId: input.streamId?.trim() || null,
       updatedAt: timestamp,
     });
+    this.setPrinterLinkedStream(printerId, input.streamId?.trim() || null);
     this.persistState();
     this.logger.info(`Saved printer ${input.name.trim()} for Companion.`);
     return this.getSnapshot();
@@ -781,10 +786,11 @@ export class CompanionRuntime extends EventEmitter {
   async createStream(input: CompanionStreamInput): Promise<CompanionSnapshot> {
     const timestamp = nowIso();
     const inspected = await inspectStreamInput(input);
+    const streamId = randomUUID();
     this.state.streams.push({
       createdAt: timestamp,
       details: inspected.details,
-      id: randomUUID(),
+      id: streamId,
       lastTestedAt: inspected.lastTestedAt,
       linkedPrinterId: input.linkedPrinterId?.trim() || null,
       name: input.name.trim(),
@@ -796,6 +802,10 @@ export class CompanionRuntime extends EventEmitter {
       upstreamUrl: input.upstreamUrl.trim(),
       username: input.username?.trim() ?? "",
     });
+    this.setStreamLinkedPrinter(
+      streamId,
+      input.linkedPrinterId?.trim() || null,
+    );
     this.persistState();
     this.logger.info(`Saved stream ${input.name.trim()} for Companion.`);
     return this.getSnapshot();
@@ -1034,6 +1044,94 @@ export class CompanionRuntime extends EventEmitter {
     return this.state.streams.find((stream) => stream.id === streamId);
   }
 
+  private getLinkedStreamForPrinter(
+    printer: StoredPrinter,
+  ): StoredStream | null {
+    if (printer.streamId) {
+      const linkedByPrinter = this.getStoredStream(printer.streamId);
+      if (linkedByPrinter) {
+        return linkedByPrinter;
+      }
+    }
+
+    return (
+      this.state.streams.find(
+        (stream) => stream.linkedPrinterId === printer.id,
+      ) ?? null
+    );
+  }
+
+  private setStreamLinkedPrinter(
+    streamId: string,
+    linkedPrinterId: string | null,
+  ) {
+    const timestamp = nowIso();
+
+    this.state.printers.forEach((printer) => {
+      if (linkedPrinterId && printer.id === linkedPrinterId) {
+        if (printer.streamId !== streamId) {
+          printer.streamId = streamId;
+          printer.updatedAt = timestamp;
+        }
+        return;
+      }
+
+      if (printer.streamId === streamId) {
+        printer.streamId = null;
+        printer.updatedAt = timestamp;
+      }
+    });
+
+    this.state.streams.forEach((stream) => {
+      if (stream.id === streamId) {
+        if (stream.linkedPrinterId !== linkedPrinterId) {
+          stream.linkedPrinterId = linkedPrinterId;
+          stream.updatedAt = timestamp;
+        }
+        return;
+      }
+
+      if (linkedPrinterId && stream.linkedPrinterId === linkedPrinterId) {
+        stream.linkedPrinterId = null;
+        stream.updatedAt = timestamp;
+      }
+    });
+  }
+
+  private setPrinterLinkedStream(printerId: string, streamId: string | null) {
+    const timestamp = nowIso();
+
+    this.state.printers.forEach((printer) => {
+      if (printer.id === printerId) {
+        if (printer.streamId !== streamId) {
+          printer.streamId = streamId;
+          printer.updatedAt = timestamp;
+        }
+        return;
+      }
+
+      if (streamId && printer.streamId === streamId) {
+        printer.streamId = null;
+        printer.updatedAt = timestamp;
+      }
+    });
+
+    this.state.streams.forEach((stream) => {
+      if (stream.id === streamId) {
+        if (stream.linkedPrinterId !== printerId) {
+          stream.linkedPrinterId = printerId;
+          stream.updatedAt = timestamp;
+        }
+        return;
+      }
+
+      if (stream.linkedPrinterId === printerId) {
+        stream.linkedPrinterId = null;
+        stream.updatedAt = timestamp;
+      }
+    });
+  }
+
   getPrinterCameraProxyTarget(
     printerId: string,
     mode: "mjpeg" | "snapshot",
@@ -1043,8 +1141,9 @@ export class CompanionRuntime extends EventEmitter {
       return null;
     }
 
-    if (printer.streamId) {
-      const linkedTarget = this.getStreamProxyTarget(printer.streamId, mode);
+    const linkedStream = this.getLinkedStreamForPrinter(printer);
+    if (linkedStream) {
+      const linkedTarget = this.getStreamProxyTarget(linkedStream.id, mode);
       if (linkedTarget) {
         return linkedTarget;
       }
@@ -1644,8 +1743,8 @@ export class CompanionRuntime extends EventEmitter {
     printer.notes = input.notes?.trim() ?? "";
     printer.provider = input.provider;
     printer.serial = input.serial.trim();
-    printer.streamId = input.streamId?.trim() || null;
     printer.updatedAt = nowIso();
+    this.setPrinterLinkedStream(printerId, input.streamId?.trim() || null);
     this.persistState();
     return this.getSnapshot();
   }
@@ -1661,7 +1760,6 @@ export class CompanionRuntime extends EventEmitter {
     const inspected = await inspectStreamInput(input);
     stream.details = inspected.details;
     stream.lastTestedAt = inspected.lastTestedAt;
-    stream.linkedPrinterId = input.linkedPrinterId?.trim() || null;
     stream.name = input.name.trim();
     stream.outputKind = inspected.outputKind;
     stream.password = encryptSecret(this.codec, input.password?.trim() ?? "");
@@ -1670,6 +1768,10 @@ export class CompanionRuntime extends EventEmitter {
     stream.updatedAt = nowIso();
     stream.upstreamUrl = input.upstreamUrl.trim();
     stream.username = input.username?.trim() ?? "";
+    this.setStreamLinkedPrinter(
+      streamId,
+      input.linkedPrinterId?.trim() || null,
+    );
     this.persistState();
     return this.getSnapshot();
   }
@@ -1706,16 +1808,11 @@ export class CompanionRuntime extends EventEmitter {
 
   private listPrinters(): CompanionPrinter[] {
     return this.state.printers.map((printer) => {
-      const linkedStream = printer.streamId
-        ? this.state.streams.find((stream) => stream.id === printer.streamId)
-        : null;
+      const linkedStream = this.getLinkedStreamForPrinter(printer);
       const printerInput = this.toPrinterInput(printer);
       const nativeBridge = resolvePrinterCameraBridgeSource(printerInput);
       const nativeBridgeSupport = nativeBambuBridgeSupport(printer.model);
-      const localTelemetryReady =
-        Boolean(printer.hostname.trim()) &&
-        Boolean(printer.serial.trim()) &&
-        Boolean(decryptSecret(this.codec, printer.accessCode));
+      const localTelemetryReady = hasLocalAccess(printerInput);
       const linkedStreamBridge = linkedStream
         ? this.resolveStoredStreamCameraSource(linkedStream)
         : null;
@@ -1777,7 +1874,7 @@ export class CompanionRuntime extends EventEmitter {
               ? "Developer Mode direct machine controls are available through Companion."
               : localTelemetryReady
                 ? "Companion can attempt local pause, resume, stop, and lamp actions with this saved printer profile. Full motion and extrusion controls still work best in Developer Mode."
-                : "Save the printer host, serial number, and LAN access code to prepare local controls on this machine.",
+                : describeLocalControlsSetup(printerInput),
           discovery:
             "BambuView Companion can scan the LAN, inspect local desktop bridge data, and still lets you save printers manually.",
           fileUpload:
@@ -1792,9 +1889,7 @@ export class CompanionRuntime extends EventEmitter {
             slicingAssistState === "available"
               ? "Prepared jobs can already route through this printer profile using direct upload or local Bambu Connect handoff."
               : "Finish the required upload path for this printer before using it as a send target from BambuView.",
-          telemetry: localTelemetryReady
-            ? "Companion can request live telemetry over the printer's local MQTT report channel from this saved profile."
-            : "Add hostname, serial number, and LAN access code to request telemetry.",
+          telemetry: describeLocalTelemetrySetup(printerInput),
         },
         connectionMode: printer.connectionMode,
         createdAt: printer.createdAt,

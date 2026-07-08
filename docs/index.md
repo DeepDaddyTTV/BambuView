@@ -11,7 +11,7 @@ Start here:
 - [BambuView Companion](./companion.md)
 - [Prepare & Slice](./prepare-slice.md)
 
-What BambuView `0.0.42` alpha includes:
+What BambuView `0.0.43` alpha includes:
 
 - A local first-run admin setup flow
 - Invite-only account creation after bootstrap

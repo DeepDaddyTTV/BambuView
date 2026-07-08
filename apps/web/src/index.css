@@ -8076,3 +8076,35 @@ html[data-theme="light"] .camera-field small {
     min-height: 0;
   }
 }
+
+/* v0.0.43 sidebar brand correction: force the approved centered stacked lockup on the server shell. */
+.fleet-console-shell .fleet-console-sidebar__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.fleet-console-shell .fleet-console-sidebar__brand-logo {
+  display: inline-flex;
+  width: min(248px, 100%);
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center;
+  gap: 14px;
+  margin-inline: auto;
+}
+
+.fleet-console-shell .fleet-console-sidebar__brand-logo .brand-lockup__mark {
+  flex: 0 0 auto;
+  width: 94px;
+  height: 82px;
+}
+
+.fleet-console-shell
+  .fleet-console-sidebar__brand-logo
+  .brand-lockup__wordmark {
+  flex: 0 0 auto;
+  width: min(236px, 100%);
+  max-width: 100%;
+}

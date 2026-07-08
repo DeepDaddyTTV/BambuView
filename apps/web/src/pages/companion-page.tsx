@@ -302,38 +302,48 @@ export function CompanionPage() {
               </div>
             ) : null}
             {companionsQuery.data?.companions.map((companion) => (
-              <button
-                className={`w-full rounded-[22px] border px-5 py-5 text-left transition ${
-                  selectedCompanionId === companion.id
-                    ? "border-[color:var(--accent)] bg-[color:rgba(126,211,33,0.1)]"
-                    : "border-white/8 bg-white/[0.03]"
-                }`}
-                key={companion.id}
-                onClick={() => setSelectedCompanionId(companion.id)}
-                type="button"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-lg font-medium text-white">
-                      {companion.name}
+              <div className="relative" key={companion.id}>
+                <button
+                  className={`w-full rounded-[22px] border px-5 py-5 pr-20 text-left transition ${
+                    selectedCompanionId === companion.id
+                      ? "border-[color:var(--accent)] bg-[color:rgba(126,211,33,0.1)]"
+                      : "border-white/8 bg-white/[0.03]"
+                  }`}
+                  onClick={() => setSelectedCompanionId(companion.id)}
+                  type="button"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-lg font-medium text-white">
+                        {companion.name}
+                      </div>
+                      <div className="mt-1 text-sm text-zinc-400">
+                        {companion.baseUrl}
+                      </div>
                     </div>
-                    <div className="mt-1 text-sm text-zinc-400">
-                      {companion.baseUrl}
+                    <div
+                      className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.18em] ${toneClasses(
+                        companion.status,
+                      )}`}
+                    >
+                      {companion.status}
                     </div>
                   </div>
-                  <div
-                    className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.18em] ${toneClasses(
-                      companion.status,
-                    )}`}
-                  >
-                    {companion.status}
+                  <div className="mt-4 grid gap-2 text-sm text-zinc-400 sm:grid-cols-2">
+                    <div>{companion.printerCount} printers cached</div>
+                    <div>{companion.streamCount} streams cached</div>
                   </div>
-                </div>
-                <div className="mt-4 grid gap-2 text-sm text-zinc-400 sm:grid-cols-2">
-                  <div>{companion.printerCount} printers cached</div>
-                  <div>{companion.streamCount} streams cached</div>
-                </div>
-              </button>
+                </button>
+                <button
+                  aria-label={`Remove ${companion.name}`}
+                  className="icon-button icon-button--square icon-button--danger absolute right-5 top-5"
+                  disabled={deleteCompanionMutation.isPending}
+                  onClick={() => deleteCompanionMutation.mutate(companion.id)}
+                  type="button"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             ))}
           </div>
         </section>
@@ -367,17 +377,6 @@ export function CompanionPage() {
                       ? "Testing…"
                       : "Test Companion"}
                   </span>
-                </button>
-                <button
-                  className="fleet-console-toolbar__button"
-                  disabled={deleteCompanionMutation.isPending}
-                  onClick={() =>
-                    deleteCompanionMutation.mutate(selectedCompanionId)
-                  }
-                  type="button"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span>Remove Companion</span>
                 </button>
               </div>
             ) : null}
