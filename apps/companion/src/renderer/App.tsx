@@ -648,11 +648,13 @@ export function App() {
   }
 
   async function submitPrinterForm(skipLocalSetup: boolean) {
+    const currentSnapshot = snapshot;
     const existingPrinter =
       editingPrinterId === null
         ? null
-        : snapshot.printers.find((printer) => printer.id === editingPrinterId) ??
-          null;
+        : currentSnapshot.printers.find(
+            (printer) => printer.id === editingPrinterId,
+          ) ?? null;
 
     const payloadBase = skipLocalSetup
       ? clearPrinterLocalDetails(printerForm)
