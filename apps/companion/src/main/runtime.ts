@@ -67,7 +67,6 @@ import {
   type LocalBridgeInventory,
 } from "./bridge-surfaces.js";
 import {
-  discoverBambuPrinters,
   describeLocalControlsSetup,
   describeLocalTelemetrySetup,
   hasLocalAccess,

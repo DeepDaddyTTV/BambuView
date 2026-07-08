@@ -6,13 +6,14 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
-## v0.0.46 - 2026-07-08
+## v0.0.47 - 2026-07-08
 
 ### Bug Fixes & Stability
 
 - Better Cloud Bridge Matching: Companion can now fill in saved Bambu printer details from the signed-in desktop bridge automatically, so cloud-mode printer profiles stop feeling half-configured before the first real handoff.
 - More Reliable Alpha Update Detection: the Companion release-check fixtures and in-app update expectations now track the current alpha revision again, which keeps update prompts from pointing at an older release after you install this build.
 - Cleaner Bridge Routing: saved Cloud / Normal and Bambu Connect printers now resolve file handoff and capability states through the detected local desktop bridge more honestly, instead of acting like LAN-only setup is still the main path.
+- Cleaner Alpha Delivery: the Companion cloud-bridge release gate now clears the same TypeScript validation used by GitHub Actions, which keeps this alpha from stalling before the installers and Docker image are published.
 
 ### Improvements & What's New
 

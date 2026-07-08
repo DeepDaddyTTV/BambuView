@@ -1177,8 +1177,7 @@ async function fetchCloudTelemetryPayload(
     });
 
     socket.on("data", (chunk) => {
-      const packetChunk =
-        typeof chunk === "string" ? Buffer.from(chunk) : chunk;
+      const packetChunk = Buffer.from(chunk);
       buffered = Buffer.concat([buffered, packetChunk]);
 
       while (buffered.length > 0) {
@@ -1187,7 +1186,7 @@ async function fetchCloudTelemetryPayload(
           return;
         }
 
-        buffered = parsed.remaining;
+        buffered = Buffer.from(parsed.remaining);
         if (parsed.type === 2) {
           const returnCode = parsed.packet[1];
           if (returnCode !== 0) {
