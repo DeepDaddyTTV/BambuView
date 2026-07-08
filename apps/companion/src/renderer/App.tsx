@@ -29,7 +29,6 @@ import {
 
 import type {
   BambuConnectionMode,
-  CompanionCapabilityFlags,
   CompanionPrinterInput,
   CompanionPrinterDiscoveryResult,
   CompanionPrinterTelemetry,
@@ -214,13 +213,6 @@ const themeModeOptions: Array<
 
 function toneLabel(status: CompanionSnapshot["health"]["status"]) {
   return status.replaceAll("-", " ");
-}
-
-function capabilityText(
-  flags: CompanionCapabilityFlags,
-  key: keyof CompanionCapabilityFlags,
-) {
-  return flags[key].replaceAll("_", " ");
 }
 
 function CompanionBrandMark() {
