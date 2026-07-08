@@ -197,3 +197,35 @@ export async function sendCompanionPrinterFile(
 
   return response.handoff;
 }
+
+export async function resetCompanionPairing(
+  companion: Pick<
+    CompanionSecretRecord,
+    "baseUrl" | "bridgeToken" | "bridgeUsername"
+  >,
+  input?: {
+    resetBridgeSettings?: boolean;
+  },
+): Promise<void> {
+  const response = await fetch(`${companion.baseUrl}/pairing/reset`, {
+    body: JSON.stringify({
+      resetBridgeSettings: input?.resetBridgeSettings ?? false,
+    }),
+    headers: {
+      authorization: basicAuth(companion.bridgeUsername, companion.bridgeToken),
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+
+  if (response.ok) {
+    return;
+  }
+
+  const data = (await response.json().catch(() => null)) as
+    | { message?: string }
+    | null;
+  throw new Error(
+    data?.message ?? `Companion returned HTTP ${response.status}.`,
+  );
+}

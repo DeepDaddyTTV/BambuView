@@ -167,6 +167,30 @@ describe("companion runtime", () => {
     await closeServer(mockServer);
   });
 
+  it("resets pairing back to localhost bridge defaults when requested", async () => {
+    const runtime = createRuntime();
+
+    await runtime.saveSettings({
+      bindMode: "lan",
+      host: "192.168.50.163",
+      port: 42000,
+    });
+    await runtime.applyPortConflict();
+
+    await runtime.resetPairing({
+      resetBridgeSettings: true,
+    });
+
+    const snapshot = runtime.getSnapshot();
+    expect(snapshot.pairing.paired).toBe(false);
+    expect(snapshot.pairing.serverUrl).toBeNull();
+    expect(snapshot.settings.bindMode).toBe("localhost");
+    expect(snapshot.settings.host).toBe("localhost");
+    expect(snapshot.settings.port).toBe(41738);
+    expect(snapshot.health.bridge.baseUrl).toBe("http://localhost:41738");
+    expect(snapshot.health.bridge.suggestedPort).toBeNull();
+  });
+
   it("explains localhost pairing failures more clearly", async () => {
     const runtime = createRuntime();
     await runtime.applyBridgeListening(true, null);
@@ -227,6 +251,33 @@ describe("companion runtime", () => {
         serverUrl: "http://192.168.50.163:4173",
       }),
     ).rejects.toThrow(/Companion bridge, not the BambuView server/i);
+  });
+
+  it("accepts authenticated bridge pairing resets", async () => {
+    const runtime = createRuntime();
+    await runtime.saveSettings({
+      bindMode: "lan",
+      host: "192.168.50.163",
+      port: 42000,
+    });
+    await runtime.applyBridgeListening(true, null);
+
+    const bridge = await createBridgeServer(runtime);
+    const response = await bridge.inject({
+      method: "POST",
+      url: "/pairing/reset",
+      headers: companionAuthHeader(runtime),
+      payload: {
+        resetBridgeSettings: true,
+      },
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(runtime.getSnapshot().settings.bindMode).toBe("localhost");
+    expect(runtime.getSnapshot().settings.host).toBe("localhost");
+    expect(runtime.getSnapshot().settings.port).toBe(41738);
+
+    await bridge.close();
   });
 
   it("creates, updates, and deletes printers and streams", async () => {
@@ -347,7 +398,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.44-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.45-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify([
@@ -359,10 +410,10 @@ describe("companion runtime", () => {
               },
             ],
             html_url:
-              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.44",
-            name: "BVCompanion v0.0.44 Alpha",
+              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.45",
+            name: "BVCompanion v0.0.45 Alpha",
             prerelease: true,
-            tag_name: "bvcompanion-v0.0.44",
+            tag_name: "bvcompanion-v0.0.45",
           },
         ]),
         {
@@ -376,8 +427,8 @@ describe("companion runtime", () => {
     const snapshot = await runtime.checkForUpdates();
 
     expect(snapshot.update.available).toBe(true);
-    expect(snapshot.update.latestVersion).toBe("0.0.44");
-    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.44");
+    expect(snapshot.update.latestVersion).toBe("0.0.45");
+    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.45");
   });
 
   it("downloads and opens the latest Companion installer", async () => {
@@ -416,7 +467,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.44-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.45-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async (input) => {
       const url = String(input);
       if (url.includes("/releases?per_page=20")) {
@@ -430,10 +481,10 @@ describe("companion runtime", () => {
                 },
               ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.44",
-              name: "BVCompanion v0.0.44 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.45",
+              name: "BVCompanion v0.0.45 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.44",
+              tag_name: "bvcompanion-v0.0.45",
             },
           ]),
           {

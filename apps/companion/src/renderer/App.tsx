@@ -558,13 +558,18 @@ export function App() {
     useState<CompanionPrinterDiscoveryResult | null>(null);
 
   async function refresh() {
+    const previousSnapshot = snapshot;
     const next = await window.companion.getSnapshot();
     startTransition(() => {
       setSnapshot(next);
       setSettingsForm(next.settings);
       setPairForm((current) => {
+        const pairingClearedRemotely =
+          previousSnapshot?.pairing.paired === true && !next.pairing.paired;
         const serverState = next.pairing.serverUrl
           ? parsePairServerUrl(next.pairing.serverUrl)
+          : pairingClearedRemotely
+            ? parsePairServerUrl(null)
           : {
               serverHost: current.serverHost,
               serverPort: current.serverPort,
@@ -924,7 +929,10 @@ export function App() {
                     disabled={busy || !snapshot.pairing.paired}
                     onClick={() => {
                       void runAction(
-                        async () => window.companion.resetPairing(),
+                        async () =>
+                          window.companion.resetPairing({
+                            resetBridgeSettings: true,
+                          }),
                         () => {
                           setPairForm((current) => ({
                             ...emptyPairForm(),
@@ -932,7 +940,7 @@ export function App() {
                             pairingToken: "",
                           }));
                           setSuccessMessage(
-                            "Pairing was cleared on this Companion.",
+                            "Pairing and bridge settings were cleared on this Companion.",
                           );
                         },
                       );

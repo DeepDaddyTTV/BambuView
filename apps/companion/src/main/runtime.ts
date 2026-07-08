@@ -1648,14 +1648,37 @@ export class CompanionRuntime extends EventEmitter {
     return token;
   }
 
-  resetPairing(): CompanionPairingState {
+  async resetPairing(options?: {
+    resetBridgeSettings?: boolean;
+  }): Promise<CompanionPairingState> {
+    const resetBridgeSettings = options?.resetBridgeSettings ?? false;
     this.state.pairing = {
       ...defaultPairing,
       companionName: this.state.settings.friendlyName,
     };
+    if (resetBridgeSettings) {
+      this.state.settings = {
+        ...this.state.settings,
+        bindMode: "localhost",
+        host: COMPANION_DEFAULT_HOST,
+        port: COMPANION_DEFAULT_PORT,
+      };
+      this.bridgeState = {
+        baseUrl: `http://${COMPANION_DEFAULT_HOST}:${COMPANION_DEFAULT_PORT}`,
+        errorMessage: null,
+        listening: this.bridgeState.listening,
+        suggestedPort: null,
+      };
+    }
     this.persistState();
-    this.logger.warn("Cleared the current BambuView pairing.");
-    this.emitSnapshot();
+    if (this.options.bridgeLifecycle) {
+      await this.options.bridgeLifecycle.restart();
+    }
+    this.logger.warn(
+      resetBridgeSettings
+        ? "Cleared the current BambuView pairing and restored localhost bridge defaults."
+        : "Cleared the current BambuView pairing.",
+    );
     return { ...this.state.pairing };
   }
 

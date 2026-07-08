@@ -142,7 +142,9 @@ function registerIpc() {
   ipcMain.handle(companionChannels.pair, (_event, input) =>
     runtime.pair(input),
   );
-  ipcMain.handle(companionChannels.resetPairing, () => runtime.resetPairing());
+  ipcMain.handle(companionChannels.resetPairing, (_event, options) =>
+    runtime.resetPairing(options),
+  );
   ipcMain.handle(companionChannels.regenerateBridgeToken, async () => {
     const token = await runtime.regenerateBridgeToken();
     return {

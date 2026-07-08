@@ -722,7 +722,7 @@ describe("companion integration", () => {
         response.end(
           JSON.stringify({
             appName: "BambuView Companion",
-            appVersion: "0.0.44",
+            appVersion: "0.0.45",
             bridge: {
               baseUrl: "http://127.0.0.1:41738",
               bindMode: "localhost",
@@ -946,6 +946,8 @@ describe("companion integration", () => {
     const pairingCode = pairingCodeResponse.json().pairingCode.code as string;
 
     const bridgeToken = "bridge-token-1234567890";
+    let resetPairingCalled = false;
+    let resetPairingRequest: { resetBridgeSettings?: boolean } | null = null;
     const companionServer = createServer((request, response) => {
       if (
         request.headers.authorization !==
@@ -961,7 +963,7 @@ describe("companion integration", () => {
         response.end(
           JSON.stringify({
             appName: "BambuView Companion",
-            appVersion: "0.0.44",
+            appVersion: "0.0.45",
             bridge: {
               baseUrl: "http://127.0.0.1:41738",
               bindMode: "localhost",
@@ -1049,6 +1051,22 @@ describe("companion integration", () => {
         return;
       }
 
+      if (request.method === "POST" && request.url === "/pairing/reset") {
+        let body = "";
+        request.on("data", (chunk) => {
+          body += chunk.toString();
+        });
+        request.on("end", () => {
+          resetPairingCalled = true;
+          resetPairingRequest = body.length
+            ? (JSON.parse(body) as { resetBridgeSettings?: boolean })
+            : {};
+          response.statusCode = 204;
+          response.end();
+        });
+        return;
+      }
+
       response.statusCode = 404;
       response.end(JSON.stringify({ message: "Not found" }));
     });
@@ -1123,6 +1141,10 @@ describe("companion integration", () => {
       },
     });
     expect(removed.statusCode).toBe(204);
+    expect(resetPairingCalled).toBe(true);
+    expect(resetPairingRequest).toEqual({
+      resetBridgeSettings: true,
+    });
 
     const companionsAfterDelete = await app.inject({
       method: "GET",
@@ -1206,7 +1228,7 @@ describe("companion integration", () => {
         response.end(
           JSON.stringify({
             appName: "BambuView Companion",
-            appVersion: "0.0.44",
+            appVersion: "0.0.45",
             bridge: {
               baseUrl: "http://127.0.0.1:41738",
               bindMode: "localhost",

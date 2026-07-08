@@ -37,6 +37,7 @@ import {
 } from "./cameras.js";
 import {
   fetchCompanionPrinterDiscovery,
+  resetCompanionPairing,
   fetchCompanionSnapshot,
   sendCompanionPrinterCommand,
   sendCompanionPrinterFile,
@@ -1404,6 +1405,25 @@ export async function registerRoutes(
     }
 
     const params = z.object({ id: z.uuid() }).parse(request.params);
+    const companion = await getCompanionSecretById(dependencies.db, params.id);
+    if (!companion) {
+      return reply.code(404).send({ message: "Companion not found." });
+    }
+
+    try {
+      await resetCompanionPairing(companion, {
+        resetBridgeSettings: true,
+      });
+    } catch (error) {
+      request.log.warn(
+        {
+          companionId: params.id,
+          error: error instanceof Error ? error.message : error,
+        },
+        "Could not clear the remote Companion pairing before deletion.",
+      );
+    }
+
     const deleted = await deleteCompanion(dependencies.db, params.id);
     if (!deleted) {
       return reply.code(404).send({ message: "Companion not found." });

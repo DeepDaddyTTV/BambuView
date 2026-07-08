@@ -6,6 +6,19 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.45 - 2026-07-08
+
+### Bug Fixes & Stability
+
+- Cleaner Companion Unpair Recovery: clearing a Companion pairing now also restores the bridge back to the neutral localhost setup, which helps prevent stale LAN bind settings from leaving the app stuck in an error state.
+- Better Server And Companion Sync: removing a Companion from BambuView now tells the desktop app to clear its saved pairing too, instead of only deleting the server-side record.
+- Less Stale Pairing Data: the Companion pairing screen now drops the old remembered server host and port after a real unpair, so it is easier to start over from a clean setup state.
+
+### Improvements & What's New
+
+- Stronger Reset Behavior: the local `Reset Pairing` action now behaves like a true reset instead of only forgetting the token, which makes recovery from bad bridge or LAN setup much easier during alpha testing.
+- Smarter Companion Cleanup: BambuView and BambuView Companion now do a better job cleaning up together when you remove a bridge, which keeps the restart path more predictable.
+
 ## v0.0.44 - 2026-07-07
 
 ### Bug Fixes & Stability

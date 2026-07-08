@@ -65,6 +65,12 @@ function streamSchema() {
   }) satisfies z.ZodType<CompanionStreamInput>;
 }
 
+function resetPairingSchema() {
+  return z.object({
+    resetBridgeSettings: z.boolean().optional().default(false),
+  });
+}
+
 export async function createBridgeServer(runtime: CompanionRuntime) {
   const app = Fastify({
     logger: false,
@@ -89,6 +95,11 @@ export async function createBridgeServer(runtime: CompanionRuntime) {
 
   app.get("/health", async () => runtime.getHealth());
   app.get("/capabilities", async () => runtime.getCapabilitySummary());
+  app.post("/pairing/reset", async (request, reply) => {
+    const input = resetPairingSchema().parse(request.body ?? {});
+    await runtime.resetPairing(input);
+    return reply.code(204).send();
+  });
   app.get("/printers/discover", async () => runtime.getDiscoveryResult());
   app.get("/printers", async () => ({
     printers: runtime.getSnapshot().printers,

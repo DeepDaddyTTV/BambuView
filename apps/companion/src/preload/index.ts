@@ -45,7 +45,7 @@ const api: CompanionDesktopApi = {
     invoke(companionChannels.readTelemetry, printerId),
   regenerateBridgeToken: () =>
     invoke(companionChannels.regenerateBridgeToken),
-  resetPairing: () => invoke(companionChannels.resetPairing),
+  resetPairing: (options) => invoke(companionChannels.resetPairing, options),
   saveSettings: (input) =>
     invoke(companionChannels.saveSettings, input),
   testPrinter: (printerId) =>

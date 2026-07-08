@@ -22,6 +22,10 @@ export interface RegenerateBridgeTokenResult {
   token: string;
 }
 
+export interface ResetPairingOptions {
+  resetBridgeSettings?: boolean;
+}
+
 export interface CompanionDesktopApi {
   checkForUpdates(): Promise<CompanionSnapshot>;
   copyBridgeUrl(): Promise<string>;
@@ -40,7 +44,7 @@ export interface CompanionDesktopApi {
   pair(input: PairCompanionInput): Promise<CompanionSnapshot>;
   readTelemetry(printerId: string): Promise<CompanionPrinterTelemetry>;
   regenerateBridgeToken(): Promise<RegenerateBridgeTokenResult>;
-  resetPairing(): Promise<CompanionPairingState>;
+  resetPairing(options?: ResetPairingOptions): Promise<CompanionPairingState>;
   saveSettings(input: Partial<CompanionSettings>): Promise<CompanionSnapshot>;
   testPrinter(printerId: string): Promise<CompanionPrinterTestResult>;
   updatePrinter(
