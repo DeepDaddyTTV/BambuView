@@ -352,7 +352,7 @@ function parseSlots(
   ];
 }
 
-function parseTelemetry(payload: unknown): RawTelemetry {
+export function parseTelemetry(payload: unknown): RawTelemetry {
   const root = asRecord(payload);
   const print = asRecord(root.print ?? root);
   const rawStatus = readString(
@@ -405,7 +405,10 @@ function parseTelemetry(payload: unknown): RawTelemetry {
   };
 }
 
-function buildMqttTopic(serial: string, topic: "report" | "request"): string {
+export function buildMqttTopic(
+  serial: string,
+  topic: "report" | "request",
+): string {
   return `device/${serial.trim().toUpperCase()}/${topic}`;
 }
 
@@ -438,7 +441,7 @@ function createMqttPacket(typeAndFlags: number, body: Buffer): Buffer {
   ]);
 }
 
-function createConnectPacket(input: {
+export function createConnectPacket(input: {
   clientId: string;
   password: string;
   username: string;
@@ -455,7 +458,7 @@ function createConnectPacket(input: {
   return createMqttPacket(0x10, Buffer.concat([variableHeader, payload]));
 }
 
-function createSubscribePacket(topic: string): Buffer {
+export function createSubscribePacket(topic: string): Buffer {
   return createMqttPacket(
     0x82,
     Buffer.concat([
@@ -466,7 +469,7 @@ function createSubscribePacket(topic: string): Buffer {
   );
 }
 
-function createPublishPacket(topic: string, payload: string): Buffer {
+export function createPublishPacket(topic: string, payload: string): Buffer {
   return createMqttPacket(
     0x30,
     Buffer.concat([encodeMqttString(topic), Buffer.from(payload, "utf8")]),
@@ -530,7 +533,7 @@ function readRemainingLength(
   return null;
 }
 
-function shiftMqttPacket(buffer: MqttBuffer): {
+export function shiftMqttPacket(buffer: MqttBuffer): {
   flags: number;
   packet: MqttBuffer;
   remaining: MqttBuffer;
@@ -570,7 +573,10 @@ function packetContainsTopic(
   return packet.subarray(2, 2 + topicLength).toString("utf8") === expectedTopic;
 }
 
-function getPublishPayload(packet: MqttBuffer, flags: number): string | null {
+export function getPublishPayload(
+  packet: MqttBuffer,
+  flags: number,
+): string | null {
   if (packet.length < 2) {
     return null;
   }
@@ -924,7 +930,7 @@ async function fetchTelemetryPayload(
   });
 }
 
-function mapTelemetry(
+export function mapTelemetry(
   telemetry: RawTelemetry,
   checkedAt: string,
 ): CompanionPrinterTelemetry {

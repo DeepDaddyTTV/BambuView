@@ -126,21 +126,41 @@ function platformSurfaceDefinitions(): SurfaceDefinition[] {
     {
       configLocations: [
         ...common.bambuStudioConfig,
+        ...(!mac && !win ? ["/opt/OrcaSlicer", "/usr/bin/orca-slicer"] : []),
         ...(mac
           ? ["/Applications/BambuStudio.app/Contents/Resources"]
           : win
             ? [
                 path.join(programFiles, "Bambu Studio"),
                 path.join(programFilesX86, "Bambu Studio"),
+                path.join(programFiles, "OrcaSlicer"),
+                path.join(programFilesX86, "OrcaSlicer"),
               ]
             : ["/opt/bambu-studio"]),
       ],
       detail:
         "A local Bambu Network Plugin or libBambuSource build can expose additional camera and bridge surfaces on this machine.",
-      installLocations: [],
+      installLocations: mac
+        ? [
+            "/Applications/BambuStudio.app/Contents/Resources",
+            "/Applications/OrcaSlicer.app/Contents/Resources",
+          ]
+        : win
+          ? [
+              path.join(programFiles, "Bambu Studio"),
+              path.join(programFilesX86, "Bambu Studio"),
+              path.join(programFiles, "OrcaSlicer"),
+              path.join(programFilesX86, "OrcaSlicer"),
+            ]
+          : ["/opt/bambu-studio", "/opt/OrcaSlicer", "/usr/lib/bambu-studio"],
       kind: "network-plugin",
       label: "Bambu Network Plugin",
-      matchPatterns: [/network.?plugin/i, /libbambusource/i, /bambusource/i],
+      matchPatterns: [
+        /network.?plugin/i,
+        /bblnetworkplugin/i,
+        /libbambusource/i,
+        /bambusource\.(dll|dylib|so)/i,
+      ],
     },
   ];
 }
@@ -249,13 +269,9 @@ function normalizeModel(value: string | null): string {
 
 function candidateConnectionMode(
   surfaceKind: CompanionBridgeSurfaceKind,
-  host: string,
-  accessCodeSet: boolean,
+  _host: string,
+  _accessCodeSet: boolean,
 ): CompanionPrinter["connectionMode"] {
-  if (host && accessCodeSet) {
-    return "lan";
-  }
-
   if (surfaceKind === "bambu-connect") {
     return "bambu-connect";
   }
@@ -587,10 +603,6 @@ export function inspectLocalBridgeInventory(): LocalBridgeInventory {
   const printersByKey = new Map<string, CompanionPrinter>();
 
   for (const definition of definitions) {
-    if (definition.kind === "network-plugin") {
-      continue;
-    }
-
     const candidates = discoverProfileCandidates(
       definition.kind,
       definition.configLocations,

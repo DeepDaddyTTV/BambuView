@@ -327,7 +327,7 @@ async function proxyPrinterCamera(
   mode: "mjpeg" | "snapshot",
   reply: FastifyReply,
 ) {
-  const target = runtime.getPrinterCameraProxyTarget(printerId, mode);
+  const target = await runtime.getPrinterCameraProxyTarget(printerId, mode);
   if (!target) {
     return reply.code(409).send({
       message:

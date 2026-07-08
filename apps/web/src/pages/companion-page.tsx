@@ -166,10 +166,10 @@ export function CompanionPage() {
         <section className="panel">
           <div className="section-title">Install Companion</div>
           <p className="mt-3 text-sm leading-7 text-zinc-400">
-            Companion is the native bridge app for local telemetry, local
-            streams, and trusted-machine handoff. Install it on the machine that
-            can actually reach your printers or camera sources, then come back
-            here to pair it.
+            Companion is the native bridge app for cloud-mode Bambu printers.
+            Install it on the machine where Bambu Connect or Bambu Studio is
+            signed in, then pair it here so BambuView can use that desktop
+            bridge for telemetry, camera auto-bridging, and file handoff.
           </p>
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
             <a

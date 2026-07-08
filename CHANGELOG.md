@@ -1,10 +1,23 @@
-# Changelog
+# Changelog: Latest Updates
 
 This file tracks the changes that matter when you update BambuView.
 Recent and future release notes should follow the same simple format:
 
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
+
+## v0.0.46 - 2026-07-08
+
+### Bug Fixes & Stability
+
+- Better Cloud Bridge Matching: Companion can now fill in saved Bambu printer details from the signed-in desktop bridge automatically, so cloud-mode printer profiles stop feeling half-configured before the first real handoff.
+- More Reliable Alpha Update Detection: the Companion release-check fixtures and in-app update expectations now track the current alpha revision again, which keeps update prompts from pointing at an older release after you install this build.
+- Cleaner Bridge Routing: saved Cloud / Normal and Bambu Connect printers now resolve file handoff and capability states through the detected local desktop bridge more honestly, instead of acting like LAN-only setup is still the main path.
+
+### Improvements & What's New
+
+- Stronger Cloud-Mode Workflow Foundation: BambuView Companion now treats Bambu Connect and Bambu Studio as the primary local bridge surfaces for cloud-backed printers, including richer printer discovery, bridge-aware telemetry reads, camera-target resolution, and file-handoff routing.
+- Clearer Beginner Messaging: the web app, Companion UI, and docs now explain the bridge-first cloud workflow in plainer language, so it is easier to understand when BambuView is using the trusted desktop app instead of local LAN-only setup.
 
 ## v0.0.45 - 2026-07-08
 

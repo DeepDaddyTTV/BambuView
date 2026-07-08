@@ -8077,7 +8077,7 @@ html[data-theme="light"] .camera-field small {
   }
 }
 
-/* v0.0.45 sidebar brand correction: force the approved centered stacked lockup on the server shell. */
+/* v0.0.46 sidebar brand correction: force the approved centered stacked lockup on the server shell. */
 .fleet-console-shell .fleet-console-sidebar__brand {
   display: flex;
   align-items: center;

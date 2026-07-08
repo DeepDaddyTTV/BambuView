@@ -1,10 +1,17 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer } from "node:http";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { COMPANION_APP_NAME } from "@bambuview/contracts";
 
@@ -15,6 +22,7 @@ import { CompanionRuntime } from "./runtime";
 
 const tempDirs: string[] = [];
 const originalFetch = globalThis.fetch;
+const originalHome = process.env.HOME;
 
 afterEach(() => {
   while (tempDirs.length > 0) {
@@ -22,9 +30,12 @@ afterEach(() => {
   }
 
   globalThis.fetch = originalFetch;
+  process.env.HOME = originalHome;
 });
 
-function createRuntime() {
+function createRuntime(
+  overrides: Partial<ConstructorParameters<typeof CompanionRuntime>[0]> = {},
+) {
   const dir = mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-"));
   tempDirs.push(dir);
   return new CompanionRuntime({
@@ -37,7 +48,25 @@ function createRuntime() {
     logger: new CompanionLogger(),
     stateFile: path.join(dir, "companion-state.json"),
     updateChecksEnabled: false,
+    ...overrides,
   });
+}
+
+function createDesktopSession(
+  homeDir: string,
+  appFolder: "Bambu Connect" | "BambuStudio",
+  payload: Record<string, unknown>,
+) {
+  const configDir = path.join(
+    homeDir,
+    "Library/Application Support",
+    appFolder,
+  );
+  mkdirSync(configDir, { recursive: true });
+  writeFileSync(
+    path.join(configDir, "session.json"),
+    JSON.stringify(payload, null, 2),
+  );
 }
 
 function companionAuthHeader(runtime: CompanionRuntime) {
@@ -368,6 +397,109 @@ describe("companion runtime", () => {
     await bridge.close();
   });
 
+  it("hydrates a cloud printer from the signed-in desktop bridge without LAN fields", async () => {
+    const runtime = createRuntime();
+    const homeDir = mkdtempSync(path.join(os.tmpdir(), "bambuview-home-"));
+    tempDirs.push(homeDir);
+    process.env.HOME = homeDir;
+
+    createDesktopSession(homeDir, "Bambu Connect", {
+      accessToken: "desktop-access-token",
+      refreshToken: "desktop-refresh-token",
+      userId: "desktop-user-1",
+    });
+
+    globalThis.fetch = (async (input) => {
+      const url = String(input);
+      if (url.includes("/v1/iot-service/api/user/print")) {
+        return new Response(
+          JSON.stringify({
+            devices: [
+              {
+                dev_access_code: "ABCD1234",
+                dev_id: "SERIAL-CLOUD-001",
+                dev_name: "The Forge",
+                dev_online: 1,
+                dev_product_name: "P1S",
+              },
+            ],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+            status: 200,
+          },
+        );
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const snapshot = await runtime.createPrinter({
+      accessCode: "",
+      connectionMode: "cloud",
+      hostname: "",
+      model: "P1S",
+      name: "The Forge",
+      notes: "",
+      provider: "bambu-lab",
+      serial: "",
+      streamId: null,
+    });
+
+    expect(snapshot.printers).toHaveLength(1);
+    expect(snapshot.printers[0].serial).toBe("SERIAL-CLOUD-001");
+    expect(snapshot.printers[0].hostname).toBe("");
+    expect(snapshot.printers[0].capabilities.telemetry).toBe("available");
+    expect(snapshot.printers[0].capabilities.fileUpload).toBe("available");
+  });
+
+  it("uses the detected desktop bridge for cloud file handoff when Bambu Connect is absent", async () => {
+    const shellActions = {
+      openExternal: vi.fn(async () => {}),
+      openPath: vi.fn(async () => ""),
+      showItemInFolder: vi.fn(() => {}),
+    };
+    const runtime = createRuntime({
+      shellActions,
+    });
+    const homeDir = mkdtempSync(path.join(os.tmpdir(), "bambuview-home-"));
+    tempDirs.push(homeDir);
+    process.env.HOME = homeDir;
+
+    createDesktopSession(homeDir, "BambuStudio", {
+      accessToken: "studio-access-token",
+      refreshToken: "studio-refresh-token",
+      userId: "desktop-user-2",
+    });
+
+    const jobPath = path.join(homeDir, "benchy.3mf");
+    writeFileSync(jobPath, "fake-3mf");
+
+    const snapshot = await runtime.createPrinter({
+      accessCode: "",
+      connectionMode: "cloud",
+      hostname: "",
+      model: "P1S",
+      name: "Studio Bridge Printer",
+      notes: "",
+      provider: "bambu-lab",
+      serial: "SERIAL-STUDIO-001",
+      streamId: null,
+    });
+
+    const result = await runtime.handleFileHandoff(snapshot.printers[0].id, {
+      action: "send",
+      path: jobPath,
+    });
+
+    expect(result.accepted).toBe(true);
+    expect(result.detail).toContain("Bambu Studio");
+    expect(shellActions.openPath).toHaveBeenCalledWith(jobPath);
+    expect(shellActions.openExternal).not.toHaveBeenCalled();
+  });
+
   it("finds a new port when the preferred one is busy", async () => {
     const occupied = net.createServer();
     await new Promise<void>((resolve) =>
@@ -398,7 +530,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.45-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.46-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify([
@@ -410,10 +542,10 @@ describe("companion runtime", () => {
               },
             ],
             html_url:
-              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.45",
-            name: "BVCompanion v0.0.45 Alpha",
+              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.46",
+            name: "BVCompanion v0.0.46 Alpha",
             prerelease: true,
-            tag_name: "bvcompanion-v0.0.45",
+            tag_name: "bvcompanion-v0.0.46",
           },
         ]),
         {
@@ -427,8 +559,8 @@ describe("companion runtime", () => {
     const snapshot = await runtime.checkForUpdates();
 
     expect(snapshot.update.available).toBe(true);
-    expect(snapshot.update.latestVersion).toBe("0.0.45");
-    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.45");
+    expect(snapshot.update.latestVersion).toBe("0.0.46");
+    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.46");
   });
 
   it("downloads and opens the latest Companion installer", async () => {
@@ -467,7 +599,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.45-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.46-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async (input) => {
       const url = String(input);
       if (url.includes("/releases?per_page=20")) {
@@ -481,10 +613,10 @@ describe("companion runtime", () => {
                 },
               ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.45",
-              name: "BVCompanion v0.0.45 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.46",
+              name: "BVCompanion v0.0.46 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.45",
+              tag_name: "bvcompanion-v0.0.46",
             },
           ]),
           {
