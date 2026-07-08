@@ -129,6 +129,22 @@ function printerInputFromDiscovery(
   };
 }
 
+function printerInputFromSaved(
+  printer: CompanionSnapshot["printers"][number],
+): CompanionPrinterInput {
+  return {
+    accessCode: "",
+    connectionMode: printer.connectionMode,
+    hostname: printer.hostname,
+    model: printer.model,
+    name: printer.name,
+    notes: printer.notes,
+    provider: printer.provider,
+    serial: printer.serial,
+    streamId: printer.streamId,
+  };
+}
+
 function parsePairServerUrl(
   serverUrl: string | null | undefined,
 ): Pick<PairFormState, "serverHost" | "serverPort" | "serverProtocol"> {
@@ -333,6 +349,41 @@ function printerReadiness(printer: CompanionSnapshot["printers"][number]) {
   };
 }
 
+function printerHasSavedLocalDetails(
+  printer: Pick<CompanionSnapshot["printers"][number], "accessCodeSet" | "hostname" | "serial">,
+) {
+  return (
+    printer.hostname.trim().length > 0 ||
+    printer.serial.trim().length > 0 ||
+    printer.accessCodeSet
+  );
+}
+
+function printerFormHasLocalDetails(
+  printer: Pick<CompanionPrinterInput, "accessCode" | "hostname" | "serial">,
+) {
+  return (
+    printer.hostname.trim().length > 0 ||
+    printer.serial.trim().length > 0 ||
+    (printer.accessCode?.trim().length ?? 0) > 0
+  );
+}
+
+function localSetupRecommended(mode: BambuConnectionMode) {
+  return mode === "lan" || mode === "developer";
+}
+
+function clearPrinterLocalDetails(
+  printer: CompanionPrinterInput,
+): CompanionPrinterInput {
+  return {
+    ...printer,
+    accessCode: "",
+    hostname: "",
+    serial: "",
+  };
+}
+
 function printerMeta(printer: CompanionSnapshot["printers"][number]) {
   return [
     printer.model,
@@ -492,6 +543,8 @@ export function App() {
   const [pairForm, setPairForm] = useState<PairFormState>(emptyPairForm);
   const [printerForm, setPrinterForm] =
     useState<CompanionPrinterInput>(emptyPrinterForm);
+  const [editingPrinterId, setEditingPrinterId] = useState<string | null>(null);
+  const [showLocalPrinterSetup, setShowLocalPrinterSetup] = useState(true);
   const [streamForm, setStreamForm] =
     useState<CompanionStreamInput>(emptyStreamForm);
   const [showAdvancedStreams, setShowAdvancedStreams] = useState(false);
@@ -574,6 +627,62 @@ export function App() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function resetPrinterEditor() {
+    setEditingPrinterId(null);
+    setPrinterForm(emptyPrinterForm());
+    setShowLocalPrinterSetup(true);
+  }
+
+  function startPrinterEdit(printer: CompanionSnapshot["printers"][number]) {
+    setEditingPrinterId(printer.id);
+    setPrinterForm(printerInputFromSaved(printer));
+    setShowLocalPrinterSetup(
+      localSetupRecommended(printer.connectionMode) ||
+        printerHasSavedLocalDetails(printer),
+    );
+    setSuccessMessage(
+      `${printer.name} is ready to edit. Save it again when you are done, or skip local setup for now.`,
+    );
+  }
+
+  async function submitPrinterForm(skipLocalSetup: boolean) {
+    const existingPrinter =
+      editingPrinterId === null
+        ? null
+        : snapshot.printers.find((printer) => printer.id === editingPrinterId) ??
+          null;
+
+    const payloadBase = skipLocalSetup
+      ? clearPrinterLocalDetails(printerForm)
+      : printerForm;
+    const payload: CompanionPrinterInput = {
+      ...payloadBase,
+      accessCode:
+        editingPrinterId !== null &&
+        !skipLocalSetup &&
+        existingPrinter?.accessCodeSet === true &&
+        (payloadBase.accessCode?.trim().length ?? 0) === 0
+          ? undefined
+          : payloadBase.accessCode,
+    };
+
+    await runAction(
+      () =>
+        editingPrinterId === null
+          ? window.companion.createPrinter(payload)
+          : window.companion.updatePrinter(editingPrinterId, payload),
+      () => {
+        const actionLabel = editingPrinterId === null ? "saved" : "updated";
+        resetPrinterEditor();
+        setSuccessMessage(
+          skipLocalSetup
+            ? `Printer ${actionLabel}. You can add local Companion details later from Edit.`
+            : `Printer ${actionLabel} in Companion.`,
+        );
+      },
+    );
   }
 
   const activeSectionLabel =
@@ -893,7 +1002,9 @@ export function App() {
         {activeSection === "printers" ? (
           <section className="panel-grid panel-grid--two-up">
             <article className="panel-card">
-              <div className="panel-card__title">Add Printer</div>
+              <div className="panel-card__title">
+                {editingPrinterId ? "Edit Printer" : "Add Printer"}
+              </div>
               <div className="button-row panel-card__actions">
                 <button
                   className="ghost-button"
@@ -936,11 +1047,15 @@ export function App() {
                           <button
                             className="ghost-button"
                             onClick={() => {
-                              setPrinterForm(
-                                printerInputFromDiscovery(printer),
+                              setEditingPrinterId(null);
+                              setPrinterForm(printerInputFromDiscovery(printer));
+                              setShowLocalPrinterSetup(
+                                localSetupRecommended(printer.connectionMode) ||
+                                  printer.hostname.trim().length > 0 ||
+                                  printer.serial.trim().length > 0,
                               );
                               setSuccessMessage(
-                                `${printer.name} is ready in the form below. Add its access code if needed, then save it.`,
+                                `${printer.name} is ready below. Save it now, or skip local Companion setup and finish telemetry details later.`,
                               );
                             }}
                             type="button"
@@ -966,13 +1081,7 @@ export function App() {
                 className="stack-form"
                 onSubmit={(event) => {
                   event.preventDefault();
-                  void runAction(
-                    () => window.companion.createPrinter(printerForm),
-                    () => {
-                      setPrinterForm(emptyPrinterForm());
-                      setSuccessMessage("Printer saved to Companion.");
-                    },
-                  );
+                  void submitPrinterForm(false);
                 }}
               >
                 <label>
@@ -1001,52 +1110,19 @@ export function App() {
                   />
                 </label>
                 <label>
-                  <span>Hostname / IP</span>
-                  <input
-                    onChange={(event) =>
-                      setPrinterForm((current) => ({
-                        ...current,
-                        hostname: event.target.value,
-                      }))
-                    }
-                    placeholder="printer.local"
-                    value={printerForm.hostname}
-                  />
-                </label>
-                <label>
-                  <span>Serial Number</span>
-                  <input
-                    onChange={(event) =>
-                      setPrinterForm((current) => ({
-                        ...current,
-                        serial: event.target.value,
-                      }))
-                    }
-                    value={printerForm.serial}
-                  />
-                </label>
-                <label>
-                  <span>Access Code</span>
-                  <input
-                    onChange={(event) =>
-                      setPrinterForm((current) => ({
-                        ...current,
-                        accessCode: event.target.value,
-                      }))
-                    }
-                    type="password"
-                    value={printerForm.accessCode ?? ""}
-                  />
-                </label>
-                <label>
                   <span>Connection Mode</span>
                   <CompanionSelect
-                    onChange={(connectionMode) =>
+                    onChange={(connectionMode) => {
                       setPrinterForm((current) => ({
                         ...current,
                         connectionMode,
-                      }))
-                    }
+                      }));
+                      setShowLocalPrinterSetup(
+                        showLocalPrinterSetup ||
+                          localSetupRecommended(connectionMode) ||
+                          printerFormHasLocalDetails(printerForm),
+                      );
+                    }}
                     options={connectionModeOptions}
                     value={printerForm.connectionMode}
                   />
@@ -1064,10 +1140,129 @@ export function App() {
                     value={printerForm.notes ?? ""}
                   />
                 </label>
-                <button className="solid-button" disabled={busy} type="submit">
-                  <Printer className="button-icon" />
-                  Save Printer
-                </button>
+                <div className="notice notice--warning">
+                  <Cable className="button-icon" />
+                  <span>
+                    Local Companion setup is optional. Add the printer host,
+                    serial number, and LAN access code now if you want
+                    Companion to handle local telemetry, native camera
+                    restreaming, AMS state, and direct controls. Otherwise, you
+                    can skip it and fill those in later from Edit.
+                  </span>
+                </div>
+                <div className="button-row">
+                  <button
+                    className={
+                      showLocalPrinterSetup ? "ghost-button" : "solid-button"
+                    }
+                    onClick={() => setShowLocalPrinterSetup(true)}
+                    type="button"
+                  >
+                    <Cable className="button-icon" />
+                    Add Local Setup
+                  </button>
+                  <button
+                    className={
+                      !showLocalPrinterSetup ? "solid-button" : "ghost-button"
+                    }
+                    onClick={() => {
+                      setShowLocalPrinterSetup(false);
+                      setPrinterForm((current) =>
+                        clearPrinterLocalDetails(current),
+                      );
+                    }}
+                    type="button"
+                  >
+                    <CheckCircle2 className="button-icon" />
+                    Skip For Now
+                  </button>
+                </div>
+                {showLocalPrinterSetup ? (
+                  <div className="stack-form stack-form--nested">
+                    <label>
+                      <span>Hostname / IP</span>
+                      <input
+                        onChange={(event) =>
+                          setPrinterForm((current) => ({
+                            ...current,
+                            hostname: event.target.value,
+                          }))
+                        }
+                        placeholder="printer.local"
+                        value={printerForm.hostname}
+                      />
+                    </label>
+                    <label>
+                      <span>Serial Number</span>
+                      <input
+                        onChange={(event) =>
+                          setPrinterForm((current) => ({
+                            ...current,
+                            serial: event.target.value,
+                          }))
+                        }
+                        value={printerForm.serial}
+                      />
+                    </label>
+                    <label>
+                      <span>
+                        Access Code
+                        {editingPrinterId &&
+                        snapshot.printers.find(
+                          (printer) => printer.id === editingPrinterId,
+                        )?.accessCodeSet
+                          ? " (leave blank to keep the saved one)"
+                          : ""}
+                      </span>
+                      <input
+                        onChange={(event) =>
+                          setPrinterForm((current) => ({
+                            ...current,
+                            accessCode: event.target.value,
+                          }))
+                        }
+                        placeholder={
+                          editingPrinterId &&
+                          snapshot.printers.find(
+                            (printer) => printer.id === editingPrinterId,
+                          )?.accessCodeSet
+                            ? "Stored locally"
+                            : ""
+                        }
+                        type="password"
+                        value={printerForm.accessCode ?? ""}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+                <div className="button-row">
+                  <button className="solid-button" disabled={busy} type="submit">
+                    <Printer className="button-icon" />
+                    {editingPrinterId ? "Update Printer" : "Save Printer"}
+                  </button>
+                  <button
+                    className="ghost-button"
+                    disabled={busy}
+                    onClick={() => {
+                      void submitPrinterForm(true);
+                    }}
+                    type="button"
+                  >
+                    <CheckCircle2 className="button-icon" />
+                    Save And Skip Local Setup
+                  </button>
+                  {editingPrinterId ? (
+                    <button
+                      className="ghost-button"
+                      disabled={busy}
+                      onClick={() => resetPrinterEditor()}
+                      type="button"
+                    >
+                      <RotateCcw className="button-icon" />
+                      Cancel Edit
+                    </button>
+                  ) : null}
+                </div>
               </form>
             </article>
 
@@ -1076,8 +1271,9 @@ export function App() {
               <div className="stack-list">
                 {snapshot.printers.length === 0 ? (
                   <div className="empty-state">
-                    No printers saved yet. Add a Bambu printer manually to start
-                    local telemetry planning.
+                    No printers saved yet. Save a printer profile first, then
+                    come back later to finish any optional local Companion
+                    setup.
                   </div>
                 ) : null}
                 {snapshot.printers.map((printer) => {
@@ -1102,6 +1298,14 @@ export function App() {
                         {printer.capabilityNotes.telemetry}
                       </div>
                       <div className="button-row">
+                        <button
+                          className="ghost-button"
+                          onClick={() => startPrinterEdit(printer)}
+                          type="button"
+                        >
+                          <Settings2 className="button-icon" />
+                          Edit
+                        </button>
                         <button
                           className="ghost-button"
                           onClick={() => {
@@ -1171,6 +1375,14 @@ export function App() {
                               {telemetry[printer.id].nozzleTemperature ?? "—"}°C
                             </span>
                           </div>
+                        </div>
+                      ) : null}
+                      {!printerHasSavedLocalDetails(printer) ? (
+                        <div className="field-hint">
+                          This printer profile is saved without local Companion
+                          details. Edit it later if you want native camera
+                          restreaming, live telemetry, AMS state, or direct
+                          local controls from this machine.
                         </div>
                       ) : null}
                     </div>
@@ -1435,8 +1647,14 @@ export function App() {
             </article>
 
             <article className="panel-card">
-              <div className="panel-card__title">Detected Bridge Surfaces</div>
+              <div className="panel-card__title">Local Bambu Bridge Surfaces</div>
               <div className="stack-list">
+                {snapshot.health.bridgeSources.length === 0 ? (
+                  <div className="empty-state">
+                    Companion only shows local Bambu bridge surfaces here.
+                    Server-owned slicer integrations stay in BambuView.
+                  </div>
+                ) : null}
                 {snapshot.health.bridgeSources.map((surface) => (
                   <div className="item-card" key={surface.id}>
                     <div className="item-card__header">
@@ -1465,33 +1683,6 @@ export function App() {
                     </div>
                   </div>
                 ))}
-              </div>
-            </article>
-
-            <article className="panel-card">
-              <div className="panel-card__title">Per-Printer Readiness</div>
-              <div className="stack-list">
-                {snapshot.printers.map((printer) => (
-                  <div className="item-card" key={printer.id}>
-                    <div className="item-card__title">{printer.name}</div>
-                    <div className="telemetry-grid telemetry-grid--capabilities">
-                      {Object.entries(printer.capabilities).map(
-                        ([key, value]) => (
-                          <div key={key}>
-                            <strong>{key}</strong>
-                            <span>{value.replaceAll("_", " ")}</span>
-                          </div>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {snapshot.printers.length === 0 ? (
-                  <div className="empty-state">
-                    Add a printer to see capability gating for telemetry,
-                    camera, AMS, and control paths.
-                  </div>
-                ) : null}
               </div>
             </article>
           </section>

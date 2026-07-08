@@ -44,12 +44,12 @@ function printerSchema() {
   return z.object({
     accessCode: z.string().trim().max(128).optional(),
     connectionMode: z.enum(["cloud", "bambu-connect", "lan", "developer"]),
-    hostname: z.string().trim().min(1).max(255),
+    hostname: z.string().trim().max(255),
     model: z.string().trim().min(2).max(120),
     name: z.string().trim().min(2).max(120),
     notes: z.string().trim().max(512).optional(),
     provider: z.enum(["bambu-lab"]).default("bambu-lab"),
-    serial: z.string().trim().min(4).max(80),
+    serial: z.string().trim().max(80),
     streamId: z.string().trim().max(120).nullable().optional(),
   }) satisfies z.ZodType<CompanionPrinterInput>;
 }

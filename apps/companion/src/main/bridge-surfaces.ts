@@ -84,16 +84,6 @@ function platformSurfaceDefinitions(): SurfaceDefinition[] {
       path.join(home, "AppData/Roaming/BambuStudio"),
       path.join(home, ".config/BambuStudio"),
     ],
-    orcaConfig: [
-      path.join(home, "Library/Application Support/OrcaSlicer"),
-      path.join(home, "AppData/Roaming/OrcaSlicer"),
-      path.join(home, ".config/OrcaSlicer"),
-    ],
-    prusaConfig: [
-      path.join(home, "Library/Application Support/PrusaSlicer"),
-      path.join(home, "AppData/Roaming/PrusaSlicer"),
-      path.join(home, ".config/PrusaSlicer"),
-    ],
   };
 
   const mac = process.platform === "darwin";
@@ -132,40 +122,6 @@ function platformSurfaceDefinitions(): SurfaceDefinition[] {
           : ["/opt/bambu-studio", "/usr/bin/bambu-studio"],
       kind: "bambu-studio",
       label: "Bambu Studio",
-    },
-    {
-      configLocations: common.orcaConfig,
-      detail:
-        "OrcaSlicer profiles help seed Bambu printer presets for the Prepare workspace and Companion imports.",
-      installLocations: mac
-        ? ["/Applications/OrcaSlicer.app"]
-        : win
-          ? [
-              path.join(programFiles, "OrcaSlicer"),
-              path.join(programFilesX86, "OrcaSlicer"),
-            ]
-          : ["/opt/orcaslicer", "/usr/bin/orca-slicer", "/usr/bin/OrcaSlicer"],
-      kind: "orca-slicer",
-      label: "OrcaSlicer",
-    },
-    {
-      configLocations: common.prusaConfig,
-      detail:
-        "PrusaSlicer is reserved for resin workflows, but its local projects can still be staged from this machine.",
-      installLocations: mac
-        ? ["/Applications/PrusaSlicer.app"]
-        : win
-          ? [
-              path.join(programFiles, "PrusaSlicer"),
-              path.join(programFilesX86, "PrusaSlicer"),
-            ]
-          : [
-              "/opt/prusaslicer",
-              "/usr/bin/prusaslicer",
-              "/usr/bin/PrusaSlicer",
-            ],
-      kind: "prusaslicer",
-      label: "PrusaSlicer",
     },
     {
       configLocations: [

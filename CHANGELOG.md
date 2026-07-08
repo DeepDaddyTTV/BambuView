@@ -6,6 +6,19 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.44 - 2026-07-07
+
+### Bug Fixes & Stability
+
+- Cleaner Printer Setup Flow: Companion no longer treats local bridge details like mandatory first-run data, so you can save a printer profile first and skip hostname, serial, and LAN access code setup until you actually need local telemetry or controls.
+- Safer Printer Editing: editing a saved printer no longer forces you to overwrite the existing saved access code just to update the rest of the profile, which makes follow-up setup passes much safer.
+- Less Companion Noise: the extra per-printer readiness wall and the irrelevant local slicer detection cards are gone from Companion, keeping the desktop bridge focused on the setup steps that actually belong there.
+
+### Improvements & What's New
+
+- Skip-Friendly Printer Profiles: Companion now includes an explicit `Save And Skip Local Setup` path when you add or edit a printer, plus an `Edit` action on saved printers so you can come back later for native camera, AMS, telemetry, and control details.
+- Better Local Bridge Focus: the Companion capabilities view now centers on Bambu desktop bridge surfaces instead of server-owned slicer installs, which keeps the desktop app aligned with BambuView’s server-first slicing workflow.
+
 ## v0.0.43 - 2026-07-07
 
 ### Bug Fixes & Stability

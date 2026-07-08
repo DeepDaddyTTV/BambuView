@@ -967,7 +967,7 @@ export class CompanionRuntime extends EventEmitter {
           : lanDiscovery.detail,
       instructions: [
         ...lanDiscovery.instructions,
-        "Desktop bridge detections come from local Bambu Connect, Bambu Studio, OrcaSlicer, or PrusaSlicer data when those apps are installed on this machine.",
+        "Desktop bridge detections come from local Bambu Connect, Bambu Studio, and Bambu Network Plugin data when those bridge surfaces are available on this machine.",
       ],
       printers: [...printers.values()].sort((left, right) =>
         left.name.localeCompare(right.name),
@@ -1732,10 +1732,12 @@ export class CompanionRuntime extends EventEmitter {
     if (!printer) {
       throw new Error("Printer not found.");
     }
-    printer.accessCode = encryptSecret(
-      this.codec,
-      input.accessCode?.trim() ?? "",
-    );
+    if (input.accessCode !== undefined) {
+      printer.accessCode = encryptSecret(
+        this.codec,
+        input.accessCode.trim(),
+      );
+    }
     printer.connectionMode = input.connectionMode;
     printer.hostname = input.hostname.trim();
     printer.model = input.model.trim();
