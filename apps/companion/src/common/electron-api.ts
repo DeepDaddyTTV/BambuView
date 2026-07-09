@@ -34,7 +34,7 @@ export interface CompanionDesktopApi {
   deletePrinter(printerId: string): Promise<CompanionSnapshot>;
   deleteStream(streamId: string): Promise<CompanionSnapshot>;
   discoverPrinters(): Promise<CompanionPrinterDiscoveryResult>;
-  getSnapshot(): Promise<CompanionSnapshot>;
+  getSnapshot(forceRefresh?: boolean): Promise<CompanionSnapshot>;
   handleFileHandoff(
     printerId: string,
     input: CompanionFileHandoffInput,

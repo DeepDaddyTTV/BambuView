@@ -316,61 +316,70 @@ function capabilityEnvelope(input: {
   const localTelemetryReady =
     input.host.trim().length > 0 && input.accessCodeSet === true;
   const nativeCameraSupport = nativeBambuBridgeSupport(input.model);
+  const usingCloudBridge =
+    input.connectionMode === "bambu-connect" || input.connectionMode === "cloud";
 
   return {
     capabilities: {
-      ams: localTelemetryReady ? "available" : "requires_setup",
+      ams: usingCloudBridge || localTelemetryReady ? "available" : "requires_setup",
       camera:
-        localTelemetryReady &&
-        nativeCameraSupport.supported &&
-        cameraBridgeReady()
+        ((usingCloudBridge || localTelemetryReady) &&
+          nativeCameraSupport.supported &&
+          cameraBridgeReady())
           ? "available"
           : nativeCameraSupport.supported
-            ? "requires_setup"
+            ? usingCloudBridge
+              ? "unavailable"
+              : "requires_setup"
             : "requires_restream",
-      controls: localTelemetryReady ? "available" : "requires_setup",
+      controls:
+        usingCloudBridge
+          ? "unsupported"
+          : localTelemetryReady
+            ? "available"
+            : "requires_setup",
       discovery: "available",
       fileUpload:
-        input.connectionMode === "bambu-connect" ||
-        input.connectionMode === "cloud" ||
-        localTelemetryReady
+        usingCloudBridge || localTelemetryReady
           ? "available"
           : "requires_setup",
       slicingAssist:
-        input.connectionMode === "bambu-connect" ||
-        input.connectionMode === "cloud" ||
-        localTelemetryReady
+        usingCloudBridge || localTelemetryReady
           ? "available"
           : "requires_setup",
-      telemetry: localTelemetryReady ? "available" : "requires_setup",
+      telemetry: usingCloudBridge || localTelemetryReady ? "available" : "requires_setup",
     },
     capabilityNotes: {
-      ams: localTelemetryReady
-        ? "A saved host and access code can unlock live AMS state on this machine."
-        : input.note,
+      ams: usingCloudBridge
+        ? "This detected desktop profile can inherit AMS status from the signed-in Bambu desktop bridge on this machine."
+        : localTelemetryReady
+          ? "A saved host and access code can unlock live AMS state on this machine."
+          : input.note,
       camera:
-        localTelemetryReady &&
-        nativeCameraSupport.supported &&
-        cameraBridgeReady()
-          ? "Companion can restream the native Bambu feed directly when the saved host and access code still match."
+        ((usingCloudBridge || localTelemetryReady) &&
+          nativeCameraSupport.supported &&
+          cameraBridgeReady())
+          ? usingCloudBridge
+            ? "Companion can auto-bridge the native Bambu camera from this detected desktop profile."
+            : "Companion can restream the native Bambu feed directly when the saved host and access code still match."
           : nativeCameraSupport.detail,
-      controls: localTelemetryReady
-        ? "Companion can attempt direct local controls with the saved host and access code from this desktop profile."
-        : "Save the printer host and LAN access code to enable Companion-side controls.",
+      controls: usingCloudBridge
+        ? "This detected desktop profile is intended for Companion cloud telemetry, camera, and file handoff. Direct controls remain server-managed in BambuView."
+        : localTelemetryReady
+          ? "Companion can attempt direct local controls with the saved host and access code from this desktop profile."
+          : "Save the printer host and LAN access code to enable Companion-side controls.",
       discovery: input.note,
-      fileUpload:
-        input.connectionMode === "bambu-connect" ||
-        input.connectionMode === "cloud"
-          ? "This desktop surface can still hand jobs to Bambu Connect locally, even before local upload is configured."
-          : "Companion can route prepared jobs through this imported printer profile once the local path is confirmed.",
-      slicingAssist:
-        input.connectionMode === "bambu-connect" ||
-        input.connectionMode === "cloud"
-          ? "Prepared jobs can stage through this detected desktop bridge profile."
-          : "Prepared jobs can target this printer profile once the local export path is confirmed.",
-      telemetry: localTelemetryReady
-        ? "This detected desktop profile already includes enough local host data for telemetry attempts."
-        : "This desktop profile still needs a printer host and LAN access code for live telemetry.",
+      fileUpload: usingCloudBridge
+        ? "This detected desktop surface can hand jobs to the signed-in Bambu desktop workflow locally."
+        : "Companion can route prepared jobs through this imported printer profile once the local path is confirmed.",
+      slicingAssist: usingCloudBridge
+        ? "Prepared jobs can stage through this detected desktop bridge profile."
+        : "Prepared jobs can target this printer profile once the local export path is confirmed.",
+      telemetry: usingCloudBridge
+        ? "This detected desktop profile can use the signed-in Bambu desktop bridge for live telemetry without storing LAN credentials in Companion."
+        : localTelemetryReady
+          ? "This detected desktop profile already includes enough local host data for telemetry attempts."
+          : "This desktop profile still needs a printer host and LAN access code for live telemetry.",
     },
   };
 }

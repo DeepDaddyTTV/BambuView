@@ -6,6 +6,19 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.50 - 2026-07-09
+
+### Bug Fixes & Stability
+
+- Bridge-First Printer Saves: Companion now saves discovered Bambu printers into the desktop-bridge workflow automatically instead of leaving them stuck as LAN-only profiles that ask for extra local setup.
+- Faster Companion Refreshes: bridge-surface and desktop-session inspection is now cached more aggressively, and tray refreshes reuse the latest snapshot instead of forcing the same expensive scan again and again.
+- Cleaner Capability Reporting: Companion no longer acts like missing manual streams or LAN credentials are required for every cloud-mode printer when Bambu Connect or the desktop bridge is already available.
+
+### Improvements & What's New
+
+- Smarter Discovery Merging: duplicate LAN and signed-in desktop-bridge discoveries now collapse into one cleaner printer profile, with LAN reachability folded into the bridge-first result automatically.
+- Better Cloud Bridge Messaging: saved printers, discovery cards, and capability summaries now explain the real Companion workflow more clearly by treating Bambu Connect, Bambu Studio, and the Network Plugin as the primary path for telemetry, camera, and file handoff.
+
 ## v0.0.49 - 2026-07-09
 
 ### Bug Fixes & Stability

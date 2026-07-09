@@ -1293,8 +1293,8 @@ export async function discoverBambuPrinters(
         detail,
         instructions: [
           "Open the printer network screen if nothing appears after one broadcast cycle.",
-          "Enable LAN Mode for telemetry or LAN-only Developer Mode for direct controls and file upload.",
-          "Cloud and Bambu Connect printers can still be added manually when they are not advertising locally.",
+          "Use LAN discovery only to help Companion learn the printer hostname when the desktop bridge can already see the printer.",
+          "Saved Companion printers can still use the signed-in Bambu desktop bridge for telemetry, camera, and file handoff without storing LAN fields.",
         ],
         printers: [...printers.values()].sort((left, right) =>
           left.name.localeCompare(right.name),
@@ -1345,20 +1345,21 @@ export async function discoverBambuPrinters(
           telemetry: "requires_setup",
         },
         capabilityNotes: {
-          ams: "Add the LAN access code before Companion can request the live AMS report.",
+          ams:
+            "LAN discovery only confirms that the printer is visible locally. Saved Companion profiles prefer the desktop bridge for AMS status whenever it is signed in.",
           camera: nativeCameraSupport.supported
-            ? "Save the LAN access code and Companion can expose this printer's native camera directly."
+            ? "Companion can auto-bridge this native camera through the signed-in desktop session once the printer is saved."
             : nativeCameraSupport.detail,
           controls:
             "Switch the printer to LAN-only Developer Mode and add its access code before using direct controls.",
           discovery:
-            "This printer was discovered automatically over the local Bambu SSDP broadcast.",
+            "This printer was discovered automatically over the local Bambu SSDP broadcast so Companion can fill in reachability without asking you to type it.",
           fileUpload:
-            "Switch to LAN-only Developer Mode to allow direct FTPS upload and start-print handoff.",
+            "Saved Companion profiles prefer the desktop bridge for file handoff. Developer Mode is only needed when you want a direct local upload path instead.",
           slicingAssist:
-            "Finish the required upload path before using this printer as a prepared-job target from BambuView.",
+            "Prepared jobs can route through the signed-in desktop bridge once this printer is saved to Companion.",
           telemetry:
-            "Add the LAN access code before Companion can request the live MQTT telemetry report.",
+            "Saved Companion profiles prefer the signed-in desktop bridge for telemetry, so this LAN discovery only helps auto-fill local reachability.",
         },
         connectionMode: "lan",
         createdAt: attemptedAt,

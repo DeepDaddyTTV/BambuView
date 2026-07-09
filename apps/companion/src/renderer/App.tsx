@@ -118,7 +118,8 @@ function printerInputFromDiscovery(
 ): CompanionPrinterInput {
   return {
     accessCode: "",
-    connectionMode: printer.connectionMode,
+    connectionMode:
+      printer.connectionMode === "bambu-connect" ? "bambu-connect" : "cloud",
     hostname: printer.hostname,
     model: printer.model,
     name: printer.name,
@@ -134,7 +135,8 @@ function printerInputFromSaved(
 ): CompanionPrinterInput {
   return {
     accessCode: "",
-    connectionMode: printer.connectionMode,
+    connectionMode:
+      printer.connectionMode === "bambu-connect" ? "bambu-connect" : "cloud",
     hostname: printer.hostname,
     model: printer.model,
     name: printer.name,
@@ -339,7 +341,7 @@ function printerReadiness(printer: CompanionSnapshot["printers"][number]) {
     printer.connectionMode === "bambu-connect"
   ) {
     return {
-      label: "Requires Desktop Sign-In",
+      label: "Awaiting Desktop Bridge",
       tone: "warning" as const,
     };
   }
@@ -367,9 +369,16 @@ function printerHasSavedLocalDetails(
 }
 
 function printerMeta(printer: CompanionSnapshot["printers"][number]) {
+  const hostLabel =
+    printer.hostname.trim() ||
+    (printer.connectionMode === "cloud" ||
+    printer.connectionMode === "bambu-connect"
+      ? "Auto-match pending"
+      : "Hostname pending");
+
   return [
     printer.model,
-    printer.hostname.trim() || "Hostname pending",
+    hostLabel,
     connectionModeLabel(printer.connectionMode),
   ].join(" • ");
 }
@@ -538,9 +547,9 @@ export function App() {
   const [discoveryResult, setDiscoveryResult] =
     useState<CompanionPrinterDiscoveryResult | null>(null);
 
-  async function refresh() {
+  async function refresh(forceRefresh = false) {
     const previousSnapshot = snapshot;
-    const next = await window.companion.getSnapshot();
+    const next = await window.companion.getSnapshot(forceRefresh);
     startTransition(() => {
       setSnapshot(next);
       setSettingsForm(next.settings);
@@ -746,7 +755,19 @@ export function App() {
             <button
               className="ghost-button"
               onClick={() => {
-                void runAction(() => refresh());
+                setBusy(true);
+                setErrorMessage(null);
+                void refresh(true)
+                  .catch((error) => {
+                    setErrorMessage(
+                      error instanceof Error
+                        ? error.message
+                        : "Refresh failed.",
+                    );
+                  })
+                  .finally(() => {
+                    setBusy(false);
+                  });
               }}
               type="button"
             >
@@ -991,8 +1012,8 @@ export function App() {
                         setDiscoveryResult(result);
                         setSuccessMessage(
                           result.printers.length > 0
-                            ? `Found ${result.printers.length} Bambu printer${result.printers.length === 1 ? "" : "s"} from the LAN or local desktop bridge.`
-                            : "Discovery finished. No LAN-broadcasting or desktop-bridge Bambu printers answered this pass.",
+                            ? `Found ${result.printers.length} Bambu printer${result.printers.length === 1 ? "" : "s"} and prepared bridge-first profiles for Companion.`
+                            : "Discovery finished. No Bambu printers answered from the local desktop bridge or LAN reachability scan.",
                         );
                       },
                     );
@@ -1015,8 +1036,9 @@ export function App() {
                               {printer.name}
                             </div>
                             <div className="item-card__meta">
-                              {printer.model} • {printer.hostname} •{" "}
-                              {printer.connectionMode}
+                              {printer.model} •{" "}
+                              {printer.hostname || "Auto-match pending"} •{" "}
+                              {connectionModeLabel(printer.connectionMode)}
                             </div>
                           </div>
                           <button
@@ -1027,7 +1049,7 @@ export function App() {
                                 printerInputFromDiscovery(printer),
                               );
                               setSuccessMessage(
-                                `${printer.name} is ready below. Save it now and Companion will use the desktop bridge for telemetry, camera, and send workflows.`,
+                                `${printer.name} is ready below. Save it now and Companion will use the desktop bridge automatically for telemetry, camera, and send workflows.`,
                               );
                             }}
                             type="button"

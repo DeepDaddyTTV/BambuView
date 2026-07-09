@@ -62,6 +62,7 @@ import {
   readBambuCloudTelemetry,
   resolveBambuCloudCameraSource,
   testBambuCloudPrinter,
+  type BambuCloudBridgeEnvironment,
 } from "./bambu-cloud.js";
 import {
   inspectLocalBridgeInventory,
@@ -160,6 +161,11 @@ interface BridgeState {
   suggestedPort: number | null;
 }
 
+interface BridgeCacheRecord<TValue> {
+  fetchedAt: number;
+  value: TValue;
+}
+
 interface RuntimeOptions {
   appVersion: string;
   bridgeLifecycle?: BridgeLifecycle;
@@ -188,6 +194,8 @@ const defaultPairing: CompanionPairingState = {
   pairedAt: null,
   serverUrl: null,
 };
+
+const BRIDGE_CACHE_TTL_MS = 10_000;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -354,22 +362,68 @@ function timeoutSignal(timeoutMs: number): AbortSignal {
   return AbortSignal.timeout(timeoutMs);
 }
 
-function discoveryPrinterKey(printer: CompanionPrinter): string {
+function discoveryPrinterIdentityKey(printer: CompanionPrinter): string {
   const serial = printer.serial.trim().toUpperCase();
   if (serial) {
-    return [
-      serial,
-      printer.connectionMode,
-      printer.hostname.trim().toLowerCase(),
-    ].join(":");
+    return serial;
   }
 
   return [
     printer.name.trim().toLowerCase(),
     printer.model.trim().toLowerCase(),
-    printer.connectionMode,
-    printer.hostname.trim().toLowerCase(),
   ].join(":");
+}
+
+function discoveryPrinterPriority(printer: CompanionPrinter): number {
+  switch (printer.connectionMode) {
+    case "bambu-connect":
+      return 4;
+    case "cloud":
+      return 3;
+    case "developer":
+      return 2;
+    case "lan":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function mergeDiscoveryPrinterRecord(
+  current: CompanionPrinter | undefined,
+  incoming: CompanionPrinter,
+): CompanionPrinter {
+  if (!current) {
+    return incoming;
+  }
+
+  const preferred =
+    discoveryPrinterPriority(incoming) > discoveryPrinterPriority(current)
+      ? incoming
+      : current;
+  const fallback = preferred === incoming ? current : incoming;
+
+  return {
+    ...preferred,
+    accessCodeSet: preferred.accessCodeSet || fallback.accessCodeSet,
+    capabilityNotes: {
+      ...fallback.capabilityNotes,
+      ...preferred.capabilityNotes,
+    },
+    createdAt:
+      preferred.createdAt < fallback.createdAt
+        ? preferred.createdAt
+        : fallback.createdAt,
+    hostname: preferred.hostname.trim() || fallback.hostname.trim(),
+    lastSeenAt: preferred.lastSeenAt ?? fallback.lastSeenAt,
+    lastTestedAt: preferred.lastTestedAt ?? fallback.lastTestedAt,
+    notes: preferred.notes.trim() || fallback.notes.trim(),
+    streamId: preferred.streamId ?? fallback.streamId,
+    updatedAt:
+      preferred.updatedAt > fallback.updatedAt
+        ? preferred.updatedAt
+        : fallback.updatedAt,
+  };
 }
 
 function mergeDiscoveryResults(
@@ -384,7 +438,11 @@ function mergeDiscoveryResults(
     ...bridgeInventory.printers,
     ...lan.printers,
   ]) {
-    printers.set(discoveryPrinterKey(printer), printer);
+    const key = discoveryPrinterIdentityKey(printer);
+    printers.set(
+      key,
+      mergeDiscoveryPrinterRecord(printers.get(key), printer),
+    );
   }
 
   const bridgeSources = new Map(
@@ -782,6 +840,26 @@ export class CompanionRuntime extends EventEmitter {
     surfaces: [],
   };
 
+  private localBridgeInventoryCache: BridgeCacheRecord<LocalBridgeInventory> = {
+    fetchedAt: 0,
+    value: {
+      printers: [],
+      surfaces: [],
+    },
+  };
+
+  private cloudBridgeEnvironmentCache: BridgeCacheRecord<BambuCloudBridgeEnvironment> =
+    {
+      fetchedAt: 0,
+      value: {
+        connectInstalled: false,
+        networkPluginInstalled: false,
+        sessionCount: 0,
+        sessions: [],
+        studioInstalled: false,
+      },
+    };
+
   private readonly shellActions?: ShellActions;
 
   private state: PersistedState;
@@ -816,6 +894,17 @@ export class CompanionRuntime extends EventEmitter {
     this.shellActions = options.shellActions;
     this.state = this.loadState();
     this.localBridgeInventory = inspectLocalBridgeInventory();
+    this.localBridgeInventoryCache = {
+      fetchedAt: Date.now(),
+      value: this.localBridgeInventory,
+    };
+    this.cloudBridgeEnvironmentCache = {
+      fetchedAt: Date.now(),
+      value: inspectBambuCloudBridgeEnvironment({
+        inventory: this.localBridgeInventory,
+      }),
+    };
+    this.migrateSavedPrintersToCloudBridge();
     if (this.options.updateChecksEnabled !== false) {
       this.armUpdateChecks();
     }
@@ -859,6 +948,55 @@ export class CompanionRuntime extends EventEmitter {
     return this.bridgeState.baseUrl;
   }
 
+  private preferredCloudConnectionMode(): CompanionPrinterInput["connectionMode"] {
+    const cloudBridge = this.readCloudBridgeEnvironment();
+    return cloudBridge.connectInstalled ? "bambu-connect" : "cloud";
+  }
+
+  private migrateSavedPrintersToCloudBridge() {
+    const cloudBridge = this.readCloudBridgeEnvironment();
+    if (
+      cloudBridge.sessionCount === 0 &&
+      !desktopBridgeHandoffReady(cloudBridge)
+    ) {
+      return;
+    }
+
+    let changed = false;
+    const preferredMode = this.preferredCloudConnectionMode();
+    this.state.printers = this.state.printers.map((printer) => {
+      if (
+        printer.connectionMode === "cloud" ||
+        printer.connectionMode === "bambu-connect"
+      ) {
+        return printer;
+      }
+
+      changed = true;
+      return {
+        ...printer,
+        connectionMode: preferredMode,
+        notes:
+          printer.notes.trim() ||
+          "Migrated to the Companion desktop bridge workflow.",
+        updatedAt: nowIso(),
+      };
+    });
+
+    if (changed) {
+      mkdirSync(dirname(this.options.stateFile), { recursive: true });
+      writeFileSync(this.options.stateFile, JSON.stringify(this.state, null, 2));
+      this.logger.info(
+        "Migrated saved Companion printers to the desktop bridge workflow.",
+      );
+    }
+  }
+
+  private invalidateBridgeCaches() {
+    this.localBridgeInventoryCache.fetchedAt = 0;
+    this.cloudBridgeEnvironmentCache.fetchedAt = 0;
+  }
+
   async createPrinter(
     input: CompanionPrinterInput,
   ): Promise<CompanionSnapshot> {
@@ -888,11 +1026,12 @@ export class CompanionRuntime extends EventEmitter {
       printerId,
       normalizedInput.streamId?.trim() || null,
     );
+    this.invalidateBridgeCaches();
     this.persistState();
     this.logger.info(
       `Saved printer ${normalizedInput.name.trim()} for Companion.`,
     );
-    return this.getSnapshot();
+    return this.getSnapshot(true);
   }
 
   async createStream(input: CompanionStreamInput): Promise<CompanionSnapshot> {
@@ -958,35 +1097,43 @@ export class CompanionRuntime extends EventEmitter {
     };
   }
 
-  getCapabilitySummary(): {
+  getCapabilitySummary(input?: {
+    bridgeInventory?: LocalBridgeInventory;
+    cloudBridge?: BambuCloudBridgeEnvironment;
+    printers?: CompanionPrinter[];
+    streams?: CompanionStream[];
+  }): {
     capabilities: CompanionCapabilityFlags;
     capabilityNotes: CompanionCapabilityNotes;
   } {
-    const bridgeInventory = this.readLocalBridgeInventory();
-    const cloudBridge = inspectBambuCloudBridgeEnvironment();
-    const printers = this.listPrinters();
-    const streams = this.listStreams();
+    const bridgeInventory = input?.bridgeInventory ?? this.readLocalBridgeInventory();
+    const cloudBridge =
+      input?.cloudBridge ??
+      this.readCloudBridgeEnvironment(false, bridgeInventory);
+    const printers = input?.printers ?? this.listPrinters(cloudBridge);
+    const streams = input?.streams ?? this.listStreams();
     const telemetryReady = printers.some(
       (printer) => printer.capabilities.telemetry === "available",
     );
-    const streamReady = this.state.streams.some(
-      (stream) =>
-        Boolean(this.getStreamBridgePaths(stream).mjpegPath) ||
-        Boolean(this.getStreamBridgePaths(stream).snapshotPath),
+    const amsReady = printers.some(
+      (printer) => printer.capabilities.ams === "available",
     );
-    const nativeCameraReady = this.state.printers.some((printer) =>
-      Boolean(resolvePrinterCameraBridgeSource(this.toPrinterInput(printer))),
-    );
-    const needsRestream = this.state.streams.some(
-      (stream) =>
-        (stream.sourceKind === "rtsp" ||
-          stream.sourceKind === "bambu-native") &&
-        !this.resolveStoredStreamCameraSource(stream),
-    );
-    const localControlPrinter = printers.some(
-      (printer) =>
-        printer.connectionMode === "developer" ||
-        hasLocalAccess(this.toPrinterInput(this.getStoredPrinter(printer.id)!)),
+    const cameraReady =
+      printers.some((printer) => printer.capabilities.camera === "available") ||
+      streams.some(
+        (stream) => Boolean(stream.mjpegPath) || Boolean(stream.snapshotPath),
+      );
+    const needsRestream =
+      printers.some(
+        (printer) => printer.capabilities.camera === "requires_restream",
+      ) ||
+      this.state.streams.some(
+        (stream) =>
+          (stream.sourceKind === "rtsp" || stream.sourceKind === "bambu-native") &&
+          !this.resolveStoredStreamCameraSource(stream),
+      );
+    const controlsReady = printers.some(
+      (printer) => printer.capabilities.controls === "available",
     );
     const cloudBridgePrinter = printers.some((printer) =>
       ["cloud", "bambu-connect"].includes(printer.connectionMode),
@@ -996,6 +1143,9 @@ export class CompanionRuntime extends EventEmitter {
       printers.some((printer) =>
         ["cloud", "bambu-connect"].includes(printer.connectionMode),
       );
+    const fileUploadReady = printers.some(
+      (printer) => printer.capabilities.fileUpload === "available",
+    );
     const sliceBridgeReady = printers.some(
       (printer) => printer.capabilities.slicingAssist === "available",
     );
@@ -1003,79 +1153,77 @@ export class CompanionRuntime extends EventEmitter {
       (surface) => surface.status !== "missing",
     );
     const discoveredDesktopPrinters = bridgeInventory.printers.length;
+    const hasPrinters = printers.length > 0;
 
     return {
       capabilities: {
-        ams: telemetryReady
+        ams: amsReady
           ? "available"
-          : cloudBridgePrinter && cloudBridge.sessionCount > 0
-            ? "available"
-            : printers.length > 0
+          : hasPrinters
               ? "requires_setup"
               : "unavailable",
-        camera:
-          streamReady ||
-          nativeCameraReady ||
-          (cloudBridgePrinter &&
-            cloudBridge.sessionCount > 0 &&
-            cameraBridgeReady())
-            ? "available"
-            : needsRestream
+        camera: cameraReady
+          ? "available"
+          : needsRestream
               ? "requires_restream"
-              : streams.length > 0 || printers.length > 0
+              : hasPrinters
                 ? "requires_setup"
                 : "unavailable",
-        controls: localControlPrinter ? "available" : "requires_developer_mode",
+        controls: controlsReady
+          ? "available"
+          : cloudBridgePrinter
+            ? "unsupported"
+            : "unavailable",
         discovery: "available",
-        fileUpload:
-          localControlPrinter || desktopHandoffPrinter
-            ? "available"
-            : "requires_setup",
+        fileUpload: fileUploadReady
+          ? "available"
+          : hasPrinters
+            ? "requires_setup"
+            : "unavailable",
         slicingAssist: sliceBridgeReady
           ? "available"
-          : printers.length > 0
+          : hasPrinters
             ? "requires_setup"
             : "unavailable",
         telemetry: telemetryReady
           ? "available"
-          : cloudBridgePrinter && cloudBridge.sessionCount > 0
-            ? "available"
-            : printers.length > 0
+          : hasPrinters
               ? "requires_setup"
               : "unavailable",
       },
       capabilityNotes: {
         ams:
           cloudBridgePrinter && cloudBridge.sessionCount > 0
-            ? "Cloud-mode AMS state now rides on the signed-in Bambu desktop report stream instead of a saved LAN access code."
-            : "AMS state rides on the same local telemetry path as the printer report.",
-        camera:
-          streamReady || nativeCameraReady
-            ? "Companion can already expose at least one live browser-safe camera feed through a direct stream or native bridge."
-            : cloudBridgePrinter && cloudBridge.sessionCount > 0
-              ? "Companion can auto-bridge native Bambu camera feeds for saved cloud-mode printers when the desktop bridge is signed in and this machine can also reach the printer on the same local network."
-              : "Use MJPEG, snapshot, or HLS sources directly, or save a supported RTSP/native Bambu source for the built-in camera bridge.",
-        controls: localControlPrinter
-          ? "At least one saved printer can still accept direct local commands from Companion."
-          : "Companion focuses on cloud telemetry, camera, and desktop job handoff. Direct machine controls stay on the BambuView server's LAN and Developer workflows.",
+            ? "AMS status is pulled automatically from the signed-in Bambu desktop bridge for saved printers on this machine."
+            : "Save or import a printer, then sign into Bambu Connect or Bambu Studio on this machine so Companion can read AMS status automatically.",
+        camera: cameraReady
+          ? "Companion can already expose at least one live browser-safe camera feed through an automatic native bridge or an advanced source."
+          : cloudBridgePrinter && cloudBridge.sessionCount > 0
+            ? "Companion will auto-bridge native Bambu camera feeds for saved printers whenever the signed-in desktop bridge and local camera reachability are both available."
+            : "Save a printer first, then Companion will prefer the automatic native Bambu path. Use Advanced Sources only for Frigate, RTSP, snapshot, or HLS overrides.",
+        controls: controlsReady
+          ? "A saved local printer profile is still available for direct Companion-side controls."
+          : "Companion is focused on desktop bridge telemetry, camera, and file handoff. Direct machine controls remain server-managed in BambuView.",
         discovery:
           detectedDesktopSurfaces.length > 0
             ? `Companion can inspect ${detectedDesktopSurfaces.length} local bridge surface${detectedDesktopSurfaces.length === 1 ? "" : "s"} and surface ${discoveredDesktopPrinters} desktop printer profile${discoveredDesktopPrinters === 1 ? "" : "s"} when they are available.`
             : "Companion can inspect supported local Bambu desktop surfaces and still supports manual cloud printer profiles.",
-        fileUpload: localControlPrinter
-          ? "Developer Mode printers can accept direct FTPS upload and start-print handoff."
+        fileUpload: fileUploadReady && !cloudBridgePrinter
+          ? "At least one saved local printer profile can already accept direct upload from Companion."
           : desktopHandoffPrinter
             ? `Saved cloud-mode printers can use ${desktopBridgeHandoffLabel(cloudBridge)} on this machine for desktop file handoff.`
             : cloudBridgePrinter
               ? "Install or sign into Bambu Connect or Bambu Studio on this machine to unlock one-click desktop handoff for the saved cloud-mode printers."
               : "Add a cloud printer to unlock desktop bridge send workflows.",
-        slicingAssist: sliceBridgeReady
+        slicingAssist: sliceBridgeReady && !cloudBridgePrinter
+          ? "Prepared jobs can already route through at least one saved local printer profile."
+          : sliceBridgeReady
           ? "Companion can already receive prepared jobs from BambuView and route them through direct upload or desktop bridge handoff."
           : "Add a cloud printer to unlock Companion-assisted desktop handoff workflows.",
         telemetry:
           cloudBridgePrinter && cloudBridge.sessionCount > 0
             ? "Live telemetry is available for saved cloud-mode printers through the signed-in Bambu desktop bridge on this machine."
-            : "Live telemetry is available for any saved printer profile that includes hostname, serial number, and LAN access code on this machine.",
+            : "Save or import a printer, then sign into Bambu Connect or Bambu Studio on this machine so Companion can read live telemetry automatically.",
       },
     };
   }
@@ -1114,18 +1262,32 @@ export class CompanionRuntime extends EventEmitter {
       ),
     ]);
 
-    return mergeDiscoveryResults(lan, cloud, this.readLocalBridgeInventory());
+    return mergeDiscoveryResults(lan, cloud, this.readLocalBridgeInventory(true));
   }
 
-  getHealth(): CompanionHealthResponse {
-    const { capabilities, capabilityNotes } = this.getCapabilitySummary();
-    const bridgeInventory = this.readLocalBridgeInventory();
+  getHealth(input?: {
+    bridgeInventory?: LocalBridgeInventory;
+    cloudBridge?: BambuCloudBridgeEnvironment;
+    printers?: CompanionPrinter[];
+    streams?: CompanionStream[];
+  }): CompanionHealthResponse {
+    const bridgeInventory = input?.bridgeInventory ?? this.readLocalBridgeInventory();
+    const cloudBridge =
+      input?.cloudBridge ??
+      this.readCloudBridgeEnvironment(false, bridgeInventory);
+    const printers = input?.printers ?? this.listPrinters(cloudBridge);
+    const streams = input?.streams ?? this.listStreams();
+    const { capabilities, capabilityNotes } = this.getCapabilitySummary({
+      bridgeInventory,
+      cloudBridge,
+      printers,
+      streams,
+    });
     const warnings = [
       this.bridgeState.errorMessage,
       !this.state.pairing.paired
         ? "Companion is not paired with a BambuView server yet."
         : null,
-      this.listStreams().length === 0 ? "No streams are configured yet." : null,
     ].filter((value): value is string => Boolean(value));
 
     return {
@@ -1150,14 +1312,27 @@ export class CompanionRuntime extends EventEmitter {
     };
   }
 
-  getSnapshot(): CompanionSnapshot {
+  getSnapshot(forceRefresh = false): CompanionSnapshot {
+    const bridgeInventory = this.readLocalBridgeInventory(forceRefresh);
+    const cloudBridge = this.readCloudBridgeEnvironment(
+      forceRefresh,
+      bridgeInventory,
+    );
+    const printers = this.listPrinters(cloudBridge);
+    const streams = this.listStreams();
+
     return {
-      health: this.getHealth(),
+      health: this.getHealth({
+        bridgeInventory,
+        cloudBridge,
+        printers,
+        streams,
+      }),
       logs: this.logger.list(),
       pairing: { ...this.state.pairing },
-      printers: this.listPrinters(),
+      printers,
       settings: { ...this.state.settings },
-      streams: this.listStreams(),
+      streams,
       update: { ...this.updateState },
     };
   }
@@ -1965,8 +2140,9 @@ export class CompanionRuntime extends EventEmitter {
       printerId,
       normalizedInput.streamId?.trim() || null,
     );
+    this.invalidateBridgeCaches();
     this.persistState();
-    return this.getSnapshot();
+    return this.getSnapshot(true);
   }
 
   async updateStream(
@@ -1996,16 +2172,44 @@ export class CompanionRuntime extends EventEmitter {
     return this.getSnapshot();
   }
 
-  private emitSnapshot() {
-    this.emit("snapshot", this.getSnapshot());
+  private emitSnapshot(forceRefresh = false) {
+    this.emit("snapshot", this.getSnapshot(forceRefresh));
   }
 
   private readLocalBridgeInventory(force = false): LocalBridgeInventory {
-    if (force || this.localBridgeInventory.surfaces.length === 0) {
+    if (
+      force ||
+      this.localBridgeInventoryCache.value.surfaces.length === 0 ||
+      Date.now() - this.localBridgeInventoryCache.fetchedAt > BRIDGE_CACHE_TTL_MS
+    ) {
       this.localBridgeInventory = inspectLocalBridgeInventory();
+      this.localBridgeInventoryCache = {
+        fetchedAt: Date.now(),
+        value: this.localBridgeInventory,
+      };
     }
 
-    return this.localBridgeInventory;
+    return this.localBridgeInventoryCache.value;
+  }
+
+  private readCloudBridgeEnvironment(
+    force = false,
+    bridgeInventory = this.readLocalBridgeInventory(force),
+  ): BambuCloudBridgeEnvironment {
+    if (
+      force ||
+      Date.now() - this.cloudBridgeEnvironmentCache.fetchedAt >
+        BRIDGE_CACHE_TTL_MS
+    ) {
+      this.cloudBridgeEnvironmentCache = {
+        fetchedAt: Date.now(),
+        value: inspectBambuCloudBridgeEnvironment({
+          inventory: bridgeInventory,
+        }),
+      };
+    }
+
+    return this.cloudBridgeEnvironmentCache.value;
   }
 
   private async resolveStoredPrinterCameraSource(
@@ -2034,8 +2238,9 @@ export class CompanionRuntime extends EventEmitter {
     });
   }
 
-  private listPrinters(): CompanionPrinter[] {
-    const cloudBridge = inspectBambuCloudBridgeEnvironment();
+  private listPrinters(
+    cloudBridge = this.readCloudBridgeEnvironment(),
+  ): CompanionPrinter[] {
 
     return this.state.printers.map((printer) => {
       const linkedStream = this.getLinkedStreamForPrinter(printer);
@@ -2268,12 +2473,12 @@ export class CompanionRuntime extends EventEmitter {
   private async hydrateCloudPrinterInput(
     input: CompanionPrinterInput,
   ): Promise<CompanionPrinterInput> {
-    if (
-      input.connectionMode !== "cloud" &&
-      input.connectionMode !== "bambu-connect"
-    ) {
-      return input;
-    }
+    const preferredMode = this.preferredCloudConnectionMode();
+    const normalizedInput: CompanionPrinterInput = {
+      ...input,
+      connectionMode:
+        input.connectionMode === "bambu-connect" ? "bambu-connect" : preferredMode,
+    };
 
     try {
       const discovery = await discoverBambuCloudPrinters({
@@ -2297,16 +2502,17 @@ export class CompanionRuntime extends EventEmitter {
       });
 
       if (!match) {
-        return input;
+        return normalizedInput;
       }
 
       return {
-        ...input,
-        hostname: input.hostname.trim() || match.hostname,
-        serial: input.serial.trim() || match.serial,
+        ...normalizedInput,
+        connectionMode: match.connectionMode,
+        hostname: normalizedInput.hostname.trim() || match.hostname,
+        serial: normalizedInput.serial.trim() || match.serial,
       };
     } catch {
-      return input;
+      return normalizedInput;
     }
   }
 

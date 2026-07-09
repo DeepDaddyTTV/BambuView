@@ -1,6 +1,6 @@
 {
   "name": "@bambuview/desktop",
-  "version": "0.0.49",
+  "version": "0.0.50",
   "description": "Native desktop wrapper for the self-hosted BambuView web app.",
   "desktopName": "bambuview",
   "author": {

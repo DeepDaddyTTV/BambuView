@@ -1,6 +1,6 @@
 import { Menu, Tray, nativeImage } from "electron";
 
-import type { CompanionStatusTone } from "@bambuview/contracts";
+import type { CompanionSnapshot, CompanionStatusTone } from "@bambuview/contracts";
 
 import { CompanionRuntime } from "./runtime.js";
 
@@ -30,8 +30,8 @@ export function createCompanionTray(
 ) {
   const tray = new Tray(buildIcon(runtime.getHealth().status));
 
-  const render = () => {
-    const health = runtime.getHealth();
+  const render = (snapshot?: CompanionSnapshot) => {
+    const health = snapshot?.health ?? runtime.getHealth();
     tray.setImage(buildIcon(health.status));
     tray.setToolTip(`BambuView Companion • ${health.status}`);
     tray.setContextMenu(

@@ -36,7 +36,10 @@ import {
   parseTelemetry,
   shiftMqttPacket,
 } from "./bambu.js";
-import { inspectLocalBridgeInventory } from "./bridge-surfaces.js";
+import {
+  inspectLocalBridgeInventory,
+  type LocalBridgeInventory,
+} from "./bridge-surfaces.js";
 
 const CLOUD_API_TIMEOUT_MS = 7_000;
 const CLOUD_MQTT_PORT = 8883;
@@ -624,8 +627,10 @@ function scanDesktopSessions(): BambuCloudSessionCandidate[] {
   );
 }
 
-export function inspectBambuCloudBridgeEnvironment(): BambuCloudBridgeEnvironment {
-  const inventory = inspectLocalBridgeInventory();
+export function inspectBambuCloudBridgeEnvironment(input?: {
+  inventory?: LocalBridgeInventory;
+}): BambuCloudBridgeEnvironment {
+  const inventory = input?.inventory ?? inspectLocalBridgeInventory();
   const connectInstalled = inventory.surfaces.some(
     (surface) =>
       surface.kind === "bambu-connect" && surface.status !== "missing",
@@ -1045,7 +1050,10 @@ export async function discoverBambuCloudPrinters(
             handoffReady,
             name: device.label,
           }),
-          connectionMode: "cloud",
+          connectionMode:
+            candidate.sourceKind === "bambu-connect"
+              ? "bambu-connect"
+              : "cloud",
           createdAt: attemptedAt,
           hostname: hostMatch?.hostname ?? "",
           id: `cloud:${device.serial}`,

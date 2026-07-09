@@ -299,7 +299,9 @@ function registerIpc() {
   ipcMain.handle(companionChannels.checkForUpdates, () =>
     runtime.checkForUpdates(),
   );
-  ipcMain.handle(companionChannels.getSnapshot, () => runtime.getSnapshot());
+  ipcMain.handle(companionChannels.getSnapshot, (_event, forceRefresh) =>
+    runtime.getSnapshot(Boolean(forceRefresh)),
+  );
   ipcMain.handle(companionChannels.saveSettings, (_event, input) =>
     runtime.saveSettings(input),
   );

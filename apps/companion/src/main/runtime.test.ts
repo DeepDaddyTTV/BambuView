@@ -514,7 +514,7 @@ describe("companion runtime", () => {
     expect(result.printers).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          connectionMode: "cloud",
+          connectionMode: "bambu-connect",
           name: "Signed In Printer",
           serial: "SERIAL-CLOUD-ACCESS-ONLY",
         }),
@@ -522,7 +522,7 @@ describe("companion runtime", () => {
     );
   });
 
-  it("keeps LAN discoveries alongside cloud bridge discoveries", async () => {
+  it("prefers cloud bridge discoveries over duplicate LAN records", async () => {
     const runtime = createRuntime();
     const attemptedAt = new Date().toISOString();
 
@@ -603,17 +603,13 @@ describe("companion runtime", () => {
 
     const result = await runtime.getDiscoveryResult();
 
-    expect(result.printers).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          connectionMode: "lan",
-          serial: "P1S-SERIAL-001",
-        }),
-        expect.objectContaining({
-          connectionMode: "cloud",
-          serial: "P1S-SERIAL-001",
-        }),
-      ]),
+    expect(result.printers).toHaveLength(1);
+    expect(result.printers[0]).toEqual(
+      expect.objectContaining({
+        connectionMode: "cloud",
+        hostname: "forge.local",
+        serial: "P1S-SERIAL-001",
+      }),
     );
     expect(result.instructions).toEqual(
       expect.arrayContaining(["LAN instruction", "Cloud instruction"]),
@@ -695,7 +691,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.49-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.50-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify([
@@ -707,10 +703,10 @@ describe("companion runtime", () => {
               },
             ],
             html_url:
-              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.49",
-            name: "BVCompanion v0.0.49 Alpha",
+              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.50",
+            name: "BVCompanion v0.0.50 Alpha",
             prerelease: true,
-            tag_name: "bvcompanion-v0.0.49",
+            tag_name: "bvcompanion-v0.0.50",
           },
         ]),
         {
@@ -724,8 +720,8 @@ describe("companion runtime", () => {
     const snapshot = await runtime.checkForUpdates();
 
     expect(snapshot.update.available).toBe(true);
-    expect(snapshot.update.latestVersion).toBe("0.0.49");
-    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.49");
+    expect(snapshot.update.latestVersion).toBe("0.0.50");
+    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.50");
   });
 
   it("downloads and opens the latest Companion installer", async () => {
@@ -764,7 +760,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.49-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.50-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async (input) => {
       const url = String(input);
       if (url.includes("/releases?per_page=20")) {
@@ -778,10 +774,10 @@ describe("companion runtime", () => {
                 },
               ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.49",
-              name: "BVCompanion v0.0.49 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.50",
+              name: "BVCompanion v0.0.50 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.49",
+              tag_name: "bvcompanion-v0.0.50",
             },
           ]),
           {

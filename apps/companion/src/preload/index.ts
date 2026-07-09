@@ -34,7 +34,8 @@ const api: CompanionDesktopApi = {
   deleteStream: (streamId) =>
     invoke(companionChannels.deleteStream, streamId),
   discoverPrinters: () => invoke(companionChannels.discoverPrinters),
-  getSnapshot: () => invoke(companionChannels.getSnapshot),
+  getSnapshot: (forceRefresh) =>
+    invoke(companionChannels.getSnapshot, forceRefresh),
   handleFileHandoff: (printerId, input) =>
     invoke(companionChannels.fileHandoff, printerId, input),
   openExternal: (url) => invoke(companionChannels.openExternal, url),
