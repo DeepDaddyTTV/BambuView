@@ -16,6 +16,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { COMPANION_APP_NAME } from "@bambuview/contracts";
 
 import { createBridgeServer } from "./bridge";
+import * as bambuModule from "./bambu";
+import * as cloudModule from "./bambu-cloud";
 import { CompanionLogger } from "./logger";
 import { findAvailablePort } from "./ports";
 import { CompanionRuntime } from "./runtime";
@@ -31,6 +33,7 @@ afterEach(() => {
 
   globalThis.fetch = originalFetch;
   process.env.HOME = originalHome;
+  vi.restoreAllMocks();
 });
 
 function createRuntime(
@@ -204,7 +207,10 @@ describe("companion runtime", () => {
       host: "192.168.50.163",
       port: 42000,
     });
-    await runtime.applyPortConflict();
+    await runtime.applyBridgeListening(
+      false,
+      "Port 42000 is already in use on 192.168.50.163.",
+    );
 
     await runtime.resetPairing({
       resetBridgeSettings: true,
@@ -455,6 +461,165 @@ describe("companion runtime", () => {
     expect(snapshot.printers[0].capabilities.fileUpload).toBe("available");
   });
 
+  it("accepts an active desktop session even when only the access token is stored", async () => {
+    const runtime = createRuntime();
+    const homeDir = mkdtempSync(path.join(os.tmpdir(), "bambuview-home-"));
+    tempDirs.push(homeDir);
+    process.env.HOME = homeDir;
+
+    vi.spyOn(bambuModule, "discoverBambuPrinters").mockResolvedValue({
+      attemptedAt: new Date().toISOString(),
+      bridgeSources: [],
+      detail: "No printers advertised themselves on the LAN during this pass.",
+      instructions: [],
+      printers: [],
+      supported: true,
+    });
+
+    createDesktopSession(homeDir, "Bambu Connect", {
+      accessToken: "desktop-access-token-only",
+      accessTokenExpiresAt: Math.floor(Date.now() / 1000) + 3600,
+      userId: "desktop-user-token-only",
+    });
+
+    globalThis.fetch = (async (input) => {
+      const url = String(input);
+      if (url.includes("/v1/iot-service/api/user/print")) {
+        return new Response(
+          JSON.stringify({
+            devices: [
+              {
+                dev_access_code: "EFGH5678",
+                dev_id: "SERIAL-CLOUD-ACCESS-ONLY",
+                dev_name: "Signed In Printer",
+                dev_online: 1,
+                dev_product_name: "P1S",
+              },
+            ],
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+            },
+            status: 200,
+          },
+        );
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as typeof fetch;
+
+    const result = await runtime.getDiscoveryResult();
+
+    expect(result.printers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          connectionMode: "cloud",
+          name: "Signed In Printer",
+          serial: "SERIAL-CLOUD-ACCESS-ONLY",
+        }),
+      ]),
+    );
+  });
+
+  it("keeps LAN discoveries alongside cloud bridge discoveries", async () => {
+    const runtime = createRuntime();
+    const attemptedAt = new Date().toISOString();
+
+    vi.spyOn(bambuModule, "discoverBambuPrinters").mockResolvedValue({
+      attemptedAt,
+      bridgeSources: [],
+      detail: "LAN discovery found one printer.",
+      instructions: ["LAN instruction"],
+      printers: [
+        {
+          accessCodeSet: false,
+          capabilities: {
+            ams: "requires_setup",
+            camera: "requires_setup",
+            controls: "requires_developer_mode",
+            discovery: "available",
+            fileUpload: "requires_developer_mode",
+            slicingAssist: "requires_setup",
+            telemetry: "requires_setup",
+          },
+          capabilityNotes: {
+            discovery: "Discovered automatically over LAN.",
+          },
+          connectionMode: "lan",
+          createdAt: attemptedAt,
+          hostname: "forge.local",
+          id: "lan:forge",
+          lastSeenAt: attemptedAt,
+          lastTestedAt: null,
+          model: "P1S",
+          name: "The Forge",
+          notes: "LAN discovery",
+          provider: "bambu-lab",
+          serial: "P1S-SERIAL-001",
+          streamId: null,
+          updatedAt: attemptedAt,
+        },
+      ],
+      supported: true,
+    });
+    vi.spyOn(cloudModule, "discoverBambuCloudPrinters").mockResolvedValue({
+      attemptedAt,
+      bridgeSources: [],
+      detail: "Cloud discovery found one printer.",
+      instructions: ["Cloud instruction"],
+      printers: [
+        {
+          accessCodeSet: true,
+          capabilities: {
+            ams: "available",
+            camera: "available",
+            controls: "unavailable",
+            discovery: "available",
+            fileUpload: "available",
+            slicingAssist: "available",
+            telemetry: "available",
+          },
+          capabilityNotes: {
+            discovery: "Discovered from the signed-in desktop bridge.",
+          },
+          connectionMode: "cloud",
+          createdAt: attemptedAt,
+          hostname: "forge.local",
+          id: "cloud:forge",
+          lastSeenAt: attemptedAt,
+          lastTestedAt: null,
+          model: "P1S",
+          name: "The Forge",
+          notes: "Cloud discovery",
+          provider: "bambu-lab",
+          serial: "P1S-SERIAL-001",
+          streamId: null,
+          updatedAt: attemptedAt,
+        },
+      ],
+      supported: true,
+    });
+
+    const result = await runtime.getDiscoveryResult();
+
+    expect(result.printers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          connectionMode: "lan",
+          serial: "P1S-SERIAL-001",
+        }),
+        expect.objectContaining({
+          connectionMode: "cloud",
+          serial: "P1S-SERIAL-001",
+        }),
+      ]),
+    );
+    expect(result.instructions).toEqual(
+      expect.arrayContaining(["LAN instruction", "Cloud instruction"]),
+    );
+  });
+
   it("uses the detected desktop bridge for cloud file handoff when Bambu Connect is absent", async () => {
     const shellActions = {
       openExternal: vi.fn(async () => {}),
@@ -530,7 +695,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.47-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.48-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify([
@@ -542,10 +707,10 @@ describe("companion runtime", () => {
               },
             ],
             html_url:
-              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.47",
-            name: "BVCompanion v0.0.47 Alpha",
+              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.48",
+            name: "BVCompanion v0.0.48 Alpha",
             prerelease: true,
-            tag_name: "bvcompanion-v0.0.47",
+            tag_name: "bvcompanion-v0.0.48",
           },
         ]),
         {
@@ -559,8 +724,8 @@ describe("companion runtime", () => {
     const snapshot = await runtime.checkForUpdates();
 
     expect(snapshot.update.available).toBe(true);
-    expect(snapshot.update.latestVersion).toBe("0.0.47");
-    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.47");
+    expect(snapshot.update.latestVersion).toBe("0.0.48");
+    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.48");
   });
 
   it("downloads and opens the latest Companion installer", async () => {
@@ -599,7 +764,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.47-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.48-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async (input) => {
       const url = String(input);
       if (url.includes("/releases?per_page=20")) {
@@ -613,10 +778,10 @@ describe("companion runtime", () => {
                 },
               ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.47",
-              name: "BVCompanion v0.0.47 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.48",
+              name: "BVCompanion v0.0.48 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.47",
+              tag_name: "bvcompanion-v0.0.48",
             },
           ]),
           {

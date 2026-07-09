@@ -63,7 +63,7 @@ interface BambuCloudSessionCandidate {
   accessToken: string;
   location: string;
   refreshExpiresAt: number | null;
-  refreshToken: string;
+  refreshToken: string | null;
   region: string;
   sourceKind: BridgeSessionSurfaceKind;
   sourceLabel: string;
@@ -88,8 +88,8 @@ export function desktopBridgeHandoffReady(
 ): boolean {
   return Boolean(
     environment.connectInstalled ||
-      environment.networkPluginInstalled ||
-      environment.studioInstalled,
+    environment.networkPluginInstalled ||
+    environment.studioInstalled,
   );
 }
 
@@ -133,15 +133,17 @@ interface ResolvedBambuCloudPrinter {
 
 const cloudDeviceCache = new Map<
   string,
-  { devices: BambuCloudDeviceRecord[]; expiresAt: number; session: ResolvedBambuCloudSession }
+  {
+    devices: BambuCloudDeviceRecord[];
+    expiresAt: number;
+    session: ResolvedBambuCloudSession;
+  }
 >();
 
-let lanDiscoveryCache:
-  | {
-      expiresAt: number;
-      printers: CompanionPrinterDiscoveryResult["printers"];
-    }
-  | null = null;
+let lanDiscoveryCache: {
+  expiresAt: number;
+  printers: CompanionPrinterDiscoveryResult["printers"];
+} | null = null;
 
 function timeoutSignal(timeoutMs: number): AbortSignal {
   return AbortSignal.timeout(timeoutMs);
@@ -159,36 +161,38 @@ function dedupePaths(paths: string[]): string[] {
   return [...new Set(paths.map((candidate) => expandHome(candidate)))];
 }
 
+function desktopConfigLocations(home: string, names: string[]): string[] {
+  return names.flatMap((name) => [
+    path.join(home, "Library/Application Support", name),
+    path.join(home, "AppData/Roaming", name),
+    path.join(home, ".config", name),
+  ]);
+}
+
 function sessionSurfaceDefinitions(): SessionSurfaceDefinition[] {
   const home = os.homedir();
 
   return [
     {
-      configLocations: [
-        path.join(home, "Library/Application Support/Bambu Connect"),
-        path.join(home, "AppData/Roaming/Bambu Connect"),
-        path.join(home, ".config/Bambu Connect"),
-      ],
+      configLocations: desktopConfigLocations(home, [
+        "Bambu Connect",
+        "BambuConnect",
+      ]),
       kind: "bambu-connect",
       label: "Bambu Connect",
     },
     {
-      configLocations: [
-        path.join(home, "Library/Application Support/BambuStudio"),
-        path.join(home, "AppData/Roaming/BambuStudio"),
-        path.join(home, ".config/BambuStudio"),
-      ],
+      configLocations: desktopConfigLocations(home, [
+        "Bambu Studio",
+        "BambuStudio",
+      ]),
       kind: "bambu-studio",
       label: "Bambu Studio",
     },
     {
       configLocations: [
-        path.join(home, "Library/Application Support/BambuStudio"),
-        path.join(home, "AppData/Roaming/BambuStudio"),
-        path.join(home, ".config/BambuStudio"),
-        path.join(home, "Library/Application Support/OrcaSlicer"),
-        path.join(home, "AppData/Roaming/OrcaSlicer"),
-        path.join(home, ".config/OrcaSlicer"),
+        ...desktopConfigLocations(home, ["Bambu Studio", "BambuStudio"]),
+        ...desktopConfigLocations(home, ["OrcaSlicer", "Orca Slicer"]),
       ],
       kind: "network-plugin",
       label: "Bambu Network Plugin",
@@ -331,7 +335,7 @@ function maybeSessionCandidate(
 ): BambuCloudSessionCandidate | null {
   const accessToken = readString(record, ["access_token", "accessToken"]);
   const refreshToken = readString(record, ["refresh_token", "refreshToken"]);
-  if (!accessToken || !refreshToken) {
+  if (!accessToken) {
     return null;
   }
 
@@ -419,8 +423,10 @@ function sessionIsAccessValid(session: BambuCloudSessionCandidate): boolean {
     return true;
   }
 
-  return session.accessExpiresAt - Math.floor(Date.now() / 1000) >
-    SESSION_REFRESH_SLACK_SECONDS;
+  return (
+    session.accessExpiresAt - Math.floor(Date.now() / 1000) >
+    SESSION_REFRESH_SLACK_SECONDS
+  );
 }
 
 function sessionIsRefreshValid(session: BambuCloudSessionCandidate): boolean {
@@ -431,8 +437,10 @@ function sessionIsRefreshValid(session: BambuCloudSessionCandidate): boolean {
     return true;
   }
 
-  return session.refreshExpiresAt - Math.floor(Date.now() / 1000) >
-    SESSION_REFRESH_SLACK_SECONDS;
+  return (
+    session.refreshExpiresAt - Math.floor(Date.now() / 1000) >
+    SESSION_REFRESH_SLACK_SECONDS
+  );
 }
 
 function cloudApiHost(region: string): string {
@@ -452,7 +460,10 @@ function normalizeModel(value: string | null): string {
     return "Bambu Printer";
   }
 
-  return value.trim().replace(/^3dprinter[-_\s]*/i, "").replace(/-ams\d*$/i, "");
+  return value
+    .trim()
+    .replace(/^3dprinter[-_\s]*/i, "")
+    .replace(/-ams\d*$/i, "");
 }
 
 function normalizeSerial(value: string | null): string {
@@ -498,7 +509,10 @@ function capabilityEnvelope(input: {
 }
 
 function matchCloudDevice(
-  printer: Pick<CompanionPrinterInput, "hostname" | "model" | "name" | "serial">,
+  printer: Pick<
+    CompanionPrinterInput,
+    "hostname" | "model" | "name" | "serial"
+  >,
   devices: BambuCloudDeviceRecord[],
 ): BambuCloudDeviceRecord | null {
   const serial = normalizeSerial(printer.serial);
@@ -568,7 +582,10 @@ function scanDesktopSessions(): BambuCloudSessionCandidate[] {
           continue;
         }
 
-        if (!contents.includes("accessToken") && !contents.includes("access_token")) {
+        if (
+          !contents.includes("accessToken") &&
+          !contents.includes("access_token")
+        ) {
           continue;
         }
 
@@ -602,19 +619,24 @@ function scanDesktopSessions(): BambuCloudSessionCandidate[] {
     }
   }
 
-  return [...sessions.values()].sort((left, right) => right.updatedAt - left.updatedAt);
+  return [...sessions.values()].sort(
+    (left, right) => right.updatedAt - left.updatedAt,
+  );
 }
 
 export function inspectBambuCloudBridgeEnvironment(): BambuCloudBridgeEnvironment {
   const inventory = inspectLocalBridgeInventory();
   const connectInstalled = inventory.surfaces.some(
-    (surface) => surface.kind === "bambu-connect" && surface.status !== "missing",
+    (surface) =>
+      surface.kind === "bambu-connect" && surface.status !== "missing",
   );
   const studioInstalled = inventory.surfaces.some(
-    (surface) => surface.kind === "bambu-studio" && surface.status !== "missing",
+    (surface) =>
+      surface.kind === "bambu-studio" && surface.status !== "missing",
   );
   const networkPluginInstalled = inventory.surfaces.some(
-    (surface) => surface.kind === "network-plugin" && surface.status !== "missing",
+    (surface) =>
+      surface.kind === "network-plugin" && surface.status !== "missing",
   );
   const sessions = scanDesktopSessions();
 
@@ -634,19 +656,20 @@ async function ensureSessionUserId(
     return session as ResolvedBambuCloudSession;
   }
 
-  const response = await fetch(`${cloudApiHost(session.region)}/v1/user-service/my/profile`, {
-    headers: {
-      accept: "application/json",
-      authorization: `Bearer ${session.accessToken}`,
+  const response = await fetch(
+    `${cloudApiHost(session.region)}/v1/user-service/my/profile`,
+    {
+      headers: {
+        accept: "application/json",
+        authorization: `Bearer ${session.accessToken}`,
+      },
+      method: "GET",
+      signal: timeoutSignal(CLOUD_API_TIMEOUT_MS),
     },
-    method: "GET",
-    signal: timeoutSignal(CLOUD_API_TIMEOUT_MS),
-  });
+  );
 
   if (!response.ok) {
-    throw new Error(
-      `Bambu profile lookup returned HTTP ${response.status}.`,
-    );
+    throw new Error(`Bambu profile lookup returned HTTP ${response.status}.`);
   }
 
   const payload = (await response.json()) as Record<string, unknown>;
@@ -662,12 +685,16 @@ async function ensureSessionUserId(
     ) ?? null;
 
   if (!userId) {
-    throw new Error("The Bambu desktop session did not include a usable user id.");
+    throw new Error(
+      "The Bambu desktop session did not include a usable user id.",
+    );
   }
 
   return {
     ...session,
-    userEmail: session.userEmail ?? (typeof payload.account === "string" ? payload.account : null),
+    userEmail:
+      session.userEmail ??
+      (typeof payload.account === "string" ? payload.account : null),
     userId,
   };
 }
@@ -704,11 +731,13 @@ async function refreshSessionIfNeeded(
 
   const payload = (await response.json()) as Record<string, unknown>;
   const accessToken =
-    typeof payload.accessToken === "string" && payload.accessToken.trim().length > 0
+    typeof payload.accessToken === "string" &&
+    payload.accessToken.trim().length > 0
       ? payload.accessToken.trim()
       : session.accessToken;
   const refreshToken =
-    typeof payload.refreshToken === "string" && payload.refreshToken.trim().length > 0
+    typeof payload.refreshToken === "string" &&
+    payload.refreshToken.trim().length > 0
       ? payload.refreshToken.trim()
       : session.refreshToken;
   const nowEpoch = Math.floor(Date.now() / 1000);
@@ -728,7 +757,9 @@ async function refreshSessionIfNeeded(
   return {
     ...session,
     accessExpiresAt:
-      expiresIn && Number.isFinite(expiresIn) ? nowEpoch + expiresIn : session.accessExpiresAt,
+      expiresIn && Number.isFinite(expiresIn)
+        ? nowEpoch + expiresIn
+        : session.accessExpiresAt,
     accessToken,
     refreshExpiresAt:
       refreshExpiresIn && Number.isFinite(refreshExpiresIn)
@@ -793,9 +824,10 @@ function parseCloudDevices(payload: unknown): BambuCloudDeviceRecord[] {
   return devices;
 }
 
-async function fetchCloudDevices(
-  session: ResolvedBambuCloudSession,
-): Promise<{ devices: BambuCloudDeviceRecord[]; session: ResolvedBambuCloudSession }> {
+async function fetchCloudDevices(session: ResolvedBambuCloudSession): Promise<{
+  devices: BambuCloudDeviceRecord[];
+  session: ResolvedBambuCloudSession;
+}> {
   const cacheKey = `${session.sourceKind}:${session.userId}:${session.location}`;
   const cached = cloudDeviceCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
@@ -814,14 +846,17 @@ async function fetchCloudDevices(
   for (let attempt = 0; attempt < 2; attempt += 1) {
     for (const endpoint of endpoints) {
       try {
-        const response = await fetch(`${cloudApiHost(resolved.region)}${endpoint}`, {
-          headers: {
-            accept: "application/json",
-            authorization: `Bearer ${resolved.accessToken}`,
+        const response = await fetch(
+          `${cloudApiHost(resolved.region)}${endpoint}`,
+          {
+            headers: {
+              accept: "application/json",
+              authorization: `Bearer ${resolved.accessToken}`,
+            },
+            method: "GET",
+            signal: timeoutSignal(CLOUD_API_TIMEOUT_MS),
           },
-          method: "GET",
-          signal: timeoutSignal(CLOUD_API_TIMEOUT_MS),
-        });
+        );
 
         if (response.status === 401 && attempt === 0) {
           working = await refreshSessionIfNeeded(resolved);
@@ -844,7 +879,8 @@ async function fetchCloudDevices(
         });
         return { devices, session: resolved };
       } catch (error) {
-        lastError = error instanceof Error ? error : new Error("Device lookup failed.");
+        lastError =
+          error instanceof Error ? error : new Error("Device lookup failed.");
       }
     }
   }
@@ -880,19 +916,22 @@ async function resolveCloudPrinter(
     );
   }
 
-  let matched:
-    | {
-        device: BambuCloudDeviceRecord;
-        session: ResolvedBambuCloudSession;
-      }
-    | null = null;
+  let matched: {
+    device: BambuCloudDeviceRecord;
+    session: ResolvedBambuCloudSession;
+  } | null = null;
 
   for (const candidate of environment.sessions) {
     const preferred =
       printer.connectionMode === "bambu-connect"
         ? candidate.sourceKind === "bambu-connect"
         : true;
-    if (!preferred && environment.sessions.some((session) => session.sourceKind === "bambu-connect")) {
+    if (
+      !preferred &&
+      environment.sessions.some(
+        (session) => session.sourceKind === "bambu-connect",
+      )
+    ) {
       continue;
     }
 
@@ -918,7 +957,8 @@ async function resolveCloudPrinter(
     const match = discovered.find(
       (candidate) =>
         candidate.serial.trim().toUpperCase() === matched.device.serial ||
-        candidate.name.trim().toLowerCase() === matched.device.label.trim().toLowerCase(),
+        candidate.name.trim().toLowerCase() ===
+          matched.device.label.trim().toLowerCase(),
     );
     host = match?.hostname?.trim() || null;
   }
@@ -980,21 +1020,21 @@ export async function discoverBambuCloudPrinters(
         );
         const cameraReady = Boolean(
           cameraBridgeReady() &&
-            hostMatch?.hostname &&
-            device.accessCode &&
-            resolvePrinterCameraBridgeSource({
-              accessCode: device.accessCode,
-              connectionMode:
-                candidate.sourceKind === "bambu-connect"
-                  ? "bambu-connect"
-                  : "cloud",
-              hostname: hostMatch.hostname,
-              model: device.model,
-              name: device.label,
-              provider: "bambu-lab",
-              serial: device.serial,
-              streamId: null,
-            }),
+          hostMatch?.hostname &&
+          device.accessCode &&
+          resolvePrinterCameraBridgeSource({
+            accessCode: device.accessCode,
+            connectionMode:
+              candidate.sourceKind === "bambu-connect"
+                ? "bambu-connect"
+                : "cloud",
+            hostname: hostMatch.hostname,
+            model: device.model,
+            name: device.label,
+            provider: "bambu-lab",
+            serial: device.serial,
+            streamId: null,
+          }),
         );
 
         printersBySerial.set(device.serial, {
@@ -1190,7 +1230,9 @@ async function fetchCloudTelemetryPayload(
         if (parsed.type === 2) {
           const returnCode = parsed.packet[1];
           if (returnCode !== 0) {
-            fail("The Bambu cloud broker rejected the signed-in desktop session.");
+            fail(
+              "The Bambu cloud broker rejected the signed-in desktop session.",
+            );
             return;
           }
 
@@ -1254,7 +1296,9 @@ export async function testBambuCloudPrinter(
   try {
     const resolved = await resolveCloudPrinter(printer);
     const cameraSource = await resolveBambuCloudCameraSource(printer);
-    const cameraSupport = nativeBambuBridgeSupport(printer.model || resolved.device.model);
+    const cameraSupport = nativeBambuBridgeSupport(
+      printer.model || resolved.device.model,
+    );
     const handoffReady = desktopBridgeHandoffReady(resolved.environment);
     const handoffLabel = desktopBridgeHandoffLabel(resolved.environment);
 

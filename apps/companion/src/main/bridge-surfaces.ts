@@ -71,19 +71,26 @@ function dedupePaths(paths: string[]): string[] {
   return [...new Set(paths.map((candidate) => expandHome(candidate)))];
 }
 
+function desktopConfigLocations(home: string, names: string[]): string[] {
+  return names.flatMap((name) => [
+    path.join(home, "Library/Application Support", name),
+    path.join(home, "AppData/Roaming", name),
+    path.join(home, ".config", name),
+  ]);
+}
+
 function platformSurfaceDefinitions(): SurfaceDefinition[] {
   const home = os.homedir();
   const common = {
-    bambuConnectConfig: [
-      path.join(home, "Library/Application Support/Bambu Connect"),
-      path.join(home, "AppData/Roaming/Bambu Connect"),
-      path.join(home, ".config/Bambu Connect"),
-    ],
-    bambuStudioConfig: [
-      path.join(home, "Library/Application Support/BambuStudio"),
-      path.join(home, "AppData/Roaming/BambuStudio"),
-      path.join(home, ".config/BambuStudio"),
-    ],
+    bambuConnectConfig: desktopConfigLocations(home, [
+      "Bambu Connect",
+      "BambuConnect",
+    ]),
+    bambuStudioConfig: desktopConfigLocations(home, [
+      "Bambu Studio",
+      "BambuStudio",
+    ]),
+    orcaConfig: desktopConfigLocations(home, ["OrcaSlicer", "Orca Slicer"]),
   };
 
   const mac = process.platform === "darwin";
@@ -98,11 +105,13 @@ function platformSurfaceDefinitions(): SurfaceDefinition[] {
       detail:
         "Bambu Connect is the local desktop handoff path for secure job import workflows.",
       installLocations: mac
-        ? ["/Applications/Bambu Connect.app"]
+        ? ["/Applications/Bambu Connect.app", "/Applications/BambuConnect.app"]
         : win
           ? [
               path.join(programFiles, "Bambu Connect"),
+              path.join(programFiles, "BambuConnect"),
               path.join(programFilesX86, "Bambu Connect"),
+              path.join(programFilesX86, "BambuConnect"),
             ]
           : ["/opt/bambu-connect", "/usr/bin/bambu-connect"],
       kind: "bambu-connect",
@@ -113,11 +122,13 @@ function platformSurfaceDefinitions(): SurfaceDefinition[] {
       detail:
         "Bambu Studio can contribute saved printer profiles and desktop bridge files on the same machine.",
       installLocations: mac
-        ? ["/Applications/BambuStudio.app"]
+        ? ["/Applications/Bambu Studio.app", "/Applications/BambuStudio.app"]
         : win
           ? [
               path.join(programFiles, "Bambu Studio"),
+              path.join(programFiles, "BambuStudio"),
               path.join(programFilesX86, "Bambu Studio"),
+              path.join(programFilesX86, "BambuStudio"),
             ]
           : ["/opt/bambu-studio", "/usr/bin/bambu-studio"],
       kind: "bambu-studio",
@@ -126,15 +137,25 @@ function platformSurfaceDefinitions(): SurfaceDefinition[] {
     {
       configLocations: [
         ...common.bambuStudioConfig,
+        ...common.orcaConfig,
         ...(!mac && !win ? ["/opt/OrcaSlicer", "/usr/bin/orca-slicer"] : []),
         ...(mac
-          ? ["/Applications/BambuStudio.app/Contents/Resources"]
+          ? [
+              "/Applications/Bambu Studio.app/Contents/Resources",
+              "/Applications/BambuStudio.app/Contents/Resources",
+              "/Applications/OrcaSlicer.app/Contents/Resources",
+              "/Applications/Orca Slicer.app/Contents/Resources",
+            ]
           : win
             ? [
                 path.join(programFiles, "Bambu Studio"),
+                path.join(programFiles, "BambuStudio"),
                 path.join(programFilesX86, "Bambu Studio"),
+                path.join(programFilesX86, "BambuStudio"),
                 path.join(programFiles, "OrcaSlicer"),
                 path.join(programFilesX86, "OrcaSlicer"),
+                path.join(programFiles, "Orca Slicer"),
+                path.join(programFilesX86, "Orca Slicer"),
               ]
             : ["/opt/bambu-studio"]),
       ],
@@ -142,15 +163,21 @@ function platformSurfaceDefinitions(): SurfaceDefinition[] {
         "A local Bambu Network Plugin or libBambuSource build can expose additional camera and bridge surfaces on this machine.",
       installLocations: mac
         ? [
+            "/Applications/Bambu Studio.app/Contents/Resources",
             "/Applications/BambuStudio.app/Contents/Resources",
             "/Applications/OrcaSlicer.app/Contents/Resources",
+            "/Applications/Orca Slicer.app/Contents/Resources",
           ]
         : win
           ? [
               path.join(programFiles, "Bambu Studio"),
+              path.join(programFiles, "BambuStudio"),
               path.join(programFilesX86, "Bambu Studio"),
+              path.join(programFilesX86, "BambuStudio"),
               path.join(programFiles, "OrcaSlicer"),
               path.join(programFilesX86, "OrcaSlicer"),
+              path.join(programFiles, "Orca Slicer"),
+              path.join(programFilesX86, "Orca Slicer"),
             ]
           : ["/opt/bambu-studio", "/opt/OrcaSlicer", "/usr/lib/bambu-studio"],
       kind: "network-plugin",

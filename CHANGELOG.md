@@ -6,6 +6,18 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.48 - 2026-07-09
+
+### Bug Fixes & Stability
+
+- Broader Printer Discovery: Companion now keeps LAN-discovered printers and signed-in desktop-bridge printers in the same discovery pass, so one source no longer disappears when the other one is available.
+- Better Desktop Session Detection: existing Bambu Connect, Bambu Studio, and Orca-style desktop sessions are now easier for Companion to recognize, even when the local app only leaves an active access token behind.
+- Clearer Discovery Feedback: Companion import messaging now reflects that BambuView can find printers from the LAN or the trusted desktop bridge instead of implying discovery is LAN-only.
+
+### Improvements & What's New
+
+- Smoother Mixed-Mode Setup: BambuView is now better at surfacing both local-network printers and desktop bridge inventory together, which makes cloud-mode and LAN-mode testing much easier to compare during alpha setup.
+
 ## v0.0.47 - 2026-07-08
 
 ### Bug Fixes & Stability

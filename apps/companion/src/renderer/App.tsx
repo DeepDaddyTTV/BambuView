@@ -354,7 +354,10 @@ function printerReadiness(printer: CompanionSnapshot["printers"][number]) {
 }
 
 function printerHasSavedLocalDetails(
-  printer: Pick<CompanionSnapshot["printers"][number], "accessCodeSet" | "hostname" | "serial">,
+  printer: Pick<
+    CompanionSnapshot["printers"][number],
+    "accessCodeSet" | "hostname" | "serial"
+  >,
 ) {
   return (
     printer.hostname.trim().length > 0 ||
@@ -548,11 +551,11 @@ export function App() {
           ? parsePairServerUrl(next.pairing.serverUrl)
           : pairingClearedRemotely
             ? parsePairServerUrl(null)
-          : {
-              serverHost: current.serverHost,
-              serverPort: current.serverPort,
-              serverProtocol: current.serverProtocol,
-            };
+            : {
+                serverHost: current.serverHost,
+                serverPort: current.serverPort,
+                serverProtocol: current.serverProtocol,
+              };
 
         return {
           ...current,
@@ -630,9 +633,9 @@ export function App() {
     const existingPrinter =
       editingPrinterId === null || currentSnapshot === null
         ? null
-        : currentSnapshot.printers.find(
+        : (currentSnapshot.printers.find(
             (printer) => printer.id === editingPrinterId,
-          ) ?? null;
+          ) ?? null);
 
     const payload: CompanionPrinterInput = {
       ...printerForm,
@@ -988,8 +991,8 @@ export function App() {
                         setDiscoveryResult(result);
                         setSuccessMessage(
                           result.printers.length > 0
-                            ? `Found ${result.printers.length} Bambu printer${result.printers.length === 1 ? "" : "s"} on the LAN.`
-                            : "Discovery finished. No LAN-broadcasting Bambu printers answered this pass.",
+                            ? `Found ${result.printers.length} Bambu printer${result.printers.length === 1 ? "" : "s"} from the LAN or local desktop bridge.`
+                            : "Discovery finished. No LAN-broadcasting or desktop-bridge Bambu printers answered this pass.",
                         );
                       },
                     );
@@ -1020,7 +1023,9 @@ export function App() {
                             className="ghost-button"
                             onClick={() => {
                               setEditingPrinterId(null);
-                              setPrinterForm(printerInputFromDiscovery(printer));
+                              setPrinterForm(
+                                printerInputFromDiscovery(printer),
+                              );
                               setSuccessMessage(
                                 `${printer.name} is ready below. Save it now and Companion will use the desktop bridge for telemetry, camera, and send workflows.`,
                               );
@@ -1039,7 +1044,7 @@ export function App() {
                     ))
                   ) : (
                     <div className="empty-state">
-                      No cloud bridge printers were returned yet.
+                      No Bambu printers were returned yet.
                     </div>
                   )}
                 </div>
@@ -1099,7 +1104,11 @@ export function App() {
                   </span>
                 </div>
                 <div className="button-row">
-                  <button className="solid-button" disabled={busy} type="submit">
+                  <button
+                    className="solid-button"
+                    disabled={busy}
+                    type="submit"
+                  >
                     <Printer className="button-icon" />
                     {editingPrinterId ? "Update Printer" : "Save Printer"}
                   </button>
@@ -1502,7 +1511,9 @@ export function App() {
             </article>
 
             <article className="panel-card">
-              <div className="panel-card__title">Local Bambu Bridge Surfaces</div>
+              <div className="panel-card__title">
+                Local Bambu Bridge Surfaces
+              </div>
               <div className="stack-list">
                 {snapshot.health.bridgeSources.length === 0 ? (
                   <div className="empty-state">

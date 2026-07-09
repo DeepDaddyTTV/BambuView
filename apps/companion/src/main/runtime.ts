@@ -23,6 +23,7 @@ import type {
   CompanionPairingRequest,
   CompanionPairingState,
   CompanionPrinter,
+  CompanionPrinterDiscoveryResult,
   CompanionPrinterInput,
   CompanionPrinterCommandRequest,
   CompanionPrinterCommandResponse,
@@ -69,6 +70,7 @@ import {
 import {
   describeLocalControlsSetup,
   describeLocalTelemetrySetup,
+  discoverBambuPrinters,
   hasLocalAccess,
   runBambuPrinterCommand,
   sendBambuPrinterFile,
@@ -350,6 +352,95 @@ function formatPairingFetchError(serverUrl: string, error: unknown): string {
 
 function timeoutSignal(timeoutMs: number): AbortSignal {
   return AbortSignal.timeout(timeoutMs);
+}
+
+function discoveryPrinterKey(printer: CompanionPrinter): string {
+  const serial = printer.serial.trim().toUpperCase();
+  if (serial) {
+    return [
+      serial,
+      printer.connectionMode,
+      printer.hostname.trim().toLowerCase(),
+    ].join(":");
+  }
+
+  return [
+    printer.name.trim().toLowerCase(),
+    printer.model.trim().toLowerCase(),
+    printer.connectionMode,
+    printer.hostname.trim().toLowerCase(),
+  ].join(":");
+}
+
+function mergeDiscoveryResults(
+  lan: CompanionPrinterDiscoveryResult,
+  cloud: CompanionPrinterDiscoveryResult,
+  bridgeInventory: LocalBridgeInventory,
+): CompanionPrinterDiscoveryResult {
+  const printers = new Map<string, CompanionPrinter>();
+
+  for (const printer of [
+    ...cloud.printers,
+    ...bridgeInventory.printers,
+    ...lan.printers,
+  ]) {
+    printers.set(discoveryPrinterKey(printer), printer);
+  }
+
+  const bridgeSources = new Map(
+    [...cloud.bridgeSources, ...bridgeInventory.surfaces].map((surface) => [
+      surface.id,
+      surface,
+    ]),
+  );
+  const instructions = [
+    ...new Set([...lan.instructions, ...cloud.instructions]),
+  ];
+  const totalPrinters = printers.size;
+  const sawLanPrinters = lan.printers.length > 0;
+  const sawCloudPrinters = cloud.printers.length > 0;
+  const sawDesktopSurface = bridgeInventory.surfaces.some(
+    (surface) =>
+      surface.kind !== "camera-bridge" && surface.status !== "missing",
+  );
+
+  let detail = "";
+  if (sawLanPrinters && sawCloudPrinters) {
+    detail =
+      "Companion found Bambu printers from both the local LAN broadcast and the signed-in desktop bridge on this machine.";
+  } else if (sawCloudPrinters) {
+    detail = cloud.detail;
+  } else if (sawLanPrinters) {
+    detail = lan.detail;
+  } else if (sawDesktopSurface) {
+    detail =
+      "Companion detected local Bambu desktop bridge files on this machine, but no signed-in cloud printers or LAN-broadcasting printers answered this pass.";
+  } else if (!cloud.printers.length && cloud.detail) {
+    detail = `${cloud.detail} ${lan.detail}`.trim();
+  } else {
+    detail = lan.detail;
+  }
+
+  return {
+    attemptedAt:
+      cloud.attemptedAt > lan.attemptedAt ? cloud.attemptedAt : lan.attemptedAt,
+    bridgeSources: [...bridgeSources.values()],
+    detail,
+    instructions,
+    printers: [...printers.values()].sort((left, right) => {
+      const nameCompare = left.name.localeCompare(right.name);
+      if (nameCompare !== 0) {
+        return nameCompare;
+      }
+
+      return left.connectionMode.localeCompare(right.connectionMode);
+    }),
+    supported:
+      lan.supported ||
+      cloud.supported ||
+      totalPrinters > 0 ||
+      bridgeSources.size > 0,
+  };
 }
 
 function basicAuth(username: string, password: string): string | null {
@@ -920,8 +1011,8 @@ export class CompanionRuntime extends EventEmitter {
           : cloudBridgePrinter && cloudBridge.sessionCount > 0
             ? "available"
             : printers.length > 0
-            ? "requires_setup"
-            : "unavailable",
+              ? "requires_setup"
+              : "unavailable",
         camera:
           streamReady ||
           nativeCameraReady ||
@@ -949,9 +1040,9 @@ export class CompanionRuntime extends EventEmitter {
           ? "available"
           : cloudBridgePrinter && cloudBridge.sessionCount > 0
             ? "available"
-          : printers.length > 0
-            ? "requires_setup"
-            : "unavailable",
+            : printers.length > 0
+              ? "requires_setup"
+              : "unavailable",
       },
       capabilityNotes: {
         ams:
@@ -960,10 +1051,10 @@ export class CompanionRuntime extends EventEmitter {
             : "AMS state rides on the same local telemetry path as the printer report.",
         camera:
           streamReady || nativeCameraReady
-          ? "Companion can already expose at least one live browser-safe camera feed through a direct stream or native bridge."
+            ? "Companion can already expose at least one live browser-safe camera feed through a direct stream or native bridge."
             : cloudBridgePrinter && cloudBridge.sessionCount > 0
               ? "Companion can auto-bridge native Bambu camera feeds for saved cloud-mode printers when the desktop bridge is signed in and this machine can also reach the printer on the same local network."
-            : "Use MJPEG, snapshot, or HLS sources directly, or save a supported RTSP/native Bambu source for the built-in camera bridge.",
+              : "Use MJPEG, snapshot, or HLS sources directly, or save a supported RTSP/native Bambu source for the built-in camera bridge.",
         controls: localControlPrinter
           ? "At least one saved printer can still accept direct local commands from Companion."
           : "Companion focuses on cloud telemetry, camera, and desktop job handoff. Direct machine controls stay on the BambuView server's LAN and Developer workflows.",
@@ -990,7 +1081,40 @@ export class CompanionRuntime extends EventEmitter {
   }
 
   async getDiscoveryResult() {
-    return discoverBambuCloudPrinters();
+    const [lan, cloud] = await Promise.all([
+      discoverBambuPrinters().catch(
+        (error): CompanionPrinterDiscoveryResult => ({
+          attemptedAt: nowIso(),
+          bridgeSources: [],
+          detail:
+            error instanceof Error
+              ? `Bambu LAN discovery failed: ${error.message}`
+              : "Bambu LAN discovery failed.",
+          instructions: [
+            "Make sure the printer and Companion are on the same local network before retrying LAN discovery.",
+          ],
+          printers: [],
+          supported: false,
+        }),
+      ),
+      discoverBambuCloudPrinters().catch(
+        (error): CompanionPrinterDiscoveryResult => ({
+          attemptedAt: nowIso(),
+          bridgeSources: [],
+          detail:
+            error instanceof Error
+              ? `Desktop bridge discovery failed: ${error.message}`
+              : "Desktop bridge discovery failed.",
+          instructions: [
+            "Install and sign into Bambu Connect or Bambu Studio on this machine before retrying desktop bridge discovery.",
+          ],
+          printers: [],
+          supported: false,
+        }),
+      ),
+    ]);
+
+    return mergeDiscoveryResults(lan, cloud, this.readLocalBridgeInventory());
   }
 
   getHealth(): CompanionHealthResponse {
@@ -1999,13 +2123,13 @@ export class CompanionRuntime extends EventEmitter {
                 : nativeBridgeSupport.supported
                   ? "Companion matched this printer for cloud telemetry and will open the native camera feed automatically once this machine can also reach the printer on the same local network."
                   : nativeBridgeSupport.detail
-            : nativeBridge
-              ? "Companion can expose this printer's native camera directly for browser playback."
-              : localTelemetryReady && nativeBridgeSupport.supported
-                ? "Add the matching LAN access code and host details, then Companion can expose this printer's native camera directly."
-                : localTelemetryReady
-                  ? nativeBridgeSupport.detail
-                  : "Link a browser-compatible MJPEG or snapshot stream to preview this printer in BambuView.",
+              : nativeBridge
+                ? "Companion can expose this printer's native camera directly for browser playback."
+                : localTelemetryReady && nativeBridgeSupport.supported
+                  ? "Add the matching LAN access code and host details, then Companion can expose this printer's native camera directly."
+                  : localTelemetryReady
+                    ? nativeBridgeSupport.detail
+                    : "Link a browser-compatible MJPEG or snapshot stream to preview this printer in BambuView.",
           controls:
             printer.connectionMode === "developer"
               ? "Developer Mode direct machine controls are available through Companion."
@@ -2014,10 +2138,9 @@ export class CompanionRuntime extends EventEmitter {
                 : localTelemetryReady
                   ? "Companion can attempt local pause, resume, stop, and lamp actions with this saved printer profile. Full motion and extrusion controls still work best in Developer Mode."
                   : describeLocalControlsSetup(printerInput),
-          discovery:
-            usingCloudBridge
-              ? "BambuView Companion can import this printer from the signed-in Bambu desktop bridge and still enrich camera reachability automatically."
-              : "BambuView Companion can scan the LAN, inspect local desktop bridge data, and still lets you save printers manually.",
+          discovery: usingCloudBridge
+            ? "BambuView Companion can import this printer from the signed-in Bambu desktop bridge and still enrich camera reachability automatically."
+            : "BambuView Companion can scan the LAN, inspect local desktop bridge data, and still lets you save printers manually.",
           fileUpload:
             printer.connectionMode === "developer" ||
             printer.connectionMode === "lan"
