@@ -48,7 +48,9 @@ function createRuntime(
       decrypt: (value) => value,
       encrypt: (value) => value,
     },
-    logger: new CompanionLogger(),
+    logger: new CompanionLogger(120, {
+      candidateFilePaths: [path.join(dir, "companion-diagnostics.log")],
+    }),
     stateFile: path.join(dir, "companion-state.json"),
     updateChecksEnabled: false,
     ...overrides,
@@ -258,6 +260,83 @@ describe("companion runtime", () => {
     ).rejects.toThrow(
       /switch Bind Mode to LAN, set Bind Host to this computer's LAN IP or hostname/i,
     );
+  });
+
+  it("exports a diagnostics bundle with logs and bridge state", async () => {
+    const runtime = createRuntime();
+    await runtime.applyBridgeListening(true, null);
+
+    vi.spyOn(bambuModule, "discoverBambuPrinters").mockResolvedValue({
+      attemptedAt: new Date().toISOString(),
+      bridgeSources: [],
+      detail: "LAN discovery test",
+      instructions: [],
+      printers: [],
+      supported: true,
+    });
+    vi.spyOn(cloudModule, "discoverBambuCloudPrinters").mockResolvedValue({
+      attemptedAt: new Date().toISOString(),
+      bridgeSources: [],
+      detail: "Cloud discovery test",
+      instructions: [],
+      printers: [],
+      supported: true,
+    });
+
+    const exportPath = path.join(
+      mkdtempSync(path.join(os.tmpdir(), "bambuview-companion-export-")),
+      "diagnostics.json",
+    );
+    tempDirs.push(path.dirname(exportPath));
+
+    await runtime.exportDiagnostics(exportPath);
+
+    const payload = JSON.parse(readFileSync(exportPath, "utf8")) as {
+      bridge: {
+        baseUrl: string;
+      };
+      diagnostics: {
+        discovery: {
+          detail: string;
+        };
+      };
+      logs: {
+        files: Array<{
+          exists: boolean;
+          path: string | null;
+        }>;
+        filePath: string | null;
+        text: string;
+      };
+      paths: {
+        stateFileMetadata: {
+          path: string | null;
+        };
+        stateFile: string;
+      };
+      settings: {
+        bindMode: string;
+      };
+      snapshot: {
+        settings: {
+          bindMode: string;
+        };
+      };
+      system: {
+        cpuCount: number;
+      };
+    };
+
+    expect(payload.bridge.baseUrl).toContain("http://");
+    expect(payload.diagnostics.discovery.detail).toContain("Cloud discovery test");
+    expect(payload.logs.files.some((entry) => entry.exists)).toBe(true);
+    expect(payload.logs.filePath).toContain("companion-diagnostics.log");
+    expect(payload.logs.text).toContain("Companion runtime initialized.");
+    expect(payload.paths.stateFile).toContain("companion-state.json");
+    expect(payload.paths.stateFileMetadata.path).toContain("companion-state.json");
+    expect(payload.settings.bindMode).toBe("localhost");
+    expect(payload.snapshot.settings.bindMode).toBe("localhost");
+    expect(payload.system.cpuCount).toBeGreaterThan(0);
   });
 
   it("explains when the server URL is actually the companion bridge", async () => {
@@ -691,7 +770,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.50-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.51-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify([
@@ -703,10 +782,10 @@ describe("companion runtime", () => {
               },
             ],
             html_url:
-              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.50",
-            name: "BVCompanion v0.0.50 Alpha",
+              "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.51",
+            name: "BVCompanion v0.0.51 Alpha",
             prerelease: true,
-            tag_name: "bvcompanion-v0.0.50",
+            tag_name: "bvcompanion-v0.0.51",
           },
         ]),
         {
@@ -720,8 +799,8 @@ describe("companion runtime", () => {
     const snapshot = await runtime.checkForUpdates();
 
     expect(snapshot.update.available).toBe(true);
-    expect(snapshot.update.latestVersion).toBe("0.0.50");
-    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.50");
+    expect(snapshot.update.latestVersion).toBe("0.0.51");
+    expect(snapshot.update.assetName).toContain("BVCompanion-0.0.51");
   });
 
   it("downloads and opens the latest Companion installer", async () => {
@@ -760,7 +839,7 @@ describe("companion runtime", () => {
         : process.platform === "win32"
           ? "exe"
           : "deb";
-    const assetName = `BVCompanion-0.0.50-${osName}-Installer-${arch}.${extension}`;
+    const assetName = `BVCompanion-0.0.51-${osName}-Installer-${arch}.${extension}`;
     globalThis.fetch = (async (input) => {
       const url = String(input);
       if (url.includes("/releases?per_page=20")) {
@@ -774,10 +853,10 @@ describe("companion runtime", () => {
                 },
               ],
               html_url:
-                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.50",
-              name: "BVCompanion v0.0.50 Alpha",
+                "https://github.com/DeepDaddyTTV/BambuView/releases/tag/bvcompanion-v0.0.51",
+              name: "BVCompanion v0.0.51 Alpha",
               prerelease: true,
-              tag_name: "bvcompanion-v0.0.50",
+              tag_name: "bvcompanion-v0.0.51",
             },
           ]),
           {

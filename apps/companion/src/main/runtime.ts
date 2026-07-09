@@ -9,6 +9,16 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
+import {
+  cpus as osCpus,
+  freemem as osFreeMem,
+  hostname as osHostname,
+  loadavg as osLoadAverage,
+  release as osRelease,
+  totalmem as osTotalMem,
+  type as osType,
+  uptime as osUptime,
+} from "node:os";
 import { basename, dirname, join } from "node:path";
 import { EventEmitter } from "node:events";
 import { pipeline } from "node:stream/promises";
@@ -823,6 +833,59 @@ function maskCompanionName(name: string): string {
   return name.trim().length > 0 ? name.trim() : defaultSettings.friendlyName;
 }
 
+function maskEmailAddress(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const [localPart, domain = ""] = value.split("@");
+  if (!localPart) {
+    return "[redacted]";
+  }
+
+  const visibleLocal =
+    localPart.length <= 2
+      ? `${localPart[0] ?? ""}*`
+      : `${localPart.slice(0, 2)}***`;
+  return domain ? `${visibleLocal}@${domain}` : visibleLocal;
+}
+
+function maskUserId(value: string | null): string | null {
+  if (!value) {
+    return null;
+  }
+
+  return value.length <= 4 ? "[redacted]" : `***${value.slice(-4)}`;
+}
+
+function safeFileMetadata(filePath: string | null) {
+  if (!filePath) {
+    return {
+      exists: false,
+      modifiedAt: null,
+      path: null,
+      sizeBytes: 0,
+    };
+  }
+
+  try {
+    const stats = statSync(filePath);
+    return {
+      exists: true,
+      modifiedAt: stats.mtime.toISOString(),
+      path: filePath,
+      sizeBytes: stats.size,
+    };
+  } catch {
+    return {
+      exists: false,
+      modifiedAt: null,
+      path: filePath,
+      sizeBytes: 0,
+    };
+  }
+}
+
 export class CompanionRuntime extends EventEmitter {
   private bridgeState: BridgeState = {
     baseUrl: `http://${COMPANION_DEFAULT_HOST}:${COMPANION_DEFAULT_PORT}`,
@@ -914,6 +977,15 @@ export class CompanionRuntime extends EventEmitter {
     ) {
       void this.checkForUpdates();
     }
+    this.logger.info("Companion runtime initialized.", {
+      appVersion: this.options.appVersion,
+      bridgeBaseUrl: this.bridgeState.baseUrl,
+      bridgeSurfaceCount: this.localBridgeInventory.surfaces.length,
+      logFilePath: this.logger.filePath(),
+      paired: this.state.pairing.paired,
+      sessionCount: this.cloudBridgeEnvironmentCache.value.sessionCount,
+      stateFile: this.options.stateFile,
+    });
   }
 
   async applyBridgeListening(listening: boolean, errorMessage: string | null) {
@@ -1030,6 +1102,12 @@ export class CompanionRuntime extends EventEmitter {
     this.persistState();
     this.logger.info(
       `Saved printer ${normalizedInput.name.trim()} for Companion.`,
+      {
+        connectionMode: normalizedInput.connectionMode,
+        hostname: normalizedInput.hostname,
+        model: normalizedInput.model,
+        serial: normalizedInput.serial,
+      },
     );
     return this.getSnapshot(true);
   }
@@ -1058,7 +1136,11 @@ export class CompanionRuntime extends EventEmitter {
       input.linkedPrinterId?.trim() || null,
     );
     this.persistState();
-    this.logger.info(`Saved stream ${input.name.trim()} for Companion.`);
+    this.logger.info(`Saved stream ${input.name.trim()} for Companion.`, {
+      linkedPrinterId: input.linkedPrinterId?.trim() || null,
+      sourceKind: input.sourceKind,
+      upstreamUrl: input.upstreamUrl,
+    });
     return this.getSnapshot();
   }
 
@@ -1072,7 +1154,7 @@ export class CompanionRuntime extends EventEmitter {
         : stream,
     );
     this.persistState();
-    this.logger.warn("Removed a saved printer from Companion.");
+    this.logger.warn("Removed a saved printer from Companion.", { printerId });
     return this.getSnapshot();
   }
 
@@ -1086,7 +1168,7 @@ export class CompanionRuntime extends EventEmitter {
         : printer,
     );
     this.persistState();
-    this.logger.warn("Removed a saved stream from Companion.");
+    this.logger.warn("Removed a saved stream from Companion.", { streamId });
     return this.getSnapshot();
   }
 
@@ -1229,6 +1311,8 @@ export class CompanionRuntime extends EventEmitter {
   }
 
   async getDiscoveryResult() {
+    const inventory = this.readLocalBridgeInventory(true);
+    const cloudBridge = this.readCloudBridgeEnvironment(true, inventory);
     const [lan, cloud] = await Promise.all([
       discoverBambuPrinters().catch(
         (error): CompanionPrinterDiscoveryResult => ({
@@ -1262,7 +1346,22 @@ export class CompanionRuntime extends EventEmitter {
       ),
     ]);
 
-    return mergeDiscoveryResults(lan, cloud, this.readLocalBridgeInventory(true));
+    const merged = mergeDiscoveryResults(lan, cloud, inventory);
+    this.logger.info("Printer discovery completed.", {
+      cloudDetail: cloud.detail,
+      cloudPrinterCount: cloud.printers.length,
+      desktopSessionCount: cloudBridge.sessionCount,
+      lanDetail: lan.detail,
+      lanPrinterCount: lan.printers.length,
+      mergedPrinterCount: merged.printers.length,
+      savedPrinterCount: this.state.printers.length,
+      surfaceStates: inventory.surfaces.map((surface) => ({
+        kind: surface.kind,
+        location: surface.location,
+        status: surface.status,
+      })),
+    });
+    return merged;
   }
 
   getHealth(input?: {
@@ -1610,6 +1709,12 @@ export class CompanionRuntime extends EventEmitter {
 
           this.logger.info(
             `Opened Bambu Connect import handoff for ${printer.name}.`,
+            {
+              fileName,
+              hostname: printer.hostname,
+              model: printer.model,
+              serial: printer.serial,
+            },
           );
           return {
             accepted: true,
@@ -1626,6 +1731,13 @@ export class CompanionRuntime extends EventEmitter {
 
         this.logger.info(
           `Opened desktop bridge file handoff for ${printer.name}.`,
+          {
+            fileName,
+            handoffLabel,
+            hostname: printer.hostname,
+            model: printer.model,
+            serial: printer.serial,
+          },
         );
         return {
           accepted: true,
@@ -1767,6 +1879,11 @@ export class CompanionRuntime extends EventEmitter {
         available
           ? `Companion update available: v${latest.version}.`
           : `Companion is current at v${currentVersion}.`,
+        {
+          available,
+          currentVersion,
+          latestVersion: latest.version,
+        },
       );
     } catch (error) {
       this.updateState = {
@@ -1861,7 +1978,9 @@ export class CompanionRuntime extends EventEmitter {
       status: "available",
     };
     this.emitSnapshot();
-    this.logger.info(`Opened Companion installer from ${filePath}`);
+    this.logger.info(`Opened Companion installer from ${filePath}`, {
+      filePath,
+    });
     return this.getSnapshot();
   }
 
@@ -1940,7 +2059,10 @@ export class CompanionRuntime extends EventEmitter {
       serverUrl,
     };
     this.persistState();
-    this.logger.info(`Paired Companion with ${serverUrl}.`);
+    this.logger.info(`Paired Companion with ${serverUrl}.`, {
+      companionName: this.state.pairing.companionName,
+      serverUrl,
+    });
     return this.getSnapshot();
   }
 
@@ -1950,17 +2072,38 @@ export class CompanionRuntime extends EventEmitter {
       throw new Error("Printer not found.");
     }
     const printerInput = this.toPrinterInput(printer);
-    const telemetry =
-      printer.connectionMode === "cloud" ||
-      printer.connectionMode === "bambu-connect"
-        ? await readBambuCloudTelemetry(printerInput)
-        : await readBambuTelemetry(printerInput);
+    let telemetry: CompanionPrinterTelemetry;
+    try {
+      telemetry =
+        printer.connectionMode === "cloud" ||
+        printer.connectionMode === "bambu-connect"
+          ? await readBambuCloudTelemetry(printerInput)
+          : await readBambuTelemetry(printerInput);
+    } catch (error) {
+      this.logger.error("Telemetry request failed.", {
+        connectionMode: printer.connectionMode,
+        error,
+        hostname: printer.hostname,
+        model: printer.model,
+        name: printer.name,
+        serial: printer.serial,
+      });
+      throw error;
+    }
     if (telemetry.available) {
       printer.lastSeenAt = telemetry.checkedAt;
       printer.lastTestedAt = telemetry.checkedAt;
       printer.updatedAt = telemetry.checkedAt;
       this.persistState();
     }
+    this.logger.info("Telemetry request completed.", {
+      available: telemetry.available,
+      checkedAt: telemetry.checkedAt,
+      connectionMode: printer.connectionMode,
+      message: telemetry.message,
+      name: printer.name,
+      state: telemetry.state,
+    });
     return telemetry;
   }
 
@@ -2070,6 +2213,14 @@ export class CompanionRuntime extends EventEmitter {
     if (this.options.bridgeLifecycle) {
       await this.options.bridgeLifecycle.restart();
     }
+    this.logger.info("Companion settings saved.", {
+      bindMode: this.state.settings.bindMode,
+      host: this.state.settings.host,
+      port: this.state.settings.port,
+      themeMode: this.state.settings.themeMode,
+      updateCheckIntervalMinutes:
+        this.state.settings.updateCheckIntervalMinutes,
+    });
     return this.getSnapshot();
   }
 
@@ -2098,11 +2249,24 @@ export class CompanionRuntime extends EventEmitter {
       throw new Error("Printer not found.");
     }
     const printerInput = this.toPrinterInput(printer);
-    const result =
-      printer.connectionMode === "cloud" ||
-      printer.connectionMode === "bambu-connect"
-        ? await testBambuCloudPrinter(printerInput)
-        : await testBambuPrinter(printerInput);
+    let result: CompanionPrinterTestResult;
+    try {
+      result =
+        printer.connectionMode === "cloud" ||
+        printer.connectionMode === "bambu-connect"
+          ? await testBambuCloudPrinter(printerInput)
+          : await testBambuPrinter(printerInput);
+    } catch (error) {
+      this.logger.error("Printer test failed.", {
+        connectionMode: printer.connectionMode,
+        error,
+        hostname: printer.hostname,
+        model: printer.model,
+        name: printer.name,
+        serial: printer.serial,
+      });
+      throw error;
+    }
     printer.lastTestedAt = result.checkedAt;
     if (result.reachable) {
       printer.lastSeenAt = result.checkedAt;
@@ -2110,6 +2274,13 @@ export class CompanionRuntime extends EventEmitter {
     printer.updatedAt = result.checkedAt;
     this.persistState();
     this.emitSnapshot();
+    this.logger.info("Printer test completed.", {
+      checkedAt: result.checkedAt,
+      connectionMode: printer.connectionMode,
+      message: result.message,
+      name: printer.name,
+      reachable: result.reachable,
+    });
     return result;
   }
 
@@ -2210,6 +2381,131 @@ export class CompanionRuntime extends EventEmitter {
     }
 
     return this.cloudBridgeEnvironmentCache.value;
+  }
+
+  getLogFilePath(): string | null {
+    return this.logger.filePath();
+  }
+
+  private buildCloudBridgeDiagnosticSummary(
+    environment: BambuCloudBridgeEnvironment,
+  ) {
+    return {
+      connectInstalled: environment.connectInstalled,
+      networkPluginInstalled: environment.networkPluginInstalled,
+      sessionCount: environment.sessionCount,
+      sessions: environment.sessions.map((session) => ({
+        accessExpiresAt: session.accessExpiresAt,
+        accessTokenPresent: Boolean(session.accessToken),
+        location: session.location,
+        refreshExpiresAt: session.refreshExpiresAt,
+        refreshTokenPresent: Boolean(session.refreshToken),
+        region: session.region,
+        sourceKind: session.sourceKind,
+        sourceLabel: session.sourceLabel,
+        updatedAt: session.updatedAt,
+        userEmail: maskEmailAddress(session.userEmail),
+        userId: maskUserId(session.userId),
+      })),
+      studioInstalled: environment.studioInstalled,
+    };
+  }
+
+  private diagnosticPrinterSummary(printer: CompanionPrinter) {
+    return {
+      accessCodeSet: printer.accessCodeSet,
+      capabilityStates: printer.capabilities,
+      connectionMode: printer.connectionMode,
+      hostname: printer.hostname,
+      id: printer.id,
+      model: printer.model,
+      name: printer.name,
+      serial: printer.serial,
+      streamId: printer.streamId,
+    };
+  }
+
+  async buildDiagnostics() {
+    const inventory = this.readLocalBridgeInventory(true);
+    const cloudBridge = this.readCloudBridgeEnvironment(true, inventory);
+    const discovery = await this.getDiscoveryResult();
+    const snapshot = this.getSnapshot(true);
+    const logFiles = this.logger.filePaths().map((filePath) =>
+      safeFileMetadata(filePath),
+    );
+    const stateFileMetadata = safeFileMetadata(this.options.stateFile);
+
+    return {
+      app: {
+        name: COMPANION_APP_NAME,
+        version: this.options.appVersion,
+      },
+      bridge: this.bridgeState,
+      diagnostics: {
+        cloudBridge: this.buildCloudBridgeDiagnosticSummary(cloudBridge),
+        discovery,
+        localBridgeInventory: inventory,
+      },
+      generatedAt: nowIso(),
+      health: snapshot.health,
+      logs: {
+        filePath: this.logger.filePath(),
+        files: logFiles,
+        recentEntries: snapshot.logs,
+        text: this.logger.readText(),
+      },
+      pairing: snapshot.pairing,
+      paths: {
+        logFile: this.logger.filePath(),
+        logFiles,
+        stateFile: this.options.stateFile,
+        stateFileMetadata,
+      },
+      process: {
+        argv: process.argv,
+        cwd: process.cwd(),
+        execPath: process.execPath,
+        memoryUsage: process.memoryUsage(),
+        pid: process.pid,
+        resourceUsage:
+          typeof process.resourceUsage === "function"
+            ? process.resourceUsage()
+            : null,
+        uptimeSeconds: process.uptime(),
+      },
+      printers: snapshot.printers.map((printer) =>
+        this.diagnosticPrinterSummary(printer),
+      ),
+      runtime: {
+        arch: process.arch,
+        platform: process.platform,
+        versions: process.versions,
+      },
+      settings: snapshot.settings,
+      snapshot,
+      streams: snapshot.streams,
+      system: {
+        cpuCount: osCpus().length,
+        freeMemoryBytes: osFreeMem(),
+        hostname: osHostname(),
+        loadAverage: osLoadAverage(),
+        release: osRelease(),
+        totalMemoryBytes: osTotalMem(),
+        type: osType(),
+        uptimeSeconds: osUptime(),
+      },
+      update: snapshot.update,
+    };
+  }
+
+  async exportDiagnostics(destinationPath: string): Promise<string> {
+    const diagnostics = await this.buildDiagnostics();
+    mkdirSync(dirname(destinationPath), { recursive: true });
+    writeFileSync(destinationPath, JSON.stringify(diagnostics, null, 2), "utf8");
+    this.logger.info("Exported Companion diagnostics bundle.", {
+      destinationPath,
+    });
+    return destinationPath;
   }
 
   private async resolveStoredPrinterCameraSource(

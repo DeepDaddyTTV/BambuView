@@ -1798,6 +1798,47 @@ export function App() {
                     ? "Download Installer"
                     : "Open Release"}
                 </button>
+                <button
+                  className="ghost-button"
+                  disabled={busy}
+                  onClick={() => {
+                    void runAction(
+                      () => window.companion.openLogFolder(),
+                      (result) => {
+                        setSuccessMessage(
+                          result.filePath
+                            ? `Opened the Companion log folder. Active log: ${result.filePath}`
+                            : `Opened the Companion data folder: ${result.directoryPath ?? "Unavailable"}`,
+                        );
+                      },
+                    );
+                  }}
+                  type="button"
+                >
+                  <Logs className="button-icon" />
+                  Open Log Folder
+                </button>
+                <button
+                  className="ghost-button"
+                  disabled={busy}
+                  onClick={() => {
+                    void runAction(
+                      () => window.companion.exportDiagnostics(),
+                      (result) => {
+                        if (result.canceled || !result.filePath) {
+                          return;
+                        }
+                        setSuccessMessage(
+                          `Exported Companion diagnostics to ${result.filePath}`,
+                        );
+                      },
+                    );
+                  }}
+                  type="button"
+                >
+                  <FileUp className="button-icon" />
+                  Export Diagnostics
+                </button>
               </div>
               <div className="notice notice--warning">
                 <FileUp className="button-icon" />
@@ -1805,6 +1846,16 @@ export function App() {
                   LAN binding is advanced and opt-in. Only enable it when
                   BambuView cannot reach the Companion bridge through localhost
                   on the same trusted machine.
+                </span>
+              </div>
+              <div className="notice">
+                <Logs className="button-icon" />
+                <span>
+                  Companion now keeps a persistent redacted fault log on disk
+                  and the diagnostics export includes renderer errors, bridge
+                  faults, settings, process state, and system details. Use
+                  `Export Diagnostics` when something breaks so you can send
+                  one complete troubleshooting bundle back.
                 </span>
               </div>
             </article>

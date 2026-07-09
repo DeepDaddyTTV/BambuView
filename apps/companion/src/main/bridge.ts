@@ -15,6 +15,7 @@ import {
   openCameraBridgeMjpegStream,
   renderCameraBridgeSnapshot,
 } from "./camera-bridge.js";
+import { CompanionLogger } from "./logger.js";
 import { CompanionRuntime } from "./runtime.js";
 
 function parseAuthorization(header: string | undefined): {
@@ -71,12 +72,16 @@ function resetPairingSchema() {
   });
 }
 
-export async function createBridgeServer(runtime: CompanionRuntime) {
+export async function createBridgeServer(
+  runtime: CompanionRuntime,
+  logger: CompanionLogger,
+) {
   const app = Fastify({
     logger: false,
   });
 
   app.addHook("onRequest", async (request, reply) => {
+    (request as typeof request & { startedAt?: number }).startedAt = Date.now();
     const bridgeAuth = runtime.getBridgeAuth();
     const authorization = parseAuthorization(
       request.headers.authorization as string | undefined,
@@ -91,6 +96,33 @@ export async function createBridgeServer(runtime: CompanionRuntime) {
         .code(401)
         .send({ message: "Companion auth token required." });
     }
+  });
+
+  app.setErrorHandler((error, request, reply) => {
+    logger.error("Companion bridge request failed.", {
+      body: request.body,
+      error,
+      method: request.method,
+      route: request.routeOptions.url,
+      url: request.url,
+    });
+    return reply.send(error);
+  });
+
+  app.addHook("onResponse", async (request, reply) => {
+    if (reply.statusCode < 400) {
+      return;
+    }
+
+    const startedAt =
+      (request as typeof request & { startedAt?: number }).startedAt ?? Date.now();
+    logger.warn("Companion bridge request returned a non-success status.", {
+      durationMs: Math.max(0, Date.now() - startedAt),
+      method: request.method,
+      route: request.routeOptions.url,
+      statusCode: reply.statusCode,
+      url: request.url,
+    });
   });
 
   app.get("/health", async () => runtime.getHealth());

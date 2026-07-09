@@ -4,11 +4,13 @@ import {
   app,
   BrowserWindow,
   clipboard,
+  dialog,
   ipcMain,
   safeStorage,
   shell,
 } from "electron";
 
+import type { CompanionDiagnosticEventInput } from "@common/electron-api";
 import { companionChannels } from "@common/ipc";
 
 import { createBridgeServer } from "./bridge.js";
@@ -17,8 +19,13 @@ import { CompanionRuntime } from "./runtime.js";
 import { createCompanionTray } from "./tray.js";
 
 const appVersion = app.getVersion();
-const logger = new CompanionLogger();
 const stateFile = path.join(app.getPath("userData"), "companion-state.json");
+const logger = new CompanionLogger(120, {
+  candidateFilePaths: [
+    path.join(path.dirname(process.execPath), "BambuView-Companion.log"),
+    path.join(path.dirname(stateFile), "BambuView-Companion.log"),
+  ],
+});
 const rendererFailureTitle = "BambuView Companion could not finish loading";
 
 function createCodec() {
@@ -60,6 +67,32 @@ const runtime = new CompanionRuntime({
   stateFile,
 });
 
+function reportDiagnosticEvent(input: CompanionDiagnosticEventInput) {
+  const message = input.source
+    ? `[${input.source}] ${input.message}`
+    : input.message;
+
+  if (input.level === "error") {
+    logger.error(message, input.context);
+    return;
+  }
+
+  if (input.level === "warn") {
+    logger.warn(message, input.context);
+    return;
+  }
+
+  logger.info(message, input.context);
+}
+
+function extractErrorDetail(error: unknown): string {
+  if (error instanceof Error) {
+    return error.stack?.trim() || `${error.name}: ${error.message}`;
+  }
+
+  return String(error ?? "Unknown error");
+}
+
 async function restartBridge() {
   if (bridgeRestart) {
     return bridgeRestart;
@@ -71,7 +104,7 @@ async function restartBridge() {
       bridgeApp = null;
     }
 
-    bridgeApp = await createBridgeServer(runtime);
+    bridgeApp = await createBridgeServer(runtime, logger);
     const health = runtime.getHealth();
     try {
       await bridgeApp.listen({
@@ -92,7 +125,12 @@ async function restartBridge() {
           false,
           "Companion bridge failed to start.",
         );
-        logger.error("Companion bridge failed to start.");
+        logger.error("Companion bridge failed to start.", {
+          bridgeHost: health.bridge.host,
+          bridgePort: health.bridge.port,
+          code,
+          error,
+        });
       }
     }
   })();
@@ -243,6 +281,10 @@ function attachWindowRecovery(window: BrowserWindow) {
     "console-message",
     (_event, level, message, line, sourceId) => {
       if (level >= 2) {
+        logger.error(
+          `Renderer console (${level}) ${sourceId || "renderer"}:${line} ${message}`,
+        );
+      } else if (level === 1) {
         logger.warn(
           `Renderer console (${level}) ${sourceId || "renderer"}:${line} ${message}`,
         );
@@ -296,65 +338,134 @@ function createWindow() {
 }
 
 function registerIpc() {
-  ipcMain.handle(companionChannels.checkForUpdates, () =>
+  const registerHandler = (
+    channel: string,
+    handler: (...args: unknown[]) => Promise<unknown> | unknown,
+  ) => {
+    ipcMain.handle(channel, async (_event, ...args) => {
+      try {
+        return await handler(...args);
+      } catch (error) {
+        logger.error(`IPC ${channel} failed.`, {
+          args,
+          error,
+        });
+        throw error;
+      }
+    });
+  };
+
+  ipcMain.on(companionChannels.rendererLog, (_event, input) => {
+    reportDiagnosticEvent(input as CompanionDiagnosticEventInput);
+  });
+
+  registerHandler(companionChannels.checkForUpdates, () =>
     runtime.checkForUpdates(),
   );
-  ipcMain.handle(companionChannels.getSnapshot, (_event, forceRefresh) =>
+  registerHandler(companionChannels.getSnapshot, (forceRefresh) =>
     runtime.getSnapshot(Boolean(forceRefresh)),
   );
-  ipcMain.handle(companionChannels.saveSettings, (_event, input) =>
+  registerHandler(companionChannels.saveSettings, (input) =>
     runtime.saveSettings(input),
   );
-  ipcMain.handle(companionChannels.pair, (_event, input) =>
-    runtime.pair(input),
-  );
-  ipcMain.handle(companionChannels.resetPairing, (_event, options) =>
+  registerHandler(companionChannels.pair, (input) => runtime.pair(input));
+  registerHandler(companionChannels.resetPairing, (options) =>
     runtime.resetPairing(options),
   );
-  ipcMain.handle(companionChannels.regenerateBridgeToken, async () => {
+  registerHandler(companionChannels.regenerateBridgeToken, async () => {
     const token = await runtime.regenerateBridgeToken();
     return {
       snapshot: runtime.getSnapshot(),
       token,
     };
   });
-  ipcMain.handle(companionChannels.createPrinter, (_event, input) =>
+  registerHandler(companionChannels.createPrinter, (input) =>
     runtime.createPrinter(input),
   );
-  ipcMain.handle(companionChannels.updatePrinter, (_event, printerId, input) =>
-    runtime.updatePrinter(printerId, input),
+  registerHandler(companionChannels.updatePrinter, (printerId, input) =>
+    runtime.updatePrinter(String(printerId), input),
   );
-  ipcMain.handle(companionChannels.deletePrinter, (_event, printerId) =>
-    runtime.deletePrinter(printerId),
+  registerHandler(companionChannels.deletePrinter, (printerId) =>
+    runtime.deletePrinter(String(printerId)),
   );
-  ipcMain.handle(companionChannels.testPrinter, (_event, printerId) =>
-    runtime.testPrinter(printerId),
+  registerHandler(companionChannels.testPrinter, (printerId) =>
+    runtime.testPrinter(String(printerId)),
   );
-  ipcMain.handle(companionChannels.readTelemetry, (_event, printerId) =>
-    runtime.readTelemetry(printerId),
+  registerHandler(companionChannels.readTelemetry, (printerId) =>
+    runtime.readTelemetry(String(printerId)),
   );
-  ipcMain.handle(companionChannels.createStream, (_event, input) =>
+  registerHandler(companionChannels.createStream, (input) =>
     runtime.createStream(input),
   );
-  ipcMain.handle(companionChannels.updateStream, (_event, streamId, input) =>
-    runtime.updateStream(streamId, input),
+  registerHandler(companionChannels.updateStream, (streamId, input) =>
+    runtime.updateStream(String(streamId), input),
   );
-  ipcMain.handle(companionChannels.deleteStream, (_event, streamId) =>
-    runtime.deleteStream(streamId),
+  registerHandler(companionChannels.deleteStream, (streamId) =>
+    runtime.deleteStream(String(streamId)),
   );
-  ipcMain.handle(companionChannels.discoverPrinters, () =>
+  registerHandler(companionChannels.discoverPrinters, () =>
     runtime.getDiscoveryResult(),
   );
-  ipcMain.handle(companionChannels.fileHandoff, (_event, printerId, input) =>
-    runtime.handleFileHandoff(printerId, input),
+  registerHandler(companionChannels.exportDiagnostics, async () => {
+    const suggestedPath = path.join(
+      app.getPath("desktop"),
+      `BVCompanion-diagnostics-${new Date().toISOString().replaceAll(":", "-")}.json`,
+    );
+    const result = await dialog.showSaveDialog({
+      defaultPath: suggestedPath,
+      filters: [
+        { extensions: ["json"], name: "JSON Diagnostics Bundle" },
+      ],
+      properties: ["createDirectory", "showOverwriteConfirmation"],
+      title: "Export BambuView Companion Diagnostics",
+    });
+
+    if (result.canceled || !result.filePath) {
+      return {
+        canceled: true,
+        filePath: null,
+      };
+    }
+
+    const filePath = await runtime.exportDiagnostics(result.filePath);
+    return {
+      canceled: false,
+      filePath,
+    };
+  });
+  registerHandler(companionChannels.fileHandoff, (printerId, input) =>
+    runtime.handleFileHandoff(String(printerId), input),
   );
-  ipcMain.handle(companionChannels.openExternal, (_event, url) =>
-    runtime.openExternal(url),
+  registerHandler(companionChannels.openLogFolder, async () => {
+    const filePath = runtime.getLogFilePath();
+    if (filePath) {
+      shell.showItemInFolder(filePath);
+      logger.info("Opened Companion log folder.", {
+        filePath,
+      });
+      return {
+        directoryPath: path.dirname(filePath),
+        filePath,
+      };
+    }
+
+    const fallbackDirectory = path.dirname(stateFile);
+    await shell.openPath(fallbackDirectory);
+    logger.info("Opened Companion data folder because no log file was active.", {
+      fallbackDirectory,
+    });
+    return {
+      directoryPath: fallbackDirectory,
+      filePath: null,
+    };
+  });
+  registerHandler(companionChannels.openExternal, (url) =>
+    runtime.openExternal(String(url)),
   );
-  ipcMain.handle(companionChannels.openUpdateDownload, () =>
+  registerHandler(companionChannels.openUpdateDownload, () =>
     runtime.openUpdateDownload(),
   );
-  ipcMain.handle(companionChannels.copyBridgeUrl, async () => {
+  registerHandler(companionChannels.copyBridgeUrl, async () => {
     const url = await runtime.copyBridgeUrl();
     clipboard.writeText(url);
     return url;
@@ -382,6 +493,15 @@ function showWindow() {
   mainWindow.focus();
 }
 
+process.on("uncaughtException", (error) => {
+  logger.error("Main process uncaught exception.", { error });
+  showRendererFailure(extractErrorDetail(error));
+});
+
+process.on("unhandledRejection", (reason) => {
+  logger.error("Main process unhandled rejection.", { reason });
+});
+
 app.whenReady().then(async () => {
   registerIpc();
   createWindow();
@@ -397,6 +517,10 @@ app.on("activate", () => {
     createWindow();
   }
   showWindow();
+});
+
+app.on("child-process-gone", (_event, details) => {
+  logger.error("Electron child process exited unexpectedly.", details);
 });
 
 app.on("before-quit", async () => {

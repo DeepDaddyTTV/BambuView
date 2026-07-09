@@ -6,6 +6,19 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.51 - 2026-07-09
+
+### Bug Fixes & Stability
+
+- Persistent Companion Fault Logging: Companion now keeps a fuller redacted on-disk log that captures renderer failures, main-process crashes, bridge request faults, and exported runtime context instead of leaving those clues behind in a transient window state.
+- Better Crash Visibility: unhandled renderer errors, promise rejections, Electron child-process exits, and IPC failures now land in the diagnostic log so black screens, freeze reports, and pairing failures are much easier to trace after the fact.
+- Richer Export Evidence: the diagnostics bundle now includes current settings, bridge state, process and system context, log file metadata, and the in-memory Companion snapshot so future debugging has the state that actually matters.
+
+### Improvements & What's New
+
+- One-Click Diagnostics Export: Companion Settings now has a stronger export path for future fault reports, with both the live log stream and the supporting machine/runtime details packaged together in one JSON bundle.
+- Faster Support Workflow: Companion can now open its active log folder directly, which makes it much easier to grab the right file without digging through app data by hand.
+
 ## v0.0.50 - 2026-07-09
 
 ### Bug Fixes & Stability

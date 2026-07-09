@@ -34,10 +34,14 @@ const api: CompanionDesktopApi = {
   deleteStream: (streamId) =>
     invoke(companionChannels.deleteStream, streamId),
   discoverPrinters: () => invoke(companionChannels.discoverPrinters),
+  exportDiagnostics: () => invoke(companionChannels.exportDiagnostics),
   getSnapshot: (forceRefresh) =>
     invoke(companionChannels.getSnapshot, forceRefresh),
   handleFileHandoff: (printerId, input) =>
     invoke(companionChannels.fileHandoff, printerId, input),
+  logRendererEvent: (input) =>
+    ipcRenderer.send(companionChannels.rendererLog, input),
+  openLogFolder: () => invoke(companionChannels.openLogFolder),
   openExternal: (url) => invoke(companionChannels.openExternal, url),
   openUpdateDownload: () =>
     invoke(companionChannels.openUpdateDownload),
