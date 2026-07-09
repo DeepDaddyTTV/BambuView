@@ -19,6 +19,7 @@ import { createCompanionTray } from "./tray.js";
 const appVersion = app.getVersion();
 const logger = new CompanionLogger();
 const stateFile = path.join(app.getPath("userData"), "companion-state.json");
+const rendererFailureTitle = "BambuView Companion could not finish loading";
 
 function createCodec() {
   return {
@@ -40,6 +41,9 @@ let mainWindow: BrowserWindow | null = null;
 let tray: ReturnType<typeof createCompanionTray> | null = null;
 let bridgeApp: Awaited<ReturnType<typeof createBridgeServer>> | null = null;
 let bridgeRestart: Promise<void> | null = null;
+let quitting = false;
+
+app.disableHardwareAcceleration();
 
 const runtime = new CompanionRuntime({
   appVersion,
@@ -100,8 +104,170 @@ async function restartBridge() {
   }
 }
 
+function rendererFailureMarkup(detail: string) {
+  const escaped = detail
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+  return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${rendererFailureTitle}</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #101315;
+        color: #f5f7fa;
+        display: grid;
+        place-items: center;
+      }
+      main {
+        width: min(640px, calc(100vw - 48px));
+        border: 1px solid #2a3137;
+        background: #171c20;
+        padding: 32px;
+        box-sizing: border-box;
+      }
+      h1 {
+        margin: 0 0 14px;
+        font-size: 32px;
+        line-height: 1.1;
+      }
+      p {
+        margin: 0 0 18px;
+        color: #b9c0c8;
+        font-size: 16px;
+        line-height: 1.65;
+      }
+      code {
+        display: block;
+        white-space: pre-wrap;
+        word-break: break-word;
+        border: 1px solid #303840;
+        background: #0f1316;
+        color: #9ee86d;
+        padding: 16px;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>${rendererFailureTitle}</h1>
+      <p>Companion started, but the window could not finish booting. Quit it from the tray and reopen after the update finishes installing.</p>
+      <code>${escaped}</code>
+    </main>
+  </body>
+</html>`;
+}
+
+function showRendererFailure(detail: string) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+  logger.error(`Renderer failure: ${detail}`);
+  void mainWindow.loadURL(
+    `data:text/html;charset=utf-8,${encodeURIComponent(rendererFailureMarkup(detail))}`,
+  );
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function attachWindowRecovery(window: BrowserWindow) {
+  let finishedInitialLoad = false;
+  const showFallbackTimer = setTimeout(() => {
+    if (!window.isDestroyed() && !window.isVisible()) {
+      logger.warn(
+        "Companion window did not reach ready-to-show quickly. Forcing it visible so it does not appear stuck in the tray.",
+      );
+      window.show();
+      window.focus();
+    }
+  }, 2200);
+
+  const clearShowFallback = () => {
+    clearTimeout(showFallbackTimer);
+  };
+
+  window.once("ready-to-show", () => {
+    finishedInitialLoad = true;
+    clearShowFallback();
+    window.show();
+  });
+
+  window.on("unresponsive", () => {
+    logger.error("Companion window became unresponsive.");
+    showRendererFailure(
+      "The renderer stopped responding after the window opened. Hardware acceleration has been disabled for recovery, but Companion should be restarted.",
+    );
+  });
+
+  window.webContents.on("did-finish-load", () => {
+    finishedInitialLoad = true;
+    clearShowFallback();
+    logger.info("Companion renderer finished loading.");
+  });
+
+  window.webContents.on(
+    "did-fail-load",
+    (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
+      if (!isMainFrame) {
+        return;
+      }
+      clearShowFallback();
+      showRendererFailure(
+        `Load error ${errorCode}: ${errorDescription}\nURL: ${validatedUrl || "unknown"}`,
+      );
+    },
+  );
+
+  window.webContents.on("render-process-gone", (_event, details) => {
+    clearShowFallback();
+    showRendererFailure(
+      `Renderer process exited (${details.reason}). Exit code: ${details.exitCode}.`,
+    );
+  });
+
+  window.webContents.on(
+    "console-message",
+    (_event, level, message, line, sourceId) => {
+      if (level >= 2) {
+        logger.warn(
+          `Renderer console (${level}) ${sourceId || "renderer"}:${line} ${message}`,
+        );
+      }
+    },
+  );
+
+  window.on("closed", () => {
+    clearShowFallback();
+    if (!quitting && !finishedInitialLoad) {
+      logger.warn(
+        "Companion window closed before the first load completed. Reopening it so it does not stay stranded in the tray.",
+      );
+      queueMicrotask(() => {
+        if (!mainWindow && !quitting) {
+          createWindow();
+        }
+      });
+    }
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
+    autoHideMenuBar: true,
     backgroundColor: "#101315",
     height: 980,
     minHeight: 880,
@@ -116,9 +282,7 @@ function createWindow() {
     },
   });
 
-  mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
-  });
+  attachWindowRecovery(mainWindow);
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
@@ -200,6 +364,15 @@ function showWindow() {
     createWindow();
     return;
   }
+  if (mainWindow.webContents.isCrashed()) {
+    logger.warn(
+      "Companion window renderer was crashed when reopen was requested. Recreating the window.",
+    );
+    mainWindow.destroy();
+    mainWindow = null;
+    createWindow();
+    return;
+  }
   if (mainWindow.isMinimized()) {
     mainWindow.restore();
   }
@@ -225,6 +398,7 @@ app.on("activate", () => {
 });
 
 app.on("before-quit", async () => {
+  quitting = true;
   if (bridgeApp) {
     await bridgeApp.close();
   }

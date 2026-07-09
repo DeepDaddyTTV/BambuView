@@ -6,6 +6,18 @@ Recent and future release notes should follow the same simple format:
 - `Bug Fixes & Stability`
 - `Improvements & What's New`
 
+## v0.0.49 - 2026-07-09
+
+### Bug Fixes & Stability
+
+- Better Companion Startup Recovery: Companion now disables the Electron hardware-acceleration path that can lead to black startup windows or frozen shells on some systems.
+- No More Silent Tray-Only Failures: if the Companion window stalls or the renderer process drops during startup, the app now forces a visible recovery window instead of appearing stuck in the tray.
+- Clearer Crash Feedback: renderer boot failures now show an on-screen recovery message instead of a blank black pane, which makes startup problems much easier to understand.
+
+### Improvements & What's New
+
+- Stronger Alpha Packaging For Companion: the packaged Companion app now includes visible startup recovery handling for renderer load failures, console-side diagnostics, and window recreation when the shell is reopened after a crash.
+
 ## v0.0.48 - 2026-07-09
 
 ### Bug Fixes & Stability
