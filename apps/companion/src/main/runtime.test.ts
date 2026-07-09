@@ -118,7 +118,7 @@ describe("companion runtime", () => {
   it("requires auth for bridge endpoints and reports health", async () => {
     const runtime = createRuntime();
     await runtime.applyBridgeListening(true, null);
-    const bridge = await createBridgeServer(runtime);
+    const bridge = await createBridgeServer(runtime, new CompanionLogger());
 
     const unauthenticated = await bridge.inject({
       method: "GET",
@@ -376,7 +376,7 @@ describe("companion runtime", () => {
     });
     await runtime.applyBridgeListening(true, null);
 
-    const bridge = await createBridgeServer(runtime);
+    const bridge = await createBridgeServer(runtime, new CompanionLogger());
     const response = await bridge.inject({
       method: "POST",
       url: "/pairing/reset",
@@ -458,7 +458,7 @@ describe("companion runtime", () => {
   it("allows a printer profile to be saved before local bridge details are known", async () => {
     const runtime = createRuntime();
     await runtime.applyBridgeListening(true, null);
-    const bridge = await createBridgeServer(runtime);
+    const bridge = await createBridgeServer(runtime, new CompanionLogger());
 
     const response = await bridge.inject({
       method: "POST",

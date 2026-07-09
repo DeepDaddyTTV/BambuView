@@ -366,11 +366,17 @@ function registerIpc() {
     runtime.getSnapshot(Boolean(forceRefresh)),
   );
   registerHandler(companionChannels.saveSettings, (input) =>
-    runtime.saveSettings(input),
+    runtime.saveSettings(
+      input as Parameters<typeof runtime.saveSettings>[0],
+    ),
   );
-  registerHandler(companionChannels.pair, (input) => runtime.pair(input));
+  registerHandler(companionChannels.pair, (input) =>
+    runtime.pair(input as Parameters<typeof runtime.pair>[0]),
+  );
   registerHandler(companionChannels.resetPairing, (options) =>
-    runtime.resetPairing(options),
+    runtime.resetPairing(
+      options as Parameters<typeof runtime.resetPairing>[0],
+    ),
   );
   registerHandler(companionChannels.regenerateBridgeToken, async () => {
     const token = await runtime.regenerateBridgeToken();
@@ -380,10 +386,15 @@ function registerIpc() {
     };
   });
   registerHandler(companionChannels.createPrinter, (input) =>
-    runtime.createPrinter(input),
+    runtime.createPrinter(
+      input as Parameters<typeof runtime.createPrinter>[0],
+    ),
   );
   registerHandler(companionChannels.updatePrinter, (printerId, input) =>
-    runtime.updatePrinter(String(printerId), input),
+    runtime.updatePrinter(
+      String(printerId),
+      input as Parameters<typeof runtime.updatePrinter>[1],
+    ),
   );
   registerHandler(companionChannels.deletePrinter, (printerId) =>
     runtime.deletePrinter(String(printerId)),
@@ -395,10 +406,15 @@ function registerIpc() {
     runtime.readTelemetry(String(printerId)),
   );
   registerHandler(companionChannels.createStream, (input) =>
-    runtime.createStream(input),
+    runtime.createStream(
+      input as Parameters<typeof runtime.createStream>[0],
+    ),
   );
   registerHandler(companionChannels.updateStream, (streamId, input) =>
-    runtime.updateStream(String(streamId), input),
+    runtime.updateStream(
+      String(streamId),
+      input as Parameters<typeof runtime.updateStream>[1],
+    ),
   );
   registerHandler(companionChannels.deleteStream, (streamId) =>
     runtime.deleteStream(String(streamId)),
@@ -434,7 +450,10 @@ function registerIpc() {
     };
   });
   registerHandler(companionChannels.fileHandoff, (printerId, input) =>
-    runtime.handleFileHandoff(String(printerId), input),
+    runtime.handleFileHandoff(
+      String(printerId),
+      input as Parameters<typeof runtime.handleFileHandoff>[1],
+    ),
   );
   registerHandler(companionChannels.openLogFolder, async () => {
     const filePath = runtime.getLogFilePath();
